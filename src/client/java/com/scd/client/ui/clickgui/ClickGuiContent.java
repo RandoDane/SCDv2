@@ -91,7 +91,8 @@ final class ClickGuiContent {
 				.toggle("Secrets per room", () -> d.mapSecrets, v -> d.mapSecrets = v)
 				.toggle("Check marks", () -> d.mapChecks, v -> d.mapChecks = v)
 				.toggle("Doors", () -> d.mapDoors, v -> d.mapDoors = v)
-				.toggle("Player dots", () -> d.mapPlayers, v -> d.mapPlayers = v));
+				.toggle("Player heads", () -> d.mapPlayers, v -> d.mapPlayers = v)
+				.opt(new Opt.Slider("Head size", 50, 200, 10, () -> d.mapHeadSize, v -> d.mapHeadSize = (int) Math.round(v), v -> Math.round(v) + "%")));
 		dun.add(new Module("Room HUD", "Name, secrets, crypts, clear-time PB of your room", () -> d.roomHud, v -> d.roomHud = v)
 				.toggle("Route-making details", () -> d.roomDebug, v -> d.roomDebug = v));
 		dun.add(new Module("Chest profit", "Value, cost and profit on reward chests", () -> d.chestProfit, v -> d.chestProfit = v)

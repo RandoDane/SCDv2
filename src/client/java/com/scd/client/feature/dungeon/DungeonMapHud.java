@@ -13,6 +13,7 @@ import com.scd.logic.dungeon.room.RoomKind;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -99,23 +100,71 @@ final class DungeonMapHud extends HudElement {
 			}
 			if (label != null) Ui.centered(g, label, cx, cz - 1, textColor);
 		}
-		// Teammates (map markers) and you.
+		// Everyone as their own head: you, loaded teammates at their real spot, the rest on map markers.
 		if (!c.mapPlayers) return;
-		int gap = layout.roomSize() + 4;
-		for (int[] m : dungeon.rooms().teammateMarks()) {
-			float fx = (m[0] - layout.startX()) / (float) gap, fz = (m[1] - layout.startZ()) / (float) gap;
-			dot(g, x + Math.round(fx * CELL), y + Math.round(fz * CELL), 0xFF60A5FA);
-		}
-		var p = Minecraft.getInstance().player;
-		if (p != null) {
-			float fx = (float) ((p.getX() - DungeonGrid.ORIGIN) / DungeonGrid.TILE), fz = (float) ((p.getZ() - DungeonGrid.ORIGIN) / DungeonGrid.TILE);
-			dot(g, x + Math.round(fx * CELL), y + Math.round(fz * CELL), 0xFF4ADE80);
-		}
+		drawHeads(g, x, y, layout);
 	}
 
-	private static void dot(GuiGraphicsExtractor g, int x, int y, int color) {
-		g.fill(x - 2, y - 2, x + 2, y + 2, 0xFF000000);
-		g.fill(x - 1, y - 1, x + 1, y + 1, color);
+	private static final java.util.regex.Pattern TAB_PLAYER = java.util.regex.Pattern.compile("^\\[\\d+] (\\w{1,16})\\b.*\\((?!EMPTY)[A-Za-z]+");
+	/** Last map spot (in tiles) of teammates that are too far away to be loaded, to follow their marker. */
+	private final java.util.Map<String, float[]> farSpots = new java.util.HashMap<>();
+
+	private void drawHeads(GuiGraphicsExtractor g, int x, int y, MapLayout.Layout layout) {
+		var mc = Minecraft.getInstance();
+		if (mc.player == null || mc.level == null || mc.getConnection() == null) return;
+		String self = mc.player.getGameProfile().name();
+		// Party in tab-list order (Hypixel's map markers follow the same order).
+		List<String> party = new java.util.ArrayList<>();
+		for (String line : com.scd.client.ScdMod.get().game.tabList()) {
+			var m = TAB_PLAYER.matcher(line.trim());
+			if (m.find() && !m.group(1).equals(self) && !party.contains(m.group(1))) party.add(m.group(1));
+		}
+		java.util.Map<String, float[]> spots = new java.util.LinkedHashMap<>();
+		for (var p : mc.level.players()) {
+			String name = p.getGameProfile().name();
+			if (name.equals(self) || !party.contains(name)) continue;
+			spots.put(name, tiles(p.getX(), p.getZ()));
+		}
+		// Markers not explained by a loaded teammate belong to the ones further away.
+		int gap = layout.roomSize() + 4;
+		List<float[]> free = new java.util.ArrayList<>();
+		for (int[] m : dungeon.rooms().teammateMarks()) {
+			float[] t = {(m[0] - layout.startX()) / (float) gap, (m[1] - layout.startZ()) / (float) gap};
+			boolean taken = false;
+			for (float[] s : spots.values()) if (Math.abs(s[0] - t[0]) + Math.abs(s[1] - t[1]) < 0.35f) taken = true;
+			if (!taken) free.add(t);
+		}
+		for (String name : party) {
+			if (spots.containsKey(name) || free.isEmpty()) continue;
+			float[] last = farSpots.get(name);
+			float[] best = free.getFirst();
+			if (last != null) {
+				for (float[] f : free) if (Math.abs(f[0] - last[0]) + Math.abs(f[1] - last[1]) < Math.abs(best[0] - last[0]) + Math.abs(best[1] - last[1])) best = f;
+			}
+			free.remove(best);
+			spots.put(name, best);
+			farSpots.put(name, best);
+		}
+		int size = Math.max(4, Math.round(8 * config.get().dungeon.mapHeadSize / 100f));
+		for (var e : spots.entrySet()) head(g, x, y, e.getKey(), e.getValue(), size, 0xFF60A5FA);
+		head(g, x, y, self, tiles(mc.player.getX(), mc.player.getZ()), size, 0xFF4ADE80);
+	}
+
+	private static float[] tiles(double worldX, double worldZ) {
+		return new float[]{(float) ((worldX - DungeonGrid.ORIGIN) / DungeonGrid.TILE), (float) ((worldZ - DungeonGrid.ORIGIN) / DungeonGrid.TILE)};
+	}
+
+	/** A player's face (with hat layer) centred on a map spot, framed in {@code border}. */
+	private static void head(GuiGraphicsExtractor g, int x, int y, String name, float[] tile, int size, int border) {
+		var conn = Minecraft.getInstance().getConnection();
+		var info = conn != null && !name.isEmpty() ? conn.getPlayerInfo(name) : null;
+		int cx = x + Math.round(tile[0] * CELL), cy = y + Math.round(tile[1] * CELL), half = size / 2;
+		g.fill(cx - half - 1, cy - half - 1, cx - half + size + 1, cy - half + size + 1, border);
+		if (info != null) {
+			net.minecraft.client.gui.components.PlayerFaceExtractor.extractRenderState(g, info.getSkin(), cx - half, cy - half, size);
+		} else {
+			g.fill(cx - half, cy - half, cx - half + size, cy - half + size, 0xFF334155);
+		}
 	}
 
 	/**
@@ -170,9 +219,12 @@ final class DungeonMapHud extends HudElement {
 			if (c.mapSecrets && total > 0) Ui.centered(g, found + "/" + total, cx, cz - 1, found >= total ? 0xFF4ADE80 : 0xFFFFFFFF);
 		}
 		if (!c.mapPlayers) return;
-		dot(g, x + 3 * CELL + CELL / 2, y + 3 * CELL + ROOM / 2, 0xFF4ADE80);
-		dot(g, x + 1 * CELL + 4, y + 1 * CELL + ROOM + 2, 0xFF60A5FA);
-		dot(g, x + 5 * CELL + ROOM / 2, y + 1 * CELL + 6, 0xFF60A5FA);
+		int size = Math.max(4, Math.round(8 * c.mapHeadSize / 100f));
+		var mc = Minecraft.getInstance();
+		String self = mc.player != null ? mc.player.getGameProfile().name() : "";
+		head(g, x, y, self, new float[]{3.5f, 3.4f}, size, 0xFF4ADE80);
+		head(g, x, y, "", new float[]{1.2f, 1.9f}, size, 0xFF60A5FA);
+		head(g, x, y, "", new float[]{5.4f, 1.25f}, size, 0xFF60A5FA);
 	}
 
 	private static RoomKind previewKind(char id) {

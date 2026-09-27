@@ -125,6 +125,8 @@ public final class ScdConfig {
 		public boolean chestProfitTooltip = true, chestProfitHighlight = true, chestProfitLabel = true;
 		/** Map HUD layers. */
 		public boolean mapSecrets = true, mapPlayers = true, mapDoors = true, mapChecks = true;
+		/** Player head size on the dungeon map, percent (100 = 8px). */
+		public int mapHeadSize = 100;
 		/** Which blessings the blessings HUD lists. */
 		public boolean blessPower = true, blessTime = true, blessStone = true, blessLife = true, blessWisdom = true;
 		/** Which life savers the invincibility HUD tracks. */
