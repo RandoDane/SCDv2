@@ -20,11 +20,12 @@ import java.util.Locale;
  * and hairline borders.
  */
 public final class Ui {
-	public static final int DANGER = 0xFFFF6B6B;
-	public static final int WARNING = 0xFFFFA45B;
-	public static final int SUCCESS = 0xFF4ADE80;
-	public static final int SELL = 0xFF4ADE80;
-	public static final int BUY = 0xFFFFA45B;
+	/** Semantic colors follow the theme (colour-vision-safe themes swap red/green for orange/blue). */
+	public static volatile int DANGER = 0xFFFF6B6B;
+	public static volatile int WARNING = 0xFFFFA45B;
+	public static volatile int SUCCESS = 0xFF4ADE80;
+	public static volatile int SELL = 0xFF4ADE80;
+	public static volatile int BUY = 0xFFFFA45B;
 	public static final int GOLD = 0xFFFFC857;
 
 	/** Shared spacing so every surface lines up. */
@@ -53,6 +54,11 @@ public final class Ui {
 
 	public static void setTheme(Theme newTheme) {
 		theme = newTheme;
+		DANGER = newTheme.negative();
+		WARNING = newTheme.warning();
+		SUCCESS = newTheme.positive();
+		SELL = newTheme.positive();
+		BUY = newTheme.warning();
 	}
 
 	public static void setSmoothFont(boolean enabled) {

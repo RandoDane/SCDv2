@@ -84,6 +84,13 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		shot(ctx, "07-general", () -> new GeneralScreen(null, mod));
 		shot(ctx, "08-accessories", () -> new AccessoryScreen(null, mod, mod.feature(AccessoryFeature.class)));
 		shot(ctx, "09-hud-editor", () -> new HudEditorScreen(null, mod.huds, mod.configManager));
+		if (System.getenv("SCD_THEME_SHOTS") != null) {
+			for (String theme : List.of("Dusk", "Tidepool", "Ember", "Sakura", "Signal")) {
+				ctx.runOnClient(mc -> com.scd.client.ui.Ui.setTheme(com.scd.client.ui.Theme.byName(theme)));
+				shot(ctx, "theme-" + theme, () -> new SlayerScreen(null, mod, mod.feature(SlayerFeature.class)));
+			}
+			ctx.runOnClient(mc -> com.scd.client.ui.Ui.setTheme(com.scd.client.ui.Theme.byName("Midnight")));
+		}
 		ctx.setScreen(() -> null);
 	}
 

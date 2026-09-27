@@ -83,6 +83,7 @@ public final class SessionRecorder implements Feature {
 	private Map<Integer, String> lastPlates = new HashMap<>();
 	private Screen lastScreen;
 	private int lastScreenHash;
+	private long lastMenuTick = -100;
 	private String lastState;
 	private long ticks;
 
@@ -309,6 +310,10 @@ public final class SessionRecorder implements Feature {
 		}
 		int hash = Objects.hash(screen.getTitle().getString(), slots.toString());
 		if (screen == lastScreen && hash == lastScreenHash) return;
+		// Animated menus (blinking arrows, cycling icons) change every few ticks - record the same
+		// screen at most every 2 seconds; a new screen or title is always recorded immediately.
+		if (screen == lastScreen && ticks - lastMenuTick < 40) return;
+		lastMenuTick = ticks;
 		lastScreen = screen;
 		lastScreenHash = hash;
 		event("menu", o -> {

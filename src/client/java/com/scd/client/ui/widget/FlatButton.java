@@ -97,6 +97,10 @@ public class FlatButton extends AbstractWidget {
 	}
 
 	/** Dark text on light accents (Monochrome white, Arctic cyan), white on dark ones. */
+	public static int contrastTextFor(int bg) {
+		return contrastText(bg);
+	}
+
 	static int contrastText(int bg) {
 		int r = (bg >> 16) & 0xFF, gg = (bg >> 8) & 0xFF, b = bg & 0xFF;
 		double lum = 0.2126 * r + 0.7152 * gg + 0.0722 * b;

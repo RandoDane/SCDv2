@@ -212,7 +212,7 @@ public abstract class ScdScreen extends Screen {
 			Ui.rect(g, winX + 1, winY + 1, SIDEBAR_W - 1, winH - 2, 7, t.sidebar());
 			g.fill(winX + SIDEBAR_W, winY + 1, winX + SIDEBAR_W + 1, winY + winH - 1, t.border());
 			Ui.rect(g, winX + 12, winY + 14, 16, 16, 5, t.accent());
-			Ui.centered(g, "S", winX + 20, winY + 18, 0xFFFFFFFF);
+			Ui.centered(g, "S", winX + 20, winY + 18, com.scd.client.ui.widget.FlatButton.contrastTextFor(t.accent()));
 			Ui.title(g, "SCD", winX + 34, winY + 14, t.textPrimary());
 			String lastSection = null;
 			int ny = winY + 52;
