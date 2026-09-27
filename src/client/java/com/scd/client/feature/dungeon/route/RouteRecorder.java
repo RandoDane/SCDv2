@@ -99,16 +99,31 @@ final class RouteRecorder {
 		lastSample = player;
 	}
 
+	private BlockPos lastInteract;
+	private long lastInteractAt;
+
 	void onInteract(BlockPos pos, Block block, boolean holdingTnt, Vec3 player) {
 		if (!active() || room.anchor() == null) return;
+		// The use callback can fire more than once per click (hands, retries): one click, one point.
+		long now = System.currentTimeMillis();
+		if (pos.equals(lastInteract) && now - lastInteractAt < 500) return;
+		lastInteract = pos.immutable();
+		lastInteractAt = now;
 		if (holdingTnt) {
 			step.tnts.add(rel(pos));
 		} else if (block == Blocks.CHEST || block == Blocks.TRAPPED_CHEST || block == Blocks.PLAYER_HEAD || block == Blocks.PLAYER_WALL_HEAD
 				|| block == Blocks.SKELETON_SKULL || block == Blocks.SKELETON_WALL_SKULL) {
 			finish(RouteStep.SecretType.INTERACT, rel(pos), player);
-		} else {
+		} else if (isInteractable(block)) {
 			step.interacts.add(rel(pos));
 		}
+		// Anything else (a bow shot or ability aimed at a wall) isn't part of the route.
+	}
+
+	private static boolean isInteractable(Block block) {
+		var state = block.defaultBlockState();
+		return block == Blocks.LEVER || state.is(net.minecraft.tags.BlockTags.BUTTONS) || state.is(net.minecraft.tags.BlockTags.DOORS)
+				|| state.is(net.minecraft.tags.BlockTags.TRAPDOORS) || state.is(net.minecraft.tags.BlockTags.FENCE_GATES);
 	}
 
 	void onItemPickup(Vec3 itemPos, Vec3 player) {

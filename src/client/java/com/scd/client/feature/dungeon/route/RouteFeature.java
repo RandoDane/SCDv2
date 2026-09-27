@@ -17,7 +17,6 @@ import com.scd.logic.dungeon.route.ShareCode;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.event.client.player.ClientPlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
@@ -95,10 +94,9 @@ public final class RouteFeature implements Feature {
 		backKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.scd.route_back", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
 
 		mod.huds.add(new RouteHud(mod::config, this));
-		// Gizmos last one frame; a HUD layer runs every frame.
-		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("scd", "route_render"), (g, delta) -> {
+		com.scd.client.feature.world.WorldGizmos.onWorldExtract(partialTick -> {
 			ScdConfig.Dungeon c = mod.config().dungeon;
-			if (c.routes) ScdLog.guard("route render", () -> runner.render(c.routesThroughWalls, c.routesShowNext));
+			if (c.routes) runner.render(c.routesThroughWalls, c.routesShowNext, partialTick);
 		});
 	}
 

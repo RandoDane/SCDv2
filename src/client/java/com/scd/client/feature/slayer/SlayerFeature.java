@@ -24,11 +24,9 @@ import com.scd.logic.chat.SlayerMessages;
 import com.scd.logic.slayer.SlayerTier;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 
 import java.nio.file.Files;
 
@@ -91,9 +89,7 @@ public final class SlayerFeature implements Feature {
 		mod.huds.add(new ExplosiveArrowHud(mod::config, quiver));
 
 		GlowRegistry.register(entity -> config().slayer.highlightGlow && entity == tracker.boss() ? Ui.theme().accent() : null);
-		// World gizmos last only for the frame they're submitted in; a HUD layer runs every frame.
-		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("scd", "slayer_highlight"),
-				(g, delta) -> ScdLog.guard("slayer highlight", this::drawHighlight));
+		WorldGizmos.onWorldExtract(this::drawHighlight);
 	}
 
 	private ScdConfig config() {
@@ -202,13 +198,13 @@ public final class SlayerFeature implements Feature {
 		if (config().slayer.minibossTitle) Chat.title(Component.literal(mb.name()).withStyle(ChatFormatting.GOLD), null, true);
 	}
 
-	private void drawHighlight() {
+	private void drawHighlight(float partialTick) {
 		var boss = tracker.boss();
 		var player = Minecraft.getInstance().player;
 		if (boss == null || player == null || !mod.active()) return;
 		int color = Ui.theme().accent();
-		if (config().slayer.highlightLine) WorldGizmos.tracer(player.getEyePosition(), boss, color, true);
-		if (config().slayer.highlightBox) WorldGizmos.box(boss, color, true);
+		if (config().slayer.highlightLine) WorldGizmos.tracer(player.getEyePosition(partialTick), boss, partialTick, color, true);
+		if (config().slayer.highlightBox) WorldGizmos.box(boss, partialTick, color, true);
 	}
 
 	// ---- accessors for HUD/screens --------------------------------------------------------------

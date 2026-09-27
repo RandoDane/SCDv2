@@ -9,7 +9,8 @@
 		"ItemPickupMixin",
 		"EntityRenderProbeMixin",
 		"BlockEntityRenderProbeMixin",
-		"ParticleProbeMixin"
+		"ParticleProbeMixin",
+		"LevelExtractorGizmoMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

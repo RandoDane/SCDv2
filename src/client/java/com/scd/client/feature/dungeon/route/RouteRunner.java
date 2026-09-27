@@ -123,13 +123,14 @@ final class RouteRunner {
 
 	// --- drawing ---------------------------------------------------------------------------
 
-	void render(boolean throughWalls, boolean showNext) {
+	void render(boolean throughWalls, boolean showNext, float partialTick) {
 		if (!active()) return;
 		var mc = Minecraft.getInstance();
 		if (mc.player == null) return;
 		RouteStep s = current();
 		if (s == null) return;
-		draw(s, index, throughWalls, 0xFF, mc.player.position());
+		// Interpolated position: the per-tick one makes the line's start jump behind the smooth camera.
+		draw(s, index, throughWalls, 0xFF, mc.player.getPosition(partialTick));
 		if (showNext && index + 1 < steps().size()) draw(steps().get(index + 1), index + 1, throughWalls, 0x70, null);
 	}
 
