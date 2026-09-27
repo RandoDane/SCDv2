@@ -254,10 +254,22 @@ final class RoomStudio {
 
 	// ---- building -------------------------------------------------------------------------------
 
-	private int build() {
+	/** Fetches rooms other players captured, then builds everything. */
+	private int build(RoomCapture capture) {
 		var mc = Minecraft.getInstance();
 		if (!mc.hasSingleplayerServer()) return fail("Open a singleplayer world first (a flat world works best).");
 		if (building != null || !buildQueue.isEmpty()) return fail("Already building (" + built + "/" + toBuild + ").");
+		Chat.info("Getting rooms other players captured...");
+		capture.fetchMissing().whenComplete((n, err) -> mc.execute(() -> {
+			if (err != null) Chat.info("Couldn't reach the SCD server - building your own rooms only.");
+			else if (n > 0) Chat.info("Downloaded " + n + " shared rooms.");
+			startBuild();
+		}));
+		return 1;
+	}
+
+	private int startBuild() {
+		var mc = Minecraft.getInstance();
 		List<Path> files = new ArrayList<>();
 		try (var list = Files.list(RoomCapture.DIR)) {
 			list.filter(f -> f.toString().endsWith(".nbt")).sorted().forEach(files::add);
@@ -650,19 +662,10 @@ final class RoomStudio {
 	LiteralArgumentBuilder<FabricClientCommandSource> roomsCommand(RoomCapture capture) {
 		return ClientCommands.literal("rooms")
 				.executes(ctx -> {
-					int total = dungeon.rooms().database().size();
-					int rooms = 0;
-					List<String> puzzles = new ArrayList<>();
-					for (var info : dungeon.rooms().database().rooms()) {
-						if (capture.has(info.name())) rooms++;
-						if (info.kind() == com.scd.logic.dungeon.room.RoomKind.PUZZLE) puzzles.add(info.name() + " " + capture.variantCount(info.name()));
-					}
-					puzzles.sort(null);
-					Chat.info("Captured " + rooms + " of " + total + " rooms. Puzzle variations: " + String.join(", ", puzzles)
-							+ ". In singleplayer: /scd rooms build, /scd rooms tp <name>, /scd studio kit.");
+					capture.sync().whenComplete((v, err) -> Minecraft.getInstance().execute(() -> showProgress(capture)));
 					return 1;
 				})
-				.then(ClientCommands.literal("build").executes(ctx -> build()))
+				.then(ClientCommands.literal("build").executes(ctx -> build(capture)))
 				.then(ClientCommands.literal("list").executes(ctx -> {
 					if (placements.isEmpty()) return fail("Nothing built yet: /scd rooms build in a singleplayer world.");
 					List<String> names = new ArrayList<>(placements.keySet());
@@ -706,6 +709,19 @@ final class RoomStudio {
 					Chat.info(room + ": " + (parts.isEmpty() ? "no labels" : String.join(" · ", parts)));
 					return 1;
 				}));
+	}
+
+	private void showProgress(RoomCapture capture) {
+		int total = dungeon.rooms().database().size();
+		int rooms = 0;
+		List<String> puzzles = new ArrayList<>();
+		for (var info : dungeon.rooms().database().rooms()) {
+			if (capture.has(info.name())) rooms++;
+			if (info.kind() == com.scd.logic.dungeon.room.RoomKind.PUZZLE) puzzles.add(info.name() + " " + capture.sharedVariants(info.name()));
+		}
+		puzzles.sort(null);
+		Chat.info("Captured " + rooms + " of " + total + " rooms (everyone's, shared through the SCD server). Puzzle variations: " + String.join(", ", puzzles)
+				+ ". In singleplayer: /scd rooms build, /scd rooms tp <name>, /scd studio kit.");
 	}
 
 	private static int fail(String msg) {

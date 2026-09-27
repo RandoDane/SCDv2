@@ -23,7 +23,9 @@ import java.util.Set;
 
 /**
  * Saves a copy of every dungeon room you play through, for rebuilding them in singleplayer (see
- * {@link RoomStudio}). A room is captured once, as soon as it is identified, anchored and fully
+ * {@link RoomStudio}), and shares it through the SCD server (backend/roomCaptures.js): rooms the
+ * server already has aren't captured again, new ones are uploaded, and the progress everyone sees
+ * is the shared one. A room is captured once, as soon as it is identified, anchored and fully
  * loaded (usually before anyone has opened or broken anything), a few thousand blocks per tick so
  * it never stutters. Files: config/scd/dungeon/captured/&lt;room&gt;.nbt with the blocks, the room's
  * name and its anchor/rotation, so positions in the copy map to the same room coordinates.
@@ -37,6 +39,15 @@ final class RoomCapture {
 	private final Set<String> captured = new HashSet<>();
 	/** Block-layout signatures already saved per puzzle room, to keep one copy per variation. */
 	private final Map<String, Set<Integer>> variants = new java.util.concurrent.ConcurrentHashMap<>();
+	/** What the server has: room names, and puzzle variation signatures per room. */
+	private final Set<String> serverNames = java.util.concurrent.ConcurrentHashMap.newKeySet();
+	private final Map<String, Set<Integer>> serverSigs = new java.util.concurrent.ConcurrentHashMap<>();
+	private volatile List<com.scd.client.net.BackendClient.CapturedRoom> serverRooms = List.of();
+	/** Local copies: file id -> {name, signature, puzzle}. */
+	private final Map<String, Object[]> local = new java.util.concurrent.ConcurrentHashMap<>();
+	private long lastSync = Long.MIN_VALUE;
+	private boolean backfilled;
+
 	/** Puzzle rooms already copied this run (they're re-copied each run to catch new variations). */
 	private final Set<MappedRoom> copiedThisRun = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 	private Job job;
@@ -73,6 +84,7 @@ final class RoomCapture {
 		mod.bus.subscribe(Events.WorldChanged.class, e -> {
 			job = null;
 			copiedThisRun.clear();
+			if (mod.tasks.currentTick() - lastSync > 1200) sync();
 		});
 	}
 
@@ -81,7 +93,11 @@ final class RoomCapture {
 			for (Path f : files.toList()) {
 				try {
 					CompoundTag t = NbtIo.readCompressed(f, net.minecraft.nbt.NbtAccounter.unlimitedHeap());
-					t.getInt("signature").ifPresent(sig -> variants.computeIfAbsent(t.getStringOr("name", "?"), k -> java.util.concurrent.ConcurrentHashMap.newKeySet()).add(sig));
+					String id = f.getFileName().toString().replaceFirst("\\.nbt$", "");
+					String room = t.getStringOr("name", "?");
+					int sig = t.getIntOr("signature", 0);
+					variants.computeIfAbsent(room, k -> java.util.concurrent.ConcurrentHashMap.newKeySet()).add(sig);
+					local.put(id, new Object[]{room, sig, "PUZZLE".equals(t.getStringOr("kind", ""))});
 				} catch (Exception ignored) {
 					// An unreadable copy just gets captured again.
 				}
@@ -104,8 +120,81 @@ final class RoomCapture {
 		return captured.size();
 	}
 
+	/** Captured by you or by anyone on the server. */
 	boolean has(String room) {
-		return captured.contains(fileName(room));
+		return captured.contains(fileName(room)) || serverNames.contains(room);
+	}
+
+	/** Puzzle variations you or anyone has. */
+	int sharedVariants(String room) {
+		Set<Integer> all = new HashSet<>(variants.getOrDefault(room, Set.of()));
+		all.addAll(serverSigs.getOrDefault(room, Set.of()));
+		return all.size();
+	}
+
+	/** Refreshes what the server has; then shares local copies it doesn't (once per session). */
+	java.util.concurrent.CompletableFuture<Void> sync() {
+		lastSync = mod.tasks.currentTick();
+		return mod.backend.capturedRooms().thenAccept(list -> {
+			serverRooms = List.copyOf(list);
+			for (var r : list) {
+				serverNames.add(r.name());
+				serverSigs.computeIfAbsent(r.name(), k -> java.util.concurrent.ConcurrentHashMap.newKeySet()).add(r.signature());
+			}
+			if (!backfilled) {
+				backfilled = true;
+				for (var e : local.entrySet()) {
+					String room = (String) e.getValue()[0];
+					int sig = (int) e.getValue()[1];
+					boolean puzzle = (boolean) e.getValue()[2];
+					if (puzzle ? !serverSigs.getOrDefault(room, Set.of()).contains(sig) : !serverNames.contains(room)) {
+						upload(room, sig, puzzle, DIR.resolve(e.getKey() + ".nbt"));
+					}
+				}
+			}
+		}).exceptionally(err -> null);
+	}
+
+	private void upload(String room, int sig, boolean puzzle, Path file) {
+		try {
+			byte[] bytes = Files.readAllBytes(file);
+			mod.backend.uploadRoom(room, sig, puzzle, bytes).thenAccept(stored -> {
+				serverNames.add(room);
+				serverSigs.computeIfAbsent(room, k -> java.util.concurrent.ConcurrentHashMap.newKeySet()).add(sig);
+				if (stored) ScdLog.info("[rooms] shared " + room + " with the server");
+			}).exceptionally(err -> {
+				ScdLog.debug("room upload failed: " + err.getMessage());
+				return null;
+			});
+		} catch (Exception e) {
+			ScdLog.debug("room upload failed: " + e.getMessage());
+		}
+	}
+
+	/** Downloads every room on the server that you don't have a copy of (for /scd rooms build). */
+	java.util.concurrent.CompletableFuture<Integer> fetchMissing() {
+		return mod.backend.capturedRooms().thenCompose(list -> {
+			List<java.util.concurrent.CompletableFuture<Boolean>> jobs = new ArrayList<>();
+			for (var r : list) {
+				boolean mine = local.values().stream().anyMatch(m -> m[0].equals(r.name()) && (!r.puzzle() || (int) m[1] == r.signature()));
+				if (mine) continue;
+				jobs.add(mod.backend.downloadRoom(r.id()).thenApply(bytes -> {
+					try {
+						Files.createDirectories(DIR);
+						String base = fileName(r.name()), id = base;
+						for (int n = 2; captured.contains(id); n++) id = base + " (" + n + ")";
+						Files.write(DIR.resolve(id + ".nbt"), bytes);
+						captured.add(id);
+						local.put(id, new Object[]{r.name(), r.signature(), r.puzzle()});
+						return true;
+					} catch (Exception e) {
+						return false;
+					}
+				}).exceptionally(err -> false));
+			}
+			return java.util.concurrent.CompletableFuture.allOf(jobs.toArray(new java.util.concurrent.CompletableFuture[0]))
+					.thenApply(v -> (int) jobs.stream().filter(j -> j.join()).count());
+		});
 	}
 
 	void recapture(MappedRoom room) {
@@ -116,6 +205,7 @@ final class RoomCapture {
 		var level = Minecraft.getInstance().level;
 		if (level == null) return;
 		if (job == null) {
+			if (mod.tasks.currentTick() - lastSync > 6000) sync();
 			if (mod.tasks.currentTick() % 20 != 0) return;
 			for (MappedRoom r : dungeon.rooms().rooms()) {
 				if (r.name() == null || r.anchor() == null || !r.complete()) continue;
@@ -185,7 +275,7 @@ final class RoomCapture {
 		int sig = signature(j);
 		boolean puzzle = j.room.kind() == com.scd.logic.dungeon.room.RoomKind.PUZZLE;
 		Set<Integer> known = variants.computeIfAbsent(name, k -> java.util.concurrent.ConcurrentHashMap.newKeySet());
-		if (puzzle && !forcedCopy && known.contains(sig)) return; // this variation is already saved
+		if (puzzle && !forcedCopy && (known.contains(sig) || serverSigs.getOrDefault(name, Set.of()).contains(sig))) return; // variation already saved (here or on the server)
 		// First copy is "<room>", later variations "<room> (2)", "(3)"...
 		String base = fileName(name), id = base;
 		if (puzzle && !forcedCopy) for (int n = 2; captured.contains(id); n++) id = base + " (" + n + ")";
@@ -211,7 +301,9 @@ final class RoomCapture {
 			try {
 				Files.createDirectories(DIR);
 				NbtIo.writeCompressed(tag, file);
+				local.put(label, new Object[]{name, sig, puzzle});
 				ScdLog.info("[rooms] captured " + label + " (" + j.order.size() + " block types)");
+				upload(name, sig, puzzle, file);
 			} catch (Exception e) {
 				ScdLog.warn("Could not save captured room " + name, e);
 			}

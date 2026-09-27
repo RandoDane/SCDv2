@@ -137,6 +137,49 @@ public final class BackendClient {
 		return http.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenApply(HttpResponse::statusCode);
 	}
 
+	/** A room copy on the server: {@code id} is its file ("Boulder (2)" for a puzzle variation). */
+	public record CapturedRoom(String id, String name, int signature, boolean puzzle) {
+	}
+
+	/** Rooms anyone has captured so far (see backend/roomCaptures.js). */
+	public CompletableFuture<List<CapturedRoom>> capturedRooms() {
+		return get("/api/rooms/captures", 10, body -> {
+			List<CapturedRoom> out = new ArrayList<>();
+			JsonArray rooms = arr(body.getAsJsonObject(), "rooms");
+			if (rooms != null) for (var el : rooms) {
+				JsonObject o = el.getAsJsonObject();
+				out.add(new CapturedRoom(str(o, "id"), str(o, "name"), o.has("signature") ? o.get("signature").getAsInt() : 0,
+						o.has("puzzle") && o.get("puzzle").getAsBoolean()));
+			}
+			return out;
+		});
+	}
+
+	/** Shares a captured room (gzip NBT); completes true when the server kept it. */
+	public CompletableFuture<Boolean> uploadRoom(String name, int signature, boolean puzzle, byte[] file) {
+		if (baseUrl == null) return CompletableFuture.failedFuture(new BackendException(status.message()));
+		HttpRequest request = request("/api/rooms/captures", 30)
+				.header("Content-Type", "application/octet-stream")
+				.header("X-SCD-Room", encPart(name))
+				.header("X-SCD-Signature", String.valueOf(signature))
+				.header("X-SCD-Puzzle", puzzle ? "1" : "0")
+				.POST(HttpRequest.BodyPublishers.ofByteArray(file))
+				.build();
+		return http.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenApply(res -> {
+			if (res.statusCode() != 200) throw new BackendException(errorMessage(res.body(), res.statusCode()));
+			return JsonParser.parseString(res.body()).getAsJsonObject().get("stored").getAsBoolean();
+		});
+	}
+
+	public CompletableFuture<byte[]> downloadRoom(String id) {
+		if (baseUrl == null) return CompletableFuture.failedFuture(new BackendException(status.message()));
+		HttpRequest request = request("/api/rooms/captures/" + encPart(id), 30).GET().build();
+		return http.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).thenApply(res -> {
+			if (res.statusCode() != 200) throw new BackendException("HTTP " + res.statusCode());
+			return res.body();
+		});
+	}
+
 	private <T> CompletableFuture<T> get(String path, int timeoutSeconds, Function<JsonElement, T> parser) {
 		if (baseUrl == null) return CompletableFuture.failedFuture(new BackendException(status.message()));
 		HttpRequest request;
@@ -192,6 +235,11 @@ public final class BackendClient {
 
 	private static String enc(String s) {
 		return URLEncoder.encode(s, StandardCharsets.UTF_8);
+	}
+
+	/** Like {@link #enc} but spaces as %20, for paths and headers (the server decodes those as URI parts). */
+	private static String encPart(String s) {
+		return enc(s).replace("+", "%20");
 	}
 
 	private static JsonObject obj(JsonObject o, String key) {
