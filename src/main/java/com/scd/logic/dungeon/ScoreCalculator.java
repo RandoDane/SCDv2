@@ -182,14 +182,20 @@ public final class ScoreCalculator {
 		return roomPortion + secretsPortion;
 	}
 
+	/**
+	 * Hypixel's Speed score (wiki): T = seconds minus a floor offset (F1-3/F5 120, F4/F6 240, F7 360,
+	 * M1-5 0, M6 120, M7 360 - always the time limit minus 8 minutes), then 100 until T = 480 and
+	 * one point less every 12s to 90, every 24s to 80, every 30s to 70 and every 40s after, rounded up.
+	 */
 	static int speed(Integer elapsedSeconds, int limitSeconds) {
-		if (elapsedSeconds == null || elapsedSeconds < limitSeconds) return 100;
-		double over = (elapsedSeconds - limitSeconds) / (double) limitSeconds * 100;
-		if (over < 20) return 100 - (int) (over / 2);
-		if (over < 40) return 100 - (int) (10 + (over - 20) / 4);
-		if (over < 50) return 100 - (int) (15 + (over - 40) / 5);
-		if (over < 60) return 100 - (int) (17 + (over - 50) / 6);
-		return clamp(100 - (int) (18 + 2.0 / 3 + (over - 60) / 7), 0, 100);
+		if (elapsedSeconds == null) return 100;
+		double t = elapsedSeconds - (limitSeconds - 480);
+		if (t < 480) return 100;
+		if (t < 600) return (int) Math.ceil(140 - t / 12);
+		if (t < 840) return (int) Math.ceil(115 - t / 24);
+		if (t < 1140) return (int) Math.ceil(108 - t / 30);
+		if (t < 3940) return (int) Math.ceil(98.5 - t / 40);
+		return 0;
 	}
 
 	/** Mimics only spawn on floors 6 and 7 (normal and Master Mode). */

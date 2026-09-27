@@ -21,10 +21,20 @@ class ScoreCalculatorTest {
 
 	@Test
 	void speedDecaysPastTheTimeLimit() {
+		// F7 (14:00 limit): wiki formula, T = seconds - 360.
 		assertEquals(100, ScoreCalculator.speed(839, 840));
-		assertEquals(95, ScoreCalculator.speed(924, 840));  // 10% over
-		assertEquals(54, ScoreCalculator.speed(3000, 840)); // 257% over
+		assertEquals(100, ScoreCalculator.speed(851, 840)); // under 12s over: still 100
+		assertEquals(99, ScoreCalculator.speed(852, 840));  // -1 per 12s
+		assertEquals(90, ScoreCalculator.speed(960, 840));  // 2 minutes over
+		assertEquals(80, ScoreCalculator.speed(1200, 840)); // then -1 per 24s
+		assertEquals(70, ScoreCalculator.speed(1500, 840)); // then -1 per 30s
+		assertEquals(93, ScoreCalculator.speed(924, 840));
+		assertEquals(33, ScoreCalculator.speed(3000, 840)); // then -1 per 40s
 		assertEquals(0, ScoreCalculator.speed(100_000, 840));
+		// M1 (8:00 limit, no offset) and F1 (10:00, offset 120).
+		assertEquals(100, ScoreCalculator.speed(480, 480));
+		assertEquals(99, ScoreCalculator.speed(492, 480));
+		assertEquals(99, ScoreCalculator.speed(612, 600));
 	}
 
 	@Test
