@@ -107,6 +107,8 @@ final class ClickGuiContent {
 		}
 		dun.add(solvers);
 		dun.add(new Module("Puzzle HUD", "Puzzle names and status", () -> d.puzzleHud, v -> d.puzzleHud = v));
+		dun.add(new Module("Capture rooms", "Save a copy of each room you play, to rebuild in singleplayer (/scd rooms)", () -> d.captureRooms, v -> d.captureRooms = v));
+		dun.add(new Module("Labelled secrets", "Show secrets you marked in the singleplayer room studio", () -> d.labeledSecrets, v -> d.labeledSecrets = v));
 		dun.add(new Module("Blood camp", "Watcher move timer, mob landing spots", () -> d.bloodCamp, v -> d.bloodCamp = v));
 		dun.add(new Module("Door highlight", "Wither/blood doors: red locked, green openable", () -> d.doorHighlight, v -> d.doorHighlight = v)
 				.toggle("Key spawn alert", () -> d.keyAlert, v -> d.keyAlert = v));
