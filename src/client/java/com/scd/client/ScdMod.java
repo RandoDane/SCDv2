@@ -38,7 +38,7 @@ public final class ScdMod {
 		this.game = new GameState(bus);
 		this.chat = new ChatRouter(bus);
 		this.backend = new BackendClient(config().backend.serverUrl, version);
-		this.market = new MarketClient(this::marketKey, version);
+		this.market = new MarketClient(this::marketKey, () -> config().backend.serverUrl, version);
 		this.huds = new HudManager(configManager, this::active);
 		instance = this;
 	}

@@ -48,7 +48,7 @@ public final class ScdConfig {
 
 	public static final class Backend {
 		/** Base URL of the SCD backend (mayor, attribute shards, accessory profiles, room reports). */
-		public String serverUrl = "http://localhost:3000";
+		public String serverUrl = com.scd.client.net.BuildInfo.SERVER;
 	}
 
 	/** The scd.wtf market API (https://market.scd.wtf) - the source for every price SCD shows. */

@@ -38,11 +38,11 @@ public final class MarketScreen extends ScdScreen {
 		ScdConfig c = mod.config();
 		if (underClickGui()) expand("api");
 		rows.group("api", "scd.wtf API", null, false, g -> {
-			g.note("All prices come from https://market.scd.wtf. SCD ships with its own key - a personal key is only needed by admins.");
+			g.note("All prices come from https://market.scd.wtf. Prices go through the SCD server, so no key is needed - a personal key is only for admins.");
 			g.value("Key", () -> {
 				String k = c.market.apiKey;
 				if (k != null && !k.isBlank()) return "personal (…" + k.substring(Math.max(0, k.length() - 4)) + ")";
-				if (mod.market.usingBuiltInKey()) return "built into SCD";
+				if (mod.market.usingBuiltInKey()) return "via the SCD server";
 				return mod.market.hasKey() ? "from SCD_KEY env" : "none";
 			});
 			g.text("Personal key (optional)", "scd_... (paste, then Save)", "", ch -> ch > ' ' && ch < 127, s -> newKey = s);

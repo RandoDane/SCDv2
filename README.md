@@ -16,8 +16,8 @@ A ground-up redesign of [RandoDane/scd](https://github.com/RandoDane/scd) 1.x fo
 - **UI**: fixed-size window with collapsible settings groups, Setup → Appearance for theme, font, menu text size and every HUD's size/panel/colors; one themed toolkit for every screen and HUD; HUD editor that moves/resizes all overlays at once with snapping and anchors.
 
 ## Setup
-- `/scd market key <scd_...>` (or Settings → Market & Bazaar, or the `SCD_KEY` env var) — all prices come from `https://market.scd.wtf/api`.
-- `/scd server <url>` — your SCD backend (mayor perks, attribute-shard ids, accessory profiles, room reports).
+- Prices come from `https://market.scd.wtf/api` through the SCD server's market proxy (`backend/marketProxy.js`, mounted at `/api/market`), which holds the one mod key (`SCD_MARKET_KEY` env var or `~/.config/scd/mod_key` on the server). No key is ever built into the mod: anything in a client can be read by players. Admins can still use a personal key directly with `/scd market key <scd_...>`.
+- `/scd server <url>` — your SCD backend (built in by default: `-PscdServer=...` / `SCD_SERVER` at build time) (mayor perks, attribute-shard ids, accessory profiles, room reports).
 - 1.x settings, records, RNG meter, drops and carries are imported automatically on first launch.
 - Ports 20, 443 and 8000 are in use on the dev machine: never bind anything to them (outbound calls are fine).
 

@@ -26,10 +26,11 @@ import java.util.function.Supplier;
  * Client for the scd.wtf market API (docs: https://api.scd.wtf/docs) - the single source of every
  * price in the mod: Bazaar quotes and history, Auction House estimates and lowest BINs.
  *
- * The base URL is a constant, not a setting, and every request URL is checked to be exactly
- * https://market.scd.wtf before the key is attached (redirects are not followed), so the key can
- * never be sent anywhere else. It goes in {@code X-API-Key} and is never logged. A 429 honours
- * retry-after by failing fast until the window passes, instead of hammering the API.
+ * Players don't need a key: requests go to the SCD server's market proxy (/api/market), which adds
+ * the mod's key server-side, so the key is never inside the mod. Admins with a personal key talk to
+ * https://market.scd.wtf directly: every such URL is checked to be exactly that host before the key
+ * is attached (redirects are not followed), it goes in {@code X-API-Key} and is never logged. A 429
+ * honours retry-after by failing fast until the window passes, instead of hammering the API.
  */
 public final class MarketClient {
 	public static final String BASE = "https://" + BackendUrl.MARKET_HOST + "/api";
@@ -39,12 +40,14 @@ public final class MarketClient {
 			.followRedirects(HttpClient.Redirect.NEVER)
 			.build();
 	private final Supplier<String> apiKey;
+	private final Supplier<String> server;
 	private final String userAgent;
 	private volatile long backoffUntilMs;
 	private volatile BackendClient.Status status = BackendClient.Status.UNKNOWN;
 
-	public MarketClient(Supplier<String> apiKey, String version) {
+	public MarketClient(Supplier<String> apiKey, Supplier<String> server, String version) {
 		this.apiKey = apiKey;
+		this.server = server;
 		this.userAgent = "SCD/" + version;
 	}
 
@@ -52,21 +55,24 @@ public final class MarketClient {
 		return status;
 	}
 
+	/** True when prices can be fetched: a personal key, or an SCD server to proxy through. */
 	public boolean hasKey() {
-		return !effectiveKey().isBlank();
+		return personalKey() != null || proxyBase() != null;
 	}
 
-	/** The player's own key if they set one (admins), otherwise the key built into the mod. */
-	private String effectiveKey() {
+	private String personalKey() {
 		String k = apiKey.get();
-		if (k != null && !k.isBlank()) return k.trim();
-		return BuildSecrets.marketKey();
+		return k != null && !k.isBlank() ? k.trim() : null;
 	}
 
-	/** True when requests use the mod's built-in key rather than a personal one. */
+	private String proxyBase() {
+		String s = server.get();
+		return s != null && !s.isBlank() ? s.trim().replaceAll("/+$", "") + "/api/market" : null;
+	}
+
+	/** True when requests go through the SCD server rather than a personal key. */
 	public boolean usingBuiltInKey() {
-		String k = apiKey.get();
-		return (k == null || k.isBlank()) && !BuildSecrets.marketKey().isBlank();
+		return personalKey() == null && proxyBase() != null;
 	}
 
 	/** Every Bazaar product with its instant buy/sell price. */
@@ -213,22 +219,24 @@ public final class MarketClient {
 	}
 
 	private <T> CompletableFuture<T> send(String path, int timeoutSeconds, String postBody, Function<JsonElement, T> parser) {
-		String url = BASE + path;
-		if (!BackendUrl.isAllowedMarketUrl(url)) {
-			return CompletableFuture.failedFuture(new BackendClient.BackendException("refusing non-market URL"));
+		String key = personalKey();
+		String url = key != null ? BASE + path : proxyBase() != null ? proxyBase() + path : null;
+		if (url == null) {
+			status = new BackendClient.Status(false, "no SCD server or market key", System.currentTimeMillis());
+			return CompletableFuture.failedFuture(new BackendClient.BackendException("no SCD server set (/scd server <url>)"));
 		}
-		if (!hasKey()) {
-			status = new BackendClient.Status(false, "no scd.wtf API key set", System.currentTimeMillis());
-			return CompletableFuture.failedFuture(new BackendClient.BackendException("no scd.wtf API key set (/scd market key <key>)"));
+		// The key only ever goes to market.scd.wtf itself.
+		if (key != null && !BackendUrl.isAllowedMarketUrl(url)) {
+			return CompletableFuture.failedFuture(new BackendClient.BackendException("refusing non-market URL"));
 		}
 		if (System.currentTimeMillis() < backoffUntilMs) {
 			return CompletableFuture.failedFuture(new BackendClient.BackendException("rate limited - retrying later"));
 		}
 		HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
 				.timeout(Duration.ofSeconds(timeoutSeconds))
-				.header("X-API-Key", effectiveKey())
 				.header("User-Agent", userAgent)
 				.header("Accept", "application/json");
+		if (key != null) builder.header("X-API-Key", key);
 		HttpRequest request = postBody == null ? builder.GET().build()
 				: builder.header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(postBody)).build();
 		return http.sendAsync(request, HttpResponse.BodyHandlers.ofString())

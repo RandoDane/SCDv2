@@ -46,38 +46,26 @@ dependencies {
 	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
 
-// Built-in scd.wtf key for every user, injected at build time so it never lives in git:
-// -PscdMarketKey=..., the SCD_MOD_KEY env var, or ~/.config/scd/mod_key. Stored XOR-scrambled so it
-// isn't a plain string in the jar (this deters casual copying; it is not real secrecy).
+// Build-time settings baked into the mod. The scd.wtf key is NOT one of them: anything shipped in a
+// client can be read by players, so prices go through the SCD server (backend/marketProxy.js), which
+// holds the key. The server address: -PscdServer=..., the SCD_SERVER env var, or the default below.
 def generatedSecrets = layout.buildDirectory.dir("generated/sources/secrets")
 tasks.register("generateBuildSecrets") {
-	def keyFile = new File(System.getProperty("user.home"), ".config/scd/mod_key")
-	def key = (project.findProperty("scdMarketKey") ?: System.getenv("SCD_MOD_KEY") ?: (keyFile.exists() ? keyFile.text.trim() : "")).toString()
-	inputs.property("keyHash", key.hashCode())
+	def server = (project.findProperty("scdServer") ?: System.getenv("SCD_SERVER") ?: "http://95.216.136.132:3000").toString()
+	inputs.property("server", server)
 	outputs.dir(generatedSecrets)
 	doLast {
-		def rnd = new java.security.SecureRandom()
-		byte[] raw = key.getBytes("UTF-8")
-		byte[] pad = new byte[raw.length]
-		rnd.nextBytes(pad)
-		def enc = (0..<raw.length).collect { (raw[it] ^ pad[it]) as byte }
-		def fmt = { list -> list.collect { it as int }.join(", ") }
 		def dir = generatedSecrets.get().dir("com/scd/client/net").asFile
 		dir.mkdirs()
-		new File(dir, "BuildSecrets.java").text = """package com.scd.client.net;
+		new File(dir, "BuildSecrets.java").delete()
+		new File(dir, "BuildInfo.java").text = """package com.scd.client.net;
 
 /** Generated at build time - do not edit or commit. */
-final class BuildSecrets {
-	private static final byte[] A = {${fmt(enc)}};
-	private static final byte[] B = {${fmt(pad as List)}};
+public final class BuildInfo {
+	/** The SCD server this build talks to by default (market proxy, mayor, rooms, recordings). */
+	public static final String SERVER = "${server}";
 
-	private BuildSecrets() {
-	}
-
-	static String marketKey() {
-		byte[] out = new byte[A.length];
-		for (int i = 0; i < A.length; i++) out[i] = (byte) (A[i] ^ B[i]);
-		return new String(out, java.nio.charset.StandardCharsets.UTF_8);
+	private BuildInfo() {
 	}
 }
 """

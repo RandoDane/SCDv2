@@ -12,7 +12,7 @@ TAG="v${VERSION}"
 JAR="build/libs/scd-${VERSION}.jar"
 
 export JAVA_HOME="$(ls -d /root/.jdks/jdk-25* | head -1)"
-[ -s ~/.config/scd/mod_key ] || echo "warning: no ~/.config/scd/mod_key - building without a built-in scd.wtf key"
+# The scd.wtf key is never built in: prices go through the SCD server (backend/marketProxy.js).
 ./gradlew clean build --no-daemon -q
 [ -f "$JAR" ] || { echo "missing $JAR"; exit 1; }
 git diff --quiet && git diff --cached --quiet || { echo "working tree not clean - commit first"; exit 1; }

@@ -27,6 +27,10 @@ public final class ConfigManager {
 		});
 		if (fresh) importLegacy(store.get());
 		ScdConfig c = store.get();
+		// Old installs defaulted to a local server: move them to the one built into the mod.
+		if (c.backend.serverUrl == null || c.backend.serverUrl.isBlank() || c.backend.serverUrl.equals("http://localhost:3000")) {
+			c.backend.serverUrl = com.scd.client.net.BuildInfo.SERVER;
+		}
 		ScdLog.info("Config loaded: server=" + c.backend.serverUrl + " theme=" + c.general.theme
 				+ " developerMode=" + c.general.developerMode);
 	}
