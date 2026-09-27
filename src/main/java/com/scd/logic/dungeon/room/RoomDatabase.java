@@ -22,6 +22,11 @@ public final class RoomDatabase {
 	private final Map<String, RoomInfo> byName = new HashMap<>();
 
 	public int load(Reader json) {
+		return load(json, false);
+	}
+
+	/** @param skipUnnamed leave out learned rooms nobody has named yet ("Unknown &lt;core&gt;") */
+	public int load(Reader json, boolean skipUnnamed) {
 		JsonArray arr = JsonParser.parseReader(json).getAsJsonArray();
 		int n = 0;
 		for (JsonElement el : arr) {
@@ -30,6 +35,7 @@ public final class RoomDatabase {
 			RoomKind kind = RoomKind.fromKey(str(o, "type"));
 			RoomShape shape = RoomShape.fromKey(str(o, "shape"));
 			if (name == null || kind == null || shape == null || !o.has("cores")) continue;
+			if (skipUnnamed && RoomLearner.isUnknown(name)) continue;
 			List<Integer> cores = new ArrayList<>();
 			for (JsonElement c : o.getAsJsonArray("cores")) cores.add(c.getAsInt());
 			RoomInfo info = new RoomInfo(name, kind, shape, List.copyOf(cores), num(o, "crypts"), num(o, "maxSecrets"), num(o, "trappedChests"));

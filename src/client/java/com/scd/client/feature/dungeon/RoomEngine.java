@@ -83,6 +83,15 @@ public final class RoomEngine {
 		} catch (Exception e) {
 			ScdLog.warn("Bundled room database failed to load", e);
 		}
+		// SCD's own list, learned while playing, then rooms you named yourself.
+		if (Files.isRegularFile(RoomLearning.FILE)) {
+			try (Reader r = Files.newBufferedReader(RoomLearning.FILE)) {
+				int n = fresh.load(r, true);
+				ScdLog.info("Loaded " + n + " learned rooms");
+			} catch (Exception e) {
+				ScdLog.warn("Learned room file is invalid", e);
+			}
+		}
 		if (Files.isRegularFile(USER_ROOMS)) {
 			try (Reader r = Files.newBufferedReader(USER_ROOMS)) {
 				int n = fresh.load(r);

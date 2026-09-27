@@ -51,9 +51,17 @@ final class PuzzleSolvers2 {
 	private final DungeonFeature dungeon;
 	private final List<int[]> beamPairs = new ArrayList<>();
 	private final List<List<List<int[]>>> iceIds = new ArrayList<>(), iceEasy = new ArrayList<>();
-	/** Lit lantern pairs; {@code pair} is the index in the data, so a pair keeps its colour as others go out. */
+	/** Lit lantern pairs; {@code pair} picks the colour and stays with the pair as others go out. */
 	private record Beam(Vec3 a, Vec3 b, int pair) {
 	}
+
+	/** Colour slot per lantern pair (by its two positions), for the whole visit. */
+	private final Map<String, Integer> beamSlots = new HashMap<>();
+	private boolean beamsLogged, iceLogged;
+	/** Boulder learning: a click waiting for its "after" snapshot. */
+	private String boulderBefore;
+	private BlockPos boulderClick;
+	private long boulderAfterTick;
 
 	private final List<Beam> beams = new ArrayList<>();
 	private final List<Vec3> icePath = new ArrayList<>();
@@ -79,6 +87,13 @@ final class PuzzleSolvers2 {
 			if (level.isClientSide() && !boulderMoves.isEmpty()) {
 				BlockPos clicked = hit.getBlockPos();
 				boulderMoves.removeIf(m -> m[1].equals(clicked));
+			}
+			// Learning how boulders move: the grid before and a second after each click.
+			MappedRoom here = dungeon.rooms().current();
+			if (level.isClientSide() && here != null && "Boulder".equals(here.name()) && here.anchor() != null) {
+				boulderBefore = boulderKey(here, (net.minecraft.client.multiplayer.ClientLevel) level);
+				boulderClick = here.toRelative(hit.getBlockPos());
+				boulderAfterTick = mod.tasks.currentTick() + 20;
 			}
 			return net.minecraft.world.InteractionResult.PASS;
 		});
@@ -150,6 +165,9 @@ final class PuzzleSolvers2 {
 
 	private void resetRoom() {
 		beams.clear();
+		beamSlots.clear();
+		beamsLogged = iceLogged = false;
+		boulderBefore = null;
 		icePath.clear();
 		slidePath.clear();
 		tpPads = List.of();
@@ -172,7 +190,7 @@ final class PuzzleSolvers2 {
 				if (t % 10 == 0) beams(room, mc.level);
 			}
 			case "Ice Fill" -> {
-				if (icePath.isEmpty()) iceFill(room, mc.level);
+				if (icePath.isEmpty() && t % 20 == 0 && !ownIceFill(room, mc.level)) iceFill(room, mc.level);
 			}
 			case "Ice Path" -> {
 				if (t % 5 == 0) icePath(room, mc.level);
@@ -183,6 +201,11 @@ final class PuzzleSolvers2 {
 			}
 			case "Boulder" -> {
 				if (!boulderRead && t % 10 == 0) boulder(room, mc.level);
+				if (boulderBefore != null && t >= boulderAfterTick) {
+					ScdLog.info("[puzzles] boulder click rel " + boulderClick.getX() + "," + boulderClick.getY() + "," + boulderClick.getZ()
+							+ " before " + boulderBefore + " after " + boulderKey(room, mc.level));
+					boulderBefore = null;
+				}
 			}
 			default -> {
 			}
@@ -193,6 +216,12 @@ final class PuzzleSolvers2 {
 	// ---- Creeper Beams ------------------------------------------------------------------------
 
 	private void beams(MappedRoom room, Level level) {
+		List<Beam> own = ownBeams(room, level);
+		if (own != null) {
+			beams.clear();
+			beams.addAll(own);
+			return;
+		}
 		beams.clear();
 		for (int i = 0; i < beamPairs.size(); i++) {
 			int[] p = beamPairs.get(i);
@@ -201,6 +230,55 @@ final class PuzzleSolvers2 {
 				beams.add(new Beam(Vec3.atCenterOf(a), Vec3.atCenterOf(b), i));
 			}
 		}
+	}
+
+	/**
+	 * SCD's own Creeper Beams: every lit sea lantern around the creeper, paired with the lantern on
+	 * the far side whose straight line runs through the creeper (closest fit first). Null when the
+	 * creeper or the lanterns can't be found, so the bundled pair list takes over.
+	 */
+	private List<Beam> ownBeams(MappedRoom room, Level level) {
+		net.minecraft.world.entity.monster.Creeper creeper = null;
+		for (Entity e : ((net.minecraft.client.multiplayer.ClientLevel) level).entitiesForRendering()) {
+			if (e instanceof net.minecraft.world.entity.monster.Creeper c && dungeon.rooms().roomAt(c.blockPosition()) == room) creeper = c;
+		}
+		if (creeper == null) return null;
+		Vec3 centre = creeper.getBoundingBox().getCenter();
+		BlockPos base = creeper.blockPosition();
+		List<BlockPos> lanterns = new ArrayList<>();
+		for (BlockPos p : BlockPos.betweenClosed(base.offset(-16, -4, -16), base.offset(16, 14, 16))) {
+			if (level.getBlockState(p).getBlock() == Blocks.SEA_LANTERN) lanterns.add(p.immutable());
+		}
+		record Candidate(BlockPos a, BlockPos b, double miss) {
+		}
+		List<Candidate> candidates = new ArrayList<>();
+		for (int i = 0; i < lanterns.size(); i++) {
+			for (int j = i + 1; j < lanterns.size(); j++) {
+				Vec3 a = Vec3.atCenterOf(lanterns.get(i)), b = Vec3.atCenterOf(lanterns.get(j));
+				Vec3 ab = b.subtract(a);
+				double t = centre.subtract(a).dot(ab) / ab.lengthSqr();
+				if (t < 0.15 || t > 0.85) continue; // the creeper must sit between the two
+				double miss = a.add(ab.scale(t)).distanceTo(centre);
+				if (miss < 1.2) candidates.add(new Candidate(lanterns.get(i), lanterns.get(j), miss));
+			}
+		}
+		candidates.sort(java.util.Comparator.comparingDouble(Candidate::miss));
+		Set<BlockPos> used = new HashSet<>();
+		List<Beam> out = new ArrayList<>();
+		for (Candidate c : candidates) {
+			if (used.contains(c.a()) || used.contains(c.b())) continue;
+			used.add(c.a());
+			used.add(c.b());
+			String key = Math.min(c.a().asLong(), c.b().asLong()) + ":" + Math.max(c.a().asLong(), c.b().asLong());
+			int slot = beamSlots.computeIfAbsent(key, k -> beamSlots.size());
+			out.add(new Beam(Vec3.atCenterOf(c.a()), Vec3.atCenterOf(c.b()), slot));
+		}
+		if (!beamsLogged) {
+			beamsLogged = true;
+			ScdLog.info("[puzzles] beams: " + lanterns.size() + " lit lanterns, " + out.size() + " pairs (own)");
+		}
+		if (lanterns.size() >= 2 && out.isEmpty()) return null;
+		return out;
 	}
 
 	// ---- Ice Fill -----------------------------------------------------------------------------
@@ -217,6 +295,64 @@ final class PuzzleSolvers2 {
 				}
 			}
 		}
+	}
+
+	/**
+	 * SCD's own Ice Fill: every ice floor in the room (grouped by height), its two ends found where
+	 * the ice meets a walkable platform, and a path over every tile between them. False when any
+	 * floor can't be read or solved, so the bundled paths take over.
+	 */
+	private boolean ownIceFill(MappedRoom room, Level level) {
+		int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, minZ = Integer.MAX_VALUE, maxZ = Integer.MIN_VALUE;
+		for (int[] tile : room.tiles()) {
+			minX = Math.min(minX, DungeonGrid.centre(tile[0]) - 15);
+			maxX = Math.max(maxX, DungeonGrid.centre(tile[0]) + 15);
+			minZ = Math.min(minZ, DungeonGrid.centre(tile[1]) - 15);
+			maxZ = Math.max(maxZ, DungeonGrid.centre(tile[1]) + 15);
+		}
+		java.util.TreeMap<Integer, Set<Long>> floors = new java.util.TreeMap<>();
+		for (int y = 60; y <= 100; y++) {
+			for (int x = minX; x <= maxX; x++) {
+				for (int z = minZ; z <= maxZ; z++) {
+					var b = level.getBlockState(new BlockPos(x, y, z)).getBlock();
+					if (b == Blocks.ICE || b == Blocks.PACKED_ICE) floors.computeIfAbsent(y, k -> new HashSet<>()).add(com.scd.logic.dungeon.IceFillSolver.key(new int[]{x, z}));
+				}
+			}
+		}
+		floors.values().removeIf(f -> f.size() < 4);
+		if (floors.isEmpty()) return false;
+		List<Vec3> path = new ArrayList<>();
+		for (var floor : floors.entrySet()) {
+			int y = floor.getKey();
+			Set<Long> tiles = floor.getValue();
+			// Ends: ice tiles next to a solid, walkable non-ice block at the same height.
+			List<int[]> ends = new ArrayList<>();
+			for (long k : tiles) {
+				int x = (int) (k >> 32), z = (int) k;
+				for (int[] d : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+					BlockPos n = new BlockPos(x + d[0], y, z + d[1]);
+					if (tiles.contains(com.scd.logic.dungeon.IceFillSolver.key(new int[]{n.getX(), n.getZ()}))) continue;
+					var state = level.getBlockState(n);
+					if (!state.isAir() && state.getBlock() != Blocks.ICE && state.getBlock() != Blocks.PACKED_ICE && level.getBlockState(n.above()).isAir()) {
+						ends.add(new int[]{x, z});
+						break;
+					}
+				}
+			}
+			List<int[]> solved = null;
+			for (int i = 0; i < ends.size() && solved == null; i++) {
+				for (int j = i + 1; j < ends.size() && solved == null; j++) solved = com.scd.logic.dungeon.IceFillSolver.solve(tiles, ends.get(i), ends.get(j));
+			}
+			if (!iceLogged) ScdLog.info("[puzzles] ice fill floor y" + y + ": " + tiles.size() + " tiles, " + ends.size() + " ends, " + (solved != null ? "solved (own)" : "unsolved"));
+			if (solved == null) {
+				iceLogged = true;
+				return false;
+			}
+			for (int[] p : solved) path.add(new Vec3(p[0] + 0.5, y + 1.1, p[1] + 0.5));
+		}
+		iceLogged = true;
+		icePath.addAll(path);
+		return true;
 	}
 
 	// ---- Ice Path (silverfish) ----------------------------------------------------------------
@@ -377,6 +513,19 @@ final class PuzzleSolvers2 {
 	}
 
 	// ---- Boulder ------------------------------------------------------------------------------
+
+	/** The 7x6 boulder grid as 0/1 (row by row from z 24, x 24 down); null while not loaded. */
+	private static String boulderKey(MappedRoom room, net.minecraft.client.multiplayer.ClientLevel level) {
+		StringBuilder key = new StringBuilder();
+		for (int z = 24; z >= 9; z -= 3) {
+			for (int x = 24; x >= 6; x -= 3) {
+				BlockPos p = room.toWorld(new BlockPos(x, 66, z));
+				if (p == null || !level.isLoaded(p)) return null;
+				key.append(level.getBlockState(p).isAir() ? '0' : '1');
+			}
+		}
+		return key.toString();
+	}
 
 	/** Reads the 7x6 boulder grid (room frame, Odin's layout) and looks the layout up. */
 	private void boulder(MappedRoom room, net.minecraft.client.multiplayer.ClientLevel level) {

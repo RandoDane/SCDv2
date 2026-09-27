@@ -75,6 +75,7 @@ public final class DungeonFeature implements Feature {
 		roomTimes = new RoomTimes(mod, this);
 		secrets = new SecretTracker(mod, this);
 		mod.huds.add(new DungeonMapHud(mod::config, this, secrets));
+		learning = new RoomLearning(mod, this);
 		new PuzzleSolvers(mod, this);
 		new PuzzleSolvers2(mod, this);
 		new BloodCamp(mod, this);
@@ -332,12 +333,20 @@ public final class DungeonFeature implements Feature {
 												.executes(ctx -> nameRoom(StringArgumentType.getString(ctx, "name"), IntegerArgumentType.getInteger(ctx, "secrets")))))))
 				.then(ClientCommands.literal("rooms")
 						.executes(ctx -> listRooms())
+						.then(ClientCommands.literal("learned").executes(ctx -> {
+							var l = learning.learner();
+							Chat.info("SCD has learned " + l.namedCount() + " named rooms itself (" + l.entries().size()
+									+ " incl. unnamed) of the " + rooms.database().size() + " it knows. Unnamed ones: /scd dungeon room name.");
+							return 1;
+						}))
 						.then(ClientCommands.literal("reload").executes(ctx -> {
 							rooms.reloadDatabase();
 							Chat.info("Room database reloaded: " + rooms.database().size() + " rooms.");
 							return 1;
 						}))));
 	}
+
+	private RoomLearning learning;
 
 	private int roomInfo() {
 		MappedRoom r = rooms.current();

@@ -45,6 +45,9 @@ final class PuzzleSolvers {
 	private final ScdMod mod;
 	private final DungeonFeature dungeon;
 	private final Map<String, List<String>> quizAnswers = new HashMap<>();
+	/** Answers SCD learned itself (checked before the bundled list). */
+	private final com.scd.logic.dungeon.QuizMemory quizMemory = new com.scd.logic.dungeon.QuizMemory();
+	private static final java.nio.file.Path QUIZ_FILE = com.scd.client.storage.ScdPaths.file("dungeon/quiz_learned.json");
 	private List<String> quizSolutions = List.of();
 	private String quizLetter;
 	private BlockPos weirdoChest;
@@ -64,8 +67,30 @@ final class PuzzleSolvers {
 		} catch (Exception e) {
 			ScdLog.warn("Quiz answers failed to load", e);
 		}
+		if (java.nio.file.Files.isRegularFile(QUIZ_FILE)) {
+			try (var r = java.nio.file.Files.newBufferedReader(QUIZ_FILE)) {
+				quizMemory.load(r);
+			} catch (Exception e) {
+				ScdLog.warn("Learned quiz answers are invalid", e);
+			}
+		}
 		mod.bus.subscribe(Events.ChatReceived.class, e -> {
-			if (e.isSystem() && dungeon.state().inDungeon() && mod.config().dungeon.puzzleSolvers) onChat(e.clean().trim());
+			if (!e.isSystem() || !dungeon.state().inDungeon()) return;
+			String line = e.clean().trim();
+			// Learning runs even with the solver off, so SCD's own answer list keeps growing.
+			if (quizMemory.onLine(line, com.scd.client.hypixel.Players.selfName())) saveQuiz();
+			if (mod.config().dungeon.puzzleSolvers) onChat(line);
+		});
+		// Which pedestal you clicked in the Quiz room = the option you picked.
+		net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
+			if (level.isClientSide() && "Quiz".equals(roomName())) {
+				MappedRoom r = dungeon.rooms().current();
+				for (var spot : QUIZ_SPOTS.entrySet()) {
+					BlockPos w = r.toWorld(spot.getValue());
+					if (w != null && w.distSqr(hit.getBlockPos()) <= 9) quizMemory.pick(spot.getKey());
+				}
+			}
+			return net.minecraft.world.InteractionResult.PASS;
 		});
 		mod.bus.subscribe(DungeonEvents.RoomEntered.class, e -> {
 			weirdoChest = null;
@@ -77,6 +102,16 @@ final class PuzzleSolvers {
 		WorldGizmos.onWorldExtract(pt -> {
 			if (mod.config().dungeon.puzzleSolvers && dungeon.state().inDungeon()) draw();
 		});
+	}
+
+	private void saveQuiz() {
+		try {
+			java.nio.file.Files.createDirectories(QUIZ_FILE.getParent());
+			java.nio.file.Files.writeString(QUIZ_FILE, quizMemory.toJson());
+			ScdLog.info("[puzzles] quiz: learned an answer (" + quizMemory.size() + " known)");
+		} catch (Exception e) {
+			ScdLog.warn("Could not save quiz answers", e);
+		}
 	}
 
 	private String roomName() {
@@ -93,6 +128,13 @@ final class PuzzleSolvers {
 			if (text.equals("What SkyBlock year is it?")) {
 				long year = (System.currentTimeMillis() / 1000 - SKYBLOCK_EPOCH_S) / YEAR_S + 1;
 				quizSolutions = List.of("Year " + year);
+				quizLetter = null;
+				return;
+			}
+			// SCD's own learned answers first, then the bundled list.
+			String learned = quizMemory.answer(text);
+			if (learned != null) {
+				quizSolutions = List.of(learned);
 				quizLetter = null;
 				return;
 			}
