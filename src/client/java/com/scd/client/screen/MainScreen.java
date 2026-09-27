@@ -50,7 +50,7 @@ public final class MainScreen extends ScdScreen {
 		}, Theme::name);
 		rows.line(() -> mod.market.hasKey()
 						? "Market: " + mod.market.status().message()
-						: "No scd.wtf key - prices off",
+						: "Market unavailable - prices off",
 				() -> mod.market.hasKey() && mod.market.status().ok() ? Ui.SUCCESS : mod.market.hasKey() ? Ui.theme().textMuted() : Ui.WARNING);
 		rows.space(2);
 

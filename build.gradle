@@ -39,6 +39,47 @@ dependencies {
 	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
 
+// Built-in scd.wtf key for every user, injected at build time so it never lives in git:
+// -PscdMarketKey=..., the SCD_MOD_KEY env var, or ~/.config/scd/mod_key. Stored XOR-scrambled so it
+// isn't a plain string in the jar (this deters casual copying; it is not real secrecy).
+def generatedSecrets = layout.buildDirectory.dir("generated/sources/secrets")
+tasks.register("generateBuildSecrets") {
+	def keyFile = new File(System.getProperty("user.home"), ".config/scd/mod_key")
+	def key = (project.findProperty("scdMarketKey") ?: System.getenv("SCD_MOD_KEY") ?: (keyFile.exists() ? keyFile.text.trim() : "")).toString()
+	inputs.property("keyHash", key.hashCode())
+	outputs.dir(generatedSecrets)
+	doLast {
+		def rnd = new java.security.SecureRandom()
+		byte[] raw = key.getBytes("UTF-8")
+		byte[] pad = new byte[raw.length]
+		rnd.nextBytes(pad)
+		def enc = (0..<raw.length).collect { (raw[it] ^ pad[it]) as byte }
+		def fmt = { list -> list.collect { it as int }.join(", ") }
+		def dir = generatedSecrets.get().dir("com/scd/client/net").asFile
+		dir.mkdirs()
+		new File(dir, "BuildSecrets.java").text = """package com.scd.client.net;
+
+/** Generated at build time - do not edit or commit. */
+final class BuildSecrets {
+	private static final byte[] A = {${fmt(enc)}};
+	private static final byte[] B = {${fmt(pad as List)}};
+
+	private BuildSecrets() {
+	}
+
+	static String marketKey() {
+		byte[] out = new byte[A.length];
+		for (int i = 0; i < A.length; i++) out[i] = (byte) (A[i] ^ B[i]);
+		return new String(out, java.nio.charset.StandardCharsets.UTF_8);
+	}
+}
+"""
+	}
+}
+sourceSets.client.java.srcDir(generatedSecrets)
+tasks.named("compileClientJava") { dependsOn("generateBuildSecrets") }
+tasks.matching { it.name == "clientSourcesJar" || it.name == "sourcesJar" }.configureEach { dependsOn("generateBuildSecrets") }
+
 processResources {
 	def version = project.version
 	inputs.property "version", version

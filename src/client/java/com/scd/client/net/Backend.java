@@ -18,8 +18,19 @@ public final class Backend {
 		}
 	}
 
-	/** One chart point: the Bazaar mid price (candle close) at a time. */
-	public record HistoryPoint(long timestampMs, double price) {
+	/** One chart point: Bazaar candle closes for the instant-sell and instant-buy side. */
+	public record HistoryPoint(long timestampMs, double sellPrice, double buyPrice) {
+	}
+
+	/** Result of valuing one concrete item (with its enchants, stars, books, ...). */
+	public record ItemValue(Double estimatedValue, Double baseValue, double addonsValue, String key) {
+	}
+
+	public record CalendarEvent(String key, String name, long startSec, long endSec, boolean active) {
+	}
+
+	public record BazaarFlip(String product, String name, double buyOrderAt, double sellOfferAt, double marginPct,
+			double hourlyVolume, double estHourlyProfit) {
 	}
 
 	/**

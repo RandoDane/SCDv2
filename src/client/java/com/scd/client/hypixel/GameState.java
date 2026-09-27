@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
  * owner name. The tab list is only read lazily (it can hold 80 entries) when something asks for it.
  */
 public final class GameState {
+	private static final Pattern CLOCK_LINE = Pattern.compile("^\\d{1,2}:\\d{2}\\s*(am|pm)\\b", Pattern.CASE_INSENSITIVE);
 	private static final Pattern AREA_LINE = Pattern.compile("^⏣\\s*(.+)$|^ф\\s*(.+)$");
 
 	private final EventBus bus;
@@ -88,6 +89,15 @@ public final class GameState {
 		for (String line : lines) {
 			Matcher m = AREA_LINE.matcher(line);
 			if (m.matches()) return (m.group(1) != null ? m.group(1) : m.group(2)).trim();
+		}
+		// Live-confirmed 2026-09-27: the area glyph is a private-use icon that Text.clean strips, so the
+		// line reads just "Village". Hypixel always puts the area directly under the clock line
+		// ("3:20am ☽"), which makes that the reliable anchor.
+		for (int i = 0; i + 1 < lines.size(); i++) {
+			if (CLOCK_LINE.matcher(lines.get(i)).find()) {
+				String next = lines.get(i + 1);
+				if (!next.startsWith("Purse") && !next.startsWith("Piggy") && !next.isBlank()) return next.trim();
+			}
 		}
 		// Some resource packs replace the ⏣ glyph with a private-use icon that Text.clean strips,
 		// leaving just the area name - fall back to a line that exactly matches a known area.

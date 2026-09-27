@@ -65,6 +65,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 			}
 			slayerScenario(ctx, server, mod);
 			dungeonScenario(ctx, server, mod);
+			if (System.getenv("SCD_KEY") != null) valuationScenario(ctx, server, mod);
 			if (debugBackend != null) {
 				ctx.runOnClient(mc -> mc.player.connection.sendCommand("scd record mark end of scenarios"));
 				ctx.runOnClient(mc -> mc.player.connection.sendCommand("scd record stop"));
@@ -152,6 +153,23 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		check(ctx.computeOnClient(mc -> slayer.records().kills(SlayerType.ZOMBIE, "IV")) == before + 1, "completed kill not recorded");
 		ctx.takeScreenshot("11-slayer-after-kill");
 		server.runCommand("kill @e[type=!player]");
+	}
+
+	/** Real market call: an item with stars + potato books must be valued above its clean price. */
+	private static void valuationScenario(ClientGameTestContext ctx, TestServerContext server, ScdMod mod) {
+		server.runCommand("give @p diamond_sword[custom_data={id:\"HYPERION\",upgrade_level:5,hot_potato_count:15,uuid:\"scd-test-0001\"}]");
+		ctx.waitTicks(10);
+		var bazaar = mod.feature(com.scd.client.feature.bazaar.BazaarFeature.class);
+		var stack = ctx.computeOnClient(mc -> mc.player.getInventory().getItem(0).copy());
+		check(com.scd.client.feature.bazaar.ItemValuation.hasAddons(stack), "stars/books not seen as add-ons");
+		com.scd.client.net.Backend.ItemValue v = null;
+		for (int i = 0; i < 40 && v == null; i++) {
+			v = ctx.computeOnClient(mc -> bazaar.valuation().get(stack));
+			ctx.waitTicks(5);
+		}
+		check(v != null && v.estimatedValue() != null, "no valuation returned for the test Hyperion");
+		check(v.addonsValue() > 0, "add-ons not valued: " + v);
+		System.out.println("SCD_TEST_VALUATION " + v);
 	}
 
 	private static void dungeonScenario(ClientGameTestContext ctx, TestServerContext server, ScdMod mod) {

@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-/** Hovered item's live price, spread and a mid-price history chart (live buy/sell marked at the right edge). Only visible while hovering a priced item. */
+/** Hovered item's live price, spread and a buy/sell history chart. Only visible while hovering a priced item. */
 final class PriceGraphHud extends HudElement {
 	private static final String PREVIEW_ITEM = "ENCHANTED_LAPIS_LAZULI";
 	private static final int CHART_W = 170;
@@ -60,7 +60,7 @@ final class PriceGraphHud extends HudElement {
 		long now = System.currentTimeMillis();
 		for (int i = 0; i < 40; i++) {
 			double wave = Math.sin(i / 5.0) * 20 + i * 0.6;
-			out.add(new Backend.HistoryPoint(now - (40 - i) * 3_600_000L, (p.sellPrice() + p.buyPrice()) / 2 - 20 + wave));
+			out.add(new Backend.HistoryPoint(now - (40 - i) * 3_600_000L, p.sellPrice() - 20 + wave, p.buyPrice() - 15 + wave));
 		}
 		return out;
 	}
@@ -77,13 +77,14 @@ final class PriceGraphHud extends HudElement {
 		if (maxT <= minT) return;
 		double min = Math.min(now.sellPrice(), now.buyPrice()), max = Math.max(now.sellPrice(), now.buyPrice());
 		for (var p : pts) {
-			min = Math.min(min, p.price());
-			max = Math.max(max, p.price());
+			min = Math.min(min, Math.min(p.sellPrice(), p.buyPrice()));
+			max = Math.max(max, Math.max(p.sellPrice(), p.buyPrice()));
 		}
 		if (max <= min) max = min + 1;
 		Ui.text(g, Numbers.coins(max), x, y, Ui.theme().textMuted());
 		Ui.rightAligned(g, Numbers.coins(min), x + w, y, Ui.theme().textMuted());
-		plot(g, x, top, w, h, pts, minT, maxT, min, max, Ui.theme().accent());
+		plot(g, x, top, w, h, pts, minT, maxT, min, max, true, Ui.SELL);
+		plot(g, x, top, w, h, pts, minT, maxT, min, max, false, Ui.BUY);
 		// Live instant prices at the right edge ("now"), not the possibly hour-old last candle.
 		marker(g, x + w - 1, top + h - 1 - (now.sellPrice() - min) / (max - min) * (h - 1), Ui.SELL);
 		marker(g, x + w - 1, top + h - 1 - (now.buyPrice() - min) / (max - min) * (h - 1), Ui.BUY);
@@ -95,18 +96,22 @@ final class PriceGraphHud extends HudElement {
 		List<Backend.HistoryPoint> out = new ArrayList<>(pts.size());
 		for (int i = 0; i < pts.size(); i++) {
 			int lo = Math.max(0, i - 1), hi = Math.min(pts.size() - 1, i + 1);
-			double sum = 0;
-			for (int j = lo; j <= hi; j++) sum += pts.get(j).price();
-			out.add(new Backend.HistoryPoint(pts.get(i).timestampMs(), sum / (hi - lo + 1)));
+			double s = 0, b = 0;
+			for (int j = lo; j <= hi; j++) {
+				s += pts.get(j).sellPrice();
+				b += pts.get(j).buyPrice();
+			}
+			int n = hi - lo + 1;
+			out.add(new Backend.HistoryPoint(pts.get(i).timestampMs(), s / n, b / n));
 		}
 		return out;
 	}
 
 	private static void plot(GuiGraphicsExtractor g, int x, int y, int w, int h, List<Backend.HistoryPoint> pts,
-			long minT, long maxT, double min, double max, int color) {
+			long minT, long maxT, double min, double max, boolean sell, int color) {
 		double px = Double.NaN, py = Double.NaN;
 		for (var p : pts) {
-			double v = p.price();
+			double v = sell ? p.sellPrice() : p.buyPrice();
 			double cx = x + (double) (p.timestampMs() - minT) / (maxT - minT) * (w - 1);
 			double cy = y + h - 1 - (v - min) / (max - min) * (h - 1);
 			if (!Double.isNaN(px)) segment(g, px, py, cx, cy, color);

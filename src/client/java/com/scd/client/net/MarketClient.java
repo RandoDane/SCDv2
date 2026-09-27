@@ -53,8 +53,20 @@ public final class MarketClient {
 	}
 
 	public boolean hasKey() {
+		return !effectiveKey().isBlank();
+	}
+
+	/** The player's own key if they set one (admins), otherwise the key built into the mod. */
+	private String effectiveKey() {
 		String k = apiKey.get();
-		return k != null && !k.isBlank();
+		if (k != null && !k.isBlank()) return k.trim();
+		return BuildSecrets.marketKey();
+	}
+
+	/** True when requests use the mod's built-in key rather than a personal one. */
+	public boolean usingBuiltInKey() {
+		String k = apiKey.get();
+		return (k == null || k.isBlank()) && !BuildSecrets.marketKey().isBlank();
 	}
 
 	/** Every Bazaar product with its instant buy/sell price. */
@@ -84,7 +96,10 @@ public final class MarketClient {
 				JsonObject c = el.getAsJsonObject();
 				Double close = dbl(c, "close");
 				Double bucket = dbl(c, "bucket");
-				if (close != null && bucket != null) out.add(new Backend.HistoryPoint(Math.round(bucket * 1000), close));
+				if (close == null || bucket == null) continue;
+				Double sell = dbl(c, "sell_close");
+				Double buy = dbl(c, "buy_close");
+				out.add(new Backend.HistoryPoint(Math.round(bucket * 1000), sell != null ? sell : close, buy != null ? buy : close));
 			}
 			return out;
 		});
@@ -119,6 +134,74 @@ public final class MarketClient {
 		});
 	}
 
+	/** Values one concrete item from its Hypixel item_bytes (base64 gzip NBT) - read-only, allowed for community keys. */
+	public CompletableFuture<Backend.ItemValue> itemValue(String itemBytesBase64) {
+		JsonObject body = new JsonObject();
+		body.addProperty("item_bytes", itemBytesBase64);
+		return send("/auction/value", 15, body.toString(), json -> {
+			JsonObject o = json.getAsJsonObject();
+			JsonObject base = o.has("base") && o.get("base").isJsonObject() ? o.getAsJsonObject("base") : null;
+			JsonObject item = o.has("item") && o.get("item").isJsonObject() ? o.getAsJsonObject("item") : null;
+			Double addons = dbl(o, "addons_value");
+			return new Backend.ItemValue(dbl(o, "estimated_value"), base != null ? dbl(base, "price") : null,
+					addons != null ? addons : 0, item != null ? str(item, "key") : null);
+		});
+	}
+
+	/** In-game date plus the next scheduled events (Dark Auction, Jacob's, elections, ...). */
+	public CompletableFuture<List<Backend.CalendarEvent>> calendar() {
+		return get("/calendar", 10, body -> {
+			List<Backend.CalendarEvent> out = new ArrayList<>();
+			JsonArray arr = arr(body.getAsJsonObject(), "upcoming");
+			if (arr == null) return out;
+			for (var el : arr) {
+				JsonObject o = el.getAsJsonObject();
+				Double start = dbl(o, "start"), end = dbl(o, "end");
+				out.add(new Backend.CalendarEvent(str(o, "key"), str(o, "name"), start != null ? (long) (double) start : 0,
+						end != null ? (long) (double) end : 0, o.has("active") && o.get("active").getAsBoolean()));
+			}
+			return out;
+		});
+	}
+
+	/** Current mayor + minister and their perks. */
+	public CompletableFuture<Backend.MayorInfo> mayor() {
+		return get("/mayor", 10, body -> {
+			JsonObject cur = body.getAsJsonObject().has("current") && body.getAsJsonObject().get("current").isJsonObject()
+					? body.getAsJsonObject().getAsJsonObject("current") : null;
+			if (cur == null) return Backend.MayorInfo.NONE;
+			List<Backend.MayorPerk> perks = new ArrayList<>();
+			JsonArray arr = arr(cur, "perks");
+			if (arr != null) {
+				for (var el : arr) {
+					JsonObject p = el.getAsJsonObject();
+					perks.add(new Backend.MayorPerk(str(p, "name"), str(p, "description")));
+				}
+			}
+			String minister = str(cur, "minister_name");
+			String name = str(cur, "mayor_name");
+			return new Backend.MayorInfo(minister != null ? name + " + " + minister : name, List.copyOf(perks));
+		});
+	}
+
+	public CompletableFuture<List<Backend.BazaarFlip>> bazaarFlips(int limit) {
+		return get("/bazaar/flips?limit=" + limit, 10, body -> {
+			List<Backend.BazaarFlip> out = new ArrayList<>();
+			if (!body.isJsonArray()) return out;
+			for (var el : body.getAsJsonArray()) {
+				JsonObject o = el.getAsJsonObject();
+				out.add(new Backend.BazaarFlip(str(o, "product"), str(o, "name"), num(o, "buy_order_at"), num(o, "sell_offer_at"),
+						num(o, "margin_pct"), num(o, "hourly_volume"), num(o, "est_hourly_profit")));
+			}
+			return out;
+		});
+	}
+
+	private static double num(JsonObject o, String key) {
+		Double d = dbl(o, key);
+		return d != null ? d : 0;
+	}
+
 	private static Backend.AuctionPrice auctionPrice(String key, JsonObject o) {
 		JsonObject lbin = o.has("lbin") && o.get("lbin").isJsonObject() ? o.getAsJsonObject("lbin") : null;
 		return new Backend.AuctionPrice(key, dbl(o, "price"), lbin != null ? dbl(lbin, "lbin") : null,
@@ -126,6 +209,10 @@ public final class MarketClient {
 	}
 
 	private <T> CompletableFuture<T> get(String path, int timeoutSeconds, Function<JsonElement, T> parser) {
+		return send(path, timeoutSeconds, null, parser);
+	}
+
+	private <T> CompletableFuture<T> send(String path, int timeoutSeconds, String postBody, Function<JsonElement, T> parser) {
 		String url = BASE + path;
 		if (!BackendUrl.isAllowedMarketUrl(url)) {
 			return CompletableFuture.failedFuture(new BackendClient.BackendException("refusing non-market URL"));
@@ -137,13 +224,13 @@ public final class MarketClient {
 		if (System.currentTimeMillis() < backoffUntilMs) {
 			return CompletableFuture.failedFuture(new BackendClient.BackendException("rate limited - retrying later"));
 		}
-		HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+		HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
 				.timeout(Duration.ofSeconds(timeoutSeconds))
-				.header("X-API-Key", apiKey.get().trim())
+				.header("X-API-Key", effectiveKey())
 				.header("User-Agent", userAgent)
-				.header("Accept", "application/json")
-				.GET()
-				.build();
+				.header("Accept", "application/json");
+		HttpRequest request = postBody == null ? builder.GET().build()
+				: builder.header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(postBody)).build();
 		return http.sendAsync(request, HttpResponse.BodyHandlers.ofString())
 				.thenApply(res -> {
 					if (res.statusCode() == 429) {

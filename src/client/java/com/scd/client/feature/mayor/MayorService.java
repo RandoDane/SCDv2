@@ -31,7 +31,7 @@ public final class MayorService implements Feature {
 	}
 
 	public void refresh(ScdMod mod) {
-		mod.backend.mayor().thenAccept(result -> Tasks.onClient(() -> update(result)))
+		mod.market.mayor().thenAccept(result -> Tasks.onClient(() -> update(result)))
 				.exceptionally(err -> {
 					ScdLog.warn("Mayor refresh failed: " + err.getMessage());
 					return null;

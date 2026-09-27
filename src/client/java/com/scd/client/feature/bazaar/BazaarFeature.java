@@ -23,6 +23,7 @@ public final class BazaarFeature implements Feature {
 	private ScdMod mod;
 	private PriceService prices;
 	private AuctionPriceCache auctions;
+	private ItemValuation valuation;
 	private final HoverState hover = new HoverState();
 
 	@Override
@@ -30,6 +31,8 @@ public final class BazaarFeature implements Feature {
 		this.mod = mod;
 		this.prices = new PriceService(mod);
 		this.auctions = new AuctionPriceCache(mod.market);
+		this.valuation = new ItemValuation(mod.market);
+		mod.bus.subscribe(com.scd.client.core.Events.Tick.class, e -> valuation.pump());
 		HistoryCache history = new HistoryCache(mod.market);
 
 		int interval = Math.max(15, mod.config().market.bazaarRefreshSeconds) * 20;
@@ -48,6 +51,28 @@ public final class BazaarFeature implements Feature {
 
 	public PriceService prices() {
 		return prices;
+	}
+
+	public ItemValuation valuation() {
+		return valuation;
+	}
+
+	/**
+	 * Best coin value of a concrete stack: Bazaar instant-sell for Bazaar items; for everything else
+	 * the full valuation including add-ons when it has any, else the clean AH estimate / lowest BIN.
+	 * Null while unknown (a lookup is queued).
+	 */
+	public Double valueOf(ItemStack stack) {
+		String id = idOf(stack);
+		if (id == null) return null;
+		var p = prices.get(id);
+		if (p != null && p.sellPrice() > 0) return p.sellPrice() * stack.getCount();
+		if (ItemValuation.hasAddons(stack)) {
+			var v = valuation.get(stack);
+			if (v != null && v.estimatedValue() != null) return v.estimatedValue();
+		}
+		Double unit = valueOf(id);
+		return unit != null ? unit * stack.getCount() : null;
 	}
 
 	public AuctionPriceCache auctions() {
@@ -78,7 +103,7 @@ public final class BazaarFeature implements Feature {
 		if (id == null || !mod.config().bazaar.tooltip) return;
 		var p = prices.get(id);
 		if (p == null) {
-			if (mod.config().market.auctionTooltips) auctionTooltip(id, stack.getCount(), lines);
+			if (mod.config().market.auctionTooltips) auctionTooltip(stack, id, lines);
 			return;
 		}
 		lines.add(Component.literal("Bazaar").withStyle(ChatFormatting.DARK_GRAY));
@@ -94,23 +119,43 @@ public final class BazaarFeature implements Feature {
 				.append(Component.literal(Numbers.percent(p.spreadPercent(), 1)).withStyle(ChatFormatting.DARK_GRAY)));
 	}
 
-	private void auctionTooltip(String id, int count, List<Component> lines) {
+	/**
+	 * Auction House lines. For an item with add-ons (stars, scrolls, enchants, books, recomb, gems,
+	 * reforge, pet level) the headline is the valuation of this exact item; the clean-item estimate
+	 * and lowest BIN are shown underneath for comparison.
+	 */
+	private void auctionTooltip(ItemStack stack, String id, List<Component> lines) {
+		int count = stack.getCount();
 		var a = auctions.get(id);
-		if (a == null || (a.price() == null && a.lbin() == null)) return;
+		boolean addons = ItemValuation.hasAddons(stack);
+		var full = addons ? valuation.get(stack) : null;
+		boolean anything = (a != null && (a.price() != null || a.lbin() != null)) || addons;
+		if (!anything) return;
 		lines.add(Component.literal("Auction House").withStyle(ChatFormatting.DARK_GRAY));
-		if (a.price() != null) {
+		if (addons) {
+			if (full == null) {
+				lines.add(Component.literal("  Value: calculating...").withStyle(ChatFormatting.DARK_GRAY));
+			} else if (full.estimatedValue() != null) {
+				lines.add(Component.literal("  Value: ").withStyle(ChatFormatting.GRAY)
+						.append(Component.literal(Numbers.coins(full.estimatedValue()) + " coins").withStyle(ChatFormatting.GOLD))
+						.append(Component.literal(" (with add-ons)").withStyle(ChatFormatting.DARK_GRAY)));
+				if (full.addonsValue() > 0) {
+					lines.add(Component.literal("  Add-ons: ").withStyle(ChatFormatting.GRAY)
+							.append(Component.literal("+" + Numbers.coins(full.addonsValue())).withStyle(ChatFormatting.AQUA)));
+				}
+			} else {
+				lines.add(Component.literal("  Value: no sales data for this item").withStyle(ChatFormatting.DARK_GRAY));
+			}
+		}
+		if (a != null && a.price() != null) {
 			String conf = a.confidence() != null ? " (" + a.confidence() + ")" : "";
-			lines.add(Component.literal("  Estimate: ").withStyle(ChatFormatting.GRAY)
-					.append(Component.literal(Numbers.coins(a.price()) + " coins").withStyle(ChatFormatting.GOLD))
+			lines.add(Component.literal(addons ? "  Clean item: " : "  Estimate: ").withStyle(ChatFormatting.GRAY)
+					.append(Component.literal(Numbers.coins(a.price() * (addons ? 1 : count)) + " coins").withStyle(addons ? ChatFormatting.YELLOW : ChatFormatting.GOLD))
 					.append(Component.literal(conf).withStyle(ChatFormatting.DARK_GRAY)));
 		}
-		if (a.lbin() != null) {
+		if (a != null && a.lbin() != null) {
 			lines.add(Component.literal("  Lowest BIN: ").withStyle(ChatFormatting.GRAY)
 					.append(Component.literal(Numbers.coins(a.lbin()) + " coins").withStyle(ChatFormatting.YELLOW)));
-		}
-		if (count > 1 && a.price() != null && mod.config().bazaar.tooltipStackValue) {
-			lines.add(Component.literal("  Stack (x" + count + "): ").withStyle(ChatFormatting.GRAY)
-					.append(Component.literal(Numbers.coins(a.price() * count) + " coins").withStyle(ChatFormatting.GOLD)));
 		}
 	}
 

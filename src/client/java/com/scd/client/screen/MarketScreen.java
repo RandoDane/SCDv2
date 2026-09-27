@@ -32,14 +32,14 @@ public final class MarketScreen extends ScdScreen {
 	protected void build(Rows rows) {
 		ScdConfig c = mod.config();
 		rows.header("scd.wtf API");
-		rows.note("All prices come from https://market.scd.wtf. Keys are issued on wiki.scd.wtf (Special:ApiKeys). "
-				+ "The SCD_KEY environment variable is used when this is empty.");
+		rows.note("All prices come from https://market.scd.wtf. SCD ships with its own key - a personal key is only needed by admins.");
 		rows.value("Key", () -> {
 			String k = c.market.apiKey;
-			if (k != null && !k.isBlank()) return "set (…" + k.substring(Math.max(0, k.length() - 4)) + ")";
-			return mod.market.hasKey() ? "from SCD_KEY env" : "not set";
+			if (k != null && !k.isBlank()) return "personal (…" + k.substring(Math.max(0, k.length() - 4)) + ")";
+			if (mod.market.usingBuiltInKey()) return "built into SCD";
+			return mod.market.hasKey() ? "from SCD_KEY env" : "none";
 		});
-		rows.text("New key", "scd_... (paste, then Save)", "", ch -> ch > ' ' && ch < 127, s -> newKey = s);
+		rows.text("Personal key (optional)", "scd_... (paste, then Save)", "", ch -> ch > ' ' && ch < 127, s -> newKey = s);
 		rows.buttons(List.of("Save key", "Remove key", "Test"), List.of(() -> {
 			if (!newKey.isBlank()) {
 				c.market.apiKey = newKey.trim();

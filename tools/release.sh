@@ -12,7 +12,8 @@ TAG="v${VERSION}"
 JAR="build/libs/scd-${VERSION}.jar"
 
 export JAVA_HOME="$(ls -d /root/.jdks/jdk-25* | head -1)"
-./gradlew build --no-daemon -q
+[ -s ~/.config/scd/mod_key ] || { echo "missing ~/.config/scd/mod_key (built-in scd.wtf key)"; exit 1; }
+./gradlew clean build --no-daemon -q
 [ -f "$JAR" ] || { echo "missing $JAR"; exit 1; }
 git diff --quiet && git diff --cached --quiet || { echo "working tree not clean - commit first"; exit 1; }
 if git log --format=%B -1 | grep -qiE 'claude|anthropic'; then echo "attribution found in last commit"; exit 1; fi
