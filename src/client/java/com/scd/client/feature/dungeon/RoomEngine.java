@@ -212,7 +212,8 @@ public final class RoomEngine {
 		List<int[]> marks = new ArrayList<>();
 		for (var d : data.getDecorations()) {
 			if (d.type().value() == net.minecraft.world.level.saveddata.maps.MapDecorationTypes.FRAME.value()) continue;
-			marks.add(new int[]{(d.x() + 128) / 2, (d.y() + 128) / 2});
+			// {map x, map z, rotation in 16ths of a turn}
+			marks.add(new int[]{(d.x() + 128) / 2, (d.y() + 128) / 2, d.rot() & 15});
 		}
 		teammateMarks = marks;
 		for (MapLayout.MapRoom mr : read.rooms()) {

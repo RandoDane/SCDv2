@@ -123,13 +123,14 @@ final class DungeonMapHud extends HudElement {
 		for (var p : mc.level.players()) {
 			String name = p.getGameProfile().name();
 			if (name.equals(self) || !party.contains(name)) continue;
-			spots.put(name, tiles(p.getX(), p.getZ()));
+			spots.put(name, withYaw(tiles(p.getX(), p.getZ()), p.getYHeadRot()));
 		}
 		// Markers not explained by a loaded teammate belong to the ones further away.
 		int gap = layout.roomSize() + 4;
 		List<float[]> free = new java.util.ArrayList<>();
 		for (int[] m : dungeon.rooms().teammateMarks()) {
-			float[] t = {(m[0] - layout.startX()) / (float) gap, (m[1] - layout.startZ()) / (float) gap};
+			// Marker rotation is in 16ths of a turn, the same way round as a player's yaw.
+			float[] t = {(m[0] - layout.startX()) / (float) gap, (m[1] - layout.startZ()) / (float) gap, m.length > 2 ? m[2] * 22.5f : Float.NaN};
 			boolean taken = false;
 			for (float[] s : spots.values()) if (Math.abs(s[0] - t[0]) + Math.abs(s[1] - t[1]) < 0.35f) taken = true;
 			if (!taken) free.add(t);
@@ -147,24 +148,38 @@ final class DungeonMapHud extends HudElement {
 		}
 		int size = Math.max(4, Math.round(8 * config.get().dungeon.mapHeadSize / 100f));
 		for (var e : spots.entrySet()) head(g, x, y, e.getKey(), e.getValue(), size, 0xFF60A5FA);
-		head(g, x, y, self, tiles(mc.player.getX(), mc.player.getZ()), size, 0xFF4ADE80);
+		head(g, x, y, self, withYaw(tiles(mc.player.getX(), mc.player.getZ()), mc.player.getYHeadRot()), size, 0xFF4ADE80);
+	}
+
+	private static float[] withYaw(float[] tile, float yaw) {
+		return new float[]{tile[0], tile[1], yaw};
 	}
 
 	private static float[] tiles(double worldX, double worldZ) {
 		return new float[]{(float) ((worldX - DungeonGrid.ORIGIN) / DungeonGrid.TILE), (float) ((worldZ - DungeonGrid.ORIGIN) / DungeonGrid.TILE)};
 	}
 
-	/** A player's face (with hat layer) centred on a map spot, framed in {@code border}. */
+	/**
+	 * A player's face (with hat layer) centred on a map spot, framed in {@code border}, turned so the
+	 * top of the head points where they look ({@code tile[2]} = yaw; north is up on the map).
+	 */
 	private static void head(GuiGraphicsExtractor g, int x, int y, String name, float[] tile, int size, int border) {
 		var conn = Minecraft.getInstance().getConnection();
 		var info = conn != null && !name.isEmpty() ? conn.getPlayerInfo(name) : null;
-		int cx = x + Math.round(tile[0] * CELL), cy = y + Math.round(tile[1] * CELL), half = size / 2;
-		g.fill(cx - half - 1, cy - half - 1, cx - half + size + 1, cy - half + size + 1, border);
+		float cx = x + tile[0] * CELL, cy = y + tile[1] * CELL;
+		int half = size / 2;
+		var pose = g.pose();
+		pose.pushMatrix();
+		pose.translate(cx, cy);
+		// Yaw 180 = facing north = head upright.
+		if (tile.length > 2 && !Float.isNaN(tile[2])) pose.rotate((float) Math.toRadians(tile[2] + 180));
+		g.fill(-half - 1, -half - 1, -half + size + 1, -half + size + 1, border);
 		if (info != null) {
-			net.minecraft.client.gui.components.PlayerFaceExtractor.extractRenderState(g, info.getSkin(), cx - half, cy - half, size);
+			net.minecraft.client.gui.components.PlayerFaceExtractor.extractRenderState(g, info.getSkin(), -half, -half, size);
 		} else {
-			g.fill(cx - half, cy - half, cx - half + size, cy - half + size, 0xFF334155);
+			g.fill(-half, -half, -half + size, -half + size, 0xFF334155);
 		}
+		pose.popMatrix();
 	}
 
 	/**
@@ -222,9 +237,9 @@ final class DungeonMapHud extends HudElement {
 		int size = Math.max(4, Math.round(8 * c.mapHeadSize / 100f));
 		var mc = Minecraft.getInstance();
 		String self = mc.player != null ? mc.player.getGameProfile().name() : "";
-		head(g, x, y, self, new float[]{3.5f, 3.4f}, size, 0xFF4ADE80);
-		head(g, x, y, "", new float[]{1.2f, 1.9f}, size, 0xFF60A5FA);
-		head(g, x, y, "", new float[]{5.4f, 1.25f}, size, 0xFF60A5FA);
+		head(g, x, y, self, new float[]{3.5f, 3.4f, 225}, size, 0xFF4ADE80);
+		head(g, x, y, "", new float[]{1.2f, 1.9f, 90}, size, 0xFF60A5FA);
+		head(g, x, y, "", new float[]{5.4f, 1.25f, 0}, size, 0xFF60A5FA);
 	}
 
 	private static RoomKind previewKind(char id) {
