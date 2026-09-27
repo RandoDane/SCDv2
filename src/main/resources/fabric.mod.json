@@ -1,0 +1,25 @@
+{
+	"schemaVersion": 1,
+	"id": "scd",
+	"version": "${version}",
+	"name": "SCD",
+	"description": "Hypixel SkyBlock companion: scd.wtf market prices (Bazaar + Auction House), Slayer tracking with mechanic cues and RNG meter, carry management, live dungeon score and accessory planning.",
+	"authors": ["RandoDane"],
+	"contact": {
+		"sources": "https://github.com/RandoDane/scd"
+	},
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["com.scd.client.ScdClient"]
+	},
+	"mixins": [
+		{ "config": "scd.client.mixins.json", "environment": "client" }
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

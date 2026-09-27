@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"minVersion": "0.8",
+	"package": "com.scd.client.mixin",
+	"client": [
+		"ChatPacketMixin",
+		"EntityRendererMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

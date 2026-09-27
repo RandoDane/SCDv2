@@ -1,0 +1,11 @@
+{
+	"schemaVersion": 1,
+	"id": "scd-gametest",
+	"version": "1.0.0",
+	"name": "SCD game tests",
+	"environment": "client",
+	"entrypoints": {
+		"fabric-client-gametest": ["com.scd.gametest.ScdClientGameTest"]
+	},
+	"depends": { "scd": "*" }
+}
