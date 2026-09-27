@@ -55,8 +55,15 @@ final class PuzzleSolvers2 {
 	private record Beam(Vec3 a, Vec3 b, int pair) {
 	}
 
-	/** Colour slot per lantern pair (by its two positions), for the whole visit. */
+	/** Colour slot per lantern pair (by its two positions), for the whole visit, whichever solver found it. */
 	private final Map<String, Integer> beamSlots = new HashMap<>();
+	/** Once SCD's own pairing worked in this room it is used for the rest of the visit (no flipping to the data). */
+	private boolean ownBeamsWorked;
+
+	private int beamSlot(BlockPos a, BlockPos b) {
+		String key = Math.min(a.asLong(), b.asLong()) + ":" + Math.max(a.asLong(), b.asLong());
+		return beamSlots.computeIfAbsent(key, k -> beamSlots.size());
+	}
 	private boolean beamsLogged, iceLogged;
 	/** Boulder learning: a click waiting for its "after" snapshot. */
 	private String boulderBefore;
@@ -166,6 +173,7 @@ final class PuzzleSolvers2 {
 	private void resetRoom() {
 		beams.clear();
 		beamSlots.clear();
+		ownBeamsWorked = false;
 		beamsLogged = iceLogged = false;
 		boulderBefore = null;
 		icePath.clear();
@@ -218,16 +226,18 @@ final class PuzzleSolvers2 {
 	private void beams(MappedRoom room, Level level) {
 		List<Beam> own = ownBeams(room, level);
 		if (own != null) {
+			ownBeamsWorked = true;
 			beams.clear();
 			beams.addAll(own);
 			return;
 		}
+		if (ownBeamsWorked) return; // a bad scan: keep the last good pairs
 		beams.clear();
 		for (int i = 0; i < beamPairs.size(); i++) {
 			int[] p = beamPairs.get(i);
 			BlockPos a = room.toWorld(new BlockPos(p[0], p[1], p[2])), b = room.toWorld(new BlockPos(p[3], p[4], p[5]));
 			if (level.getBlockState(a).getBlock() == Blocks.SEA_LANTERN && level.getBlockState(b).getBlock() == Blocks.SEA_LANTERN) {
-				beams.add(new Beam(Vec3.atCenterOf(a), Vec3.atCenterOf(b), i));
+				beams.add(new Beam(Vec3.atCenterOf(a), Vec3.atCenterOf(b), beamSlot(a, b)));
 			}
 		}
 	}
@@ -262,16 +272,18 @@ final class PuzzleSolvers2 {
 				if (miss < 1.2) candidates.add(new Candidate(lanterns.get(i), lanterns.get(j), miss));
 			}
 		}
-		candidates.sort(java.util.Comparator.comparingDouble(Candidate::miss));
+		// Pairs from the last scan that still fit come first, so a lantern never swaps partner.
+		Set<String> previous = new HashSet<>();
+		for (Beam b : beams) previous.add(BlockPos.containing(b.a()).asLong() + ":" + BlockPos.containing(b.b()).asLong());
+		candidates.sort(java.util.Comparator.<Candidate>comparingInt(c -> previous.contains(c.a().asLong() + ":" + c.b().asLong())
+				|| previous.contains(c.b().asLong() + ":" + c.a().asLong()) ? 0 : 1).thenComparingDouble(Candidate::miss));
 		Set<BlockPos> used = new HashSet<>();
 		List<Beam> out = new ArrayList<>();
 		for (Candidate c : candidates) {
 			if (used.contains(c.a()) || used.contains(c.b())) continue;
 			used.add(c.a());
 			used.add(c.b());
-			String key = Math.min(c.a().asLong(), c.b().asLong()) + ":" + Math.max(c.a().asLong(), c.b().asLong());
-			int slot = beamSlots.computeIfAbsent(key, k -> beamSlots.size());
-			out.add(new Beam(Vec3.atCenterOf(c.a()), Vec3.atCenterOf(c.b()), slot));
+			out.add(new Beam(Vec3.atCenterOf(c.a()), Vec3.atCenterOf(c.b()), beamSlot(c.a(), c.b())));
 		}
 		if (!beamsLogged) {
 			beamsLogged = true;
