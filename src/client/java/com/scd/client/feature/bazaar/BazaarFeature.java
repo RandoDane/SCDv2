@@ -49,7 +49,13 @@ public final class BazaarFeature implements Feature {
 
 		ItemTooltipCallback.EVENT.register((stack, context, flag, lines) ->
 				ScdLog.guard("bazaar tooltip", () -> onTooltip(stack, lines)));
-		mod.huds.add(new PriceGraphHud(mod::config, prices, history, hover));
+		PriceGraphHud graph = new PriceGraphHud(mod::config, prices, history, hover);
+		mod.huds.add(graph);
+		mod.bus.subscribe(com.scd.client.core.Events.ScreenOpened.class, e -> {
+			if (!(e.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> cs)) return;
+			net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterExtract(cs).register((s, g, mx, my, pt) ->
+					ScdLog.guard("price graph", () -> drawGraphBesideInventory(graph, cs, g)));
+		});
 	}
 
 	public PriceService prices() {
@@ -134,6 +140,20 @@ public final class BazaarFeature implements Feature {
 	public Double buyPrice(String itemId) {
 		var p = prices.get(itemId);
 		return p != null && p.buyPrice() > 0 ? p.buyPrice() : null;
+	}
+
+	/** The price graph on top of the menu, left of the inventory (right of it when there's no room). */
+	private void drawGraphBesideInventory(PriceGraphHud graph, net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> cs,
+			net.minecraft.client.gui.GuiGraphicsExtractor g) {
+		if (!mod.config().bazaar.graphHud || !mod.active()) return;
+		var placed = mod.huds.place(graph, false, cs.width, cs.height);
+		if (placed == null) return;
+		var acc = (com.scd.client.mixin.ContainerScreenAccessor) cs;
+		int left = acc.scd$leftPos(), top = acc.scd$topPos();
+		int x = left - placed.width() - 8;
+		if (x < 4) x = cs.width - left + 8; // right of a centred inventory
+		int y = Math.max(4, Math.min(top, cs.height - placed.height() - 4));
+		mod.huds.draw(g, new com.scd.client.hud.HudManager.Placed(placed.element(), placed.box(), x, y, placed.width(), placed.height(), placed.scale()));
 	}
 
 	public HoverState hover() {

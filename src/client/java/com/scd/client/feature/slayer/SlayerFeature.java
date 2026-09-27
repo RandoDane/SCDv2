@@ -272,7 +272,7 @@ public final class SlayerFeature implements Feature {
 	public void registerCommands(LiteralArgumentBuilder<FabricClientCommandSource> root) {
 		root.then(ClientCommands.literal("slayer")
 				.executes(ctx -> {
-					ScdScreen.open(new SlayerScreen(new com.scd.client.ui.clickgui.ClickGuiScreen(mod), mod, this));
+					ScdScreen.open(new com.scd.client.ui.clickgui.ClickGuiScreen(mod));
 					return 1;
 				})
 				.then(ClientCommands.literal("drops")

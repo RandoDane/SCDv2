@@ -34,7 +34,10 @@ final class PriceGraphHud extends HudElement {
 
 	@Override
 	public boolean enabled() {
-		return config.get().bazaar.graphHud;
+		// Inside menus the graph is drawn by the screen itself (on top of it, beside the inventory);
+		// the HUD pass would put it behind the menu's dimmed background.
+		return config.get().bazaar.graphHud
+				&& !(net.minecraft.client.Minecraft.getInstance().gui.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);
 	}
 
 	@Override

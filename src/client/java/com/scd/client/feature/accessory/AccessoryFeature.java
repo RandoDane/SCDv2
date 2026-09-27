@@ -66,7 +66,7 @@ public final class AccessoryFeature implements Feature {
 	public void registerCommands(LiteralArgumentBuilder<FabricClientCommandSource> root) {
 		root.then(ClientCommands.literal("accessories")
 				.executes(ctx -> {
-					ScdScreen.open(new AccessoryScreen(new com.scd.client.ui.clickgui.ClickGuiScreen(mod), mod, this));
+					ScdScreen.open(new com.scd.client.ui.clickgui.ClickGuiScreen(mod));
 					return 1;
 				})
 				.then(ClientCommands.literal("scan").executes(ctx -> {

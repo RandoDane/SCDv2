@@ -27,4 +27,16 @@ public sealed interface Opt {
 
 	record Info(String label, Supplier<String> value) implements Opt {
 	}
+
+	/** Inline text: click to edit, Enter to save, Esc to cancel. */
+	record Text(String label, Supplier<String> get, Consumer<String> set) implements Opt {
+	}
+
+	/** Colour from a palette (click forward, right-click back); null = follow the theme. */
+	record Color(String label, Supplier<Integer> get, Consumer<Integer> set) implements Opt {
+	}
+
+	/** A row split into equal click zones ("+1", "-1", "Finish"...), with a caption on the left. */
+	record Buttons(String label, List<String> names, List<Runnable> actions) implements Opt {
+	}
 }

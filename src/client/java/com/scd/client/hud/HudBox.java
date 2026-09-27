@@ -208,6 +208,11 @@ public final class HudBox {
 
 	/** Draws the rows at local (0,0); the caller has already applied translate/scale and the panel. */
 	public void render(GuiGraphicsExtractor g, Palette palette) {
+		render(g, palette, true);
+	}
+
+	/** @param panel whether the HUD has its background panel; without it, divider lines are left out too */
+	public void render(GuiGraphicsExtractor g, Palette palette, boolean panel) {
 		int x = PADDING;
 		int y = PADDING;
 		int w = contentWidth();
@@ -220,7 +225,9 @@ public final class HudBox {
 					else Ui.text(g, str, x, y + 1, color);
 				}
 				case Bar b -> Ui.bar(g, x, y, w, 5, b.frac(), b.color());
-				case Divider d -> g.fill(x, y + 2, x + w, y + 3, 0x28FFFFFF);
+				case Divider d -> {
+					if (panel) g.fill(x, y + 2, x + w, y + 3, 0x28FFFFFF);
+				}
 				case Space s -> {
 				}
 				case Hero h -> {

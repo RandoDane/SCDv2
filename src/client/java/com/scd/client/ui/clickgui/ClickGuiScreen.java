@@ -48,7 +48,20 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	private float scale = 1;
 	private int vw, vh;
 
-	public record PanelSection(String title, List<Opt> options) {
+	/** Side panel block; options are re-read every frame (carry lists, stats change live). */
+	public record PanelSection(String title, java.util.function.Supplier<List<Opt>> options) {
+	}
+
+	/** The text option being edited, and its unsaved value. */
+	private Opt.Text editing;
+	private String editBuffer = "";
+
+	/** Palette for colour options (null first = theme colour). */
+	private static final Integer[] PALETTE = {null, 0xFFFFFFFF, 0xFFAAAAAA, 0xFF555555, 0xFFFF5555, 0xFFFFAA00, 0xFFFFFF55, 0xFF55FF55,
+			0xFF55FFFF, 0xFF5599FF, 0xFFAA55FF, 0xFFFF55FF};
+
+	private Set<String> collapsed() {
+		return new HashSet<>(mod.config().general.clickGuiCollapsed);
 	}
 
 	public ClickGuiScreen(ScdMod mod) {
@@ -158,6 +171,7 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 			if (j == index) continue;
 			int[] o = position(categories.get(j), j);
 			boolean overlapX = o[0] < pos[0] + COL_W && o[0] + COL_W > pos[0];
+			if (o[1] <= pos[1]) continue;
 			if (overlapX && o[1] > pos[1]) limit = Math.min(limit, o[1] - GAP);
 		}
 		return limit;
@@ -170,6 +184,8 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		Ui.rect(g, x, y, COL_W, HEAD_H, 3, t.accent());
 		Ui.centered(g, c.name().toUpperCase(java.util.Locale.ROOT), x + COL_W / 2, y + 4, 0xFFFFFFFF);
 		headerRects.put(c.name(), new int[]{x, y, COL_W, HEAD_H});
+		// Right-click on the header folds the category away (left-drag moves it).
+		if (mod.config().general.clickGuiCollapsed.contains(c.name())) return null;
 		int top = y + HEAD_H;
 		double scroll = SCROLL.getOrDefault(c.name(), 0.0);
 		// +1: a background-coloured line along the bottom, inside the accent outline.
@@ -264,11 +280,86 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 				Ui.text(g, Ui.ellipsize(a.label(), w - indent - 4), tx, y + 2, hot ? t.accent() : t.textPrimary());
 				if (vis) hits.add(new Hit(x, hy, w, OPT_H, a.run(), null, null, null));
 			}
+			case Opt.Text tx2 -> {
+				boolean editingThis = editing == tx2;
+				Ui.text(g, Ui.ellipsize(tx2.label(), w / 3), tx, y + 2, t.textSecondary());
+				String v = editingThis ? editBuffer + ((System.currentTimeMillis() / 500) % 2 == 0 ? "_" : " ") : tx2.get().get();
+				int vx = x + w / 3 + 4, vw = w - w / 3 - 8;
+				g.fill(vx - 2, y + 1, x + w - 2, y + OPT_H - 1, editingThis ? t.field() : t.window());
+				// Show the end of what's being typed.
+				String shown = v;
+				while (Ui.width(shown) > vw && shown.length() > 1) shown = shown.substring(1);
+				if (!editingThis) shown = Ui.ellipsize(v, vw);
+				Ui.text(g, shown, vx, y + 2, editingThis ? t.textPrimary() : t.textSecondary());
+				if (vis) hits.add(new Hit(x, hy, w, OPT_H, () -> startEdit(tx2), null, null, null));
+			}
+			case Opt.Color col -> {
+				Integer v = col.get().get();
+				Ui.text(g, Ui.ellipsize(col.label(), w - 40), tx, y + 2, t.textSecondary());
+				int sx = x + w - 12;
+				if (v == null) Ui.rightAligned(g, "theme", sx - 4, y + 2, t.textMuted());
+				g.fill(sx, y + 3, sx + 7, y + 10, v == null ? t.accent() : v);
+				g.outline(sx, y + 3, 7, 7, t.border());
+				if (vis) hits.add(new Hit(x, hy, w, OPT_H, () -> stepColor(col, 1), () -> stepColor(col, -1), null, null));
+			}
+			case Opt.Buttons bs -> {
+				int n = bs.names().size();
+				int capW = bs.label().isEmpty() ? 0 : Math.min(w / 2, Ui.width(bs.label()) + 8);
+				if (capW > 0) Ui.text(g, Ui.ellipsize(bs.label(), capW - 4), tx, y + 2, t.textSecondary());
+				int bx = x + capW + (capW > 0 ? 0 : 2), bw = (w - capW - 2) / Math.max(1, n);
+				for (int i = 0; i < n; i++) {
+					int zx = bx + i * bw;
+					boolean hot = mx >= zx && mx < zx + bw && my >= y && my < y + OPT_H;
+					g.fill(zx + 1, y + 1, zx + bw - 1, y + OPT_H - 1, hot ? t.cardHover() : t.card());
+					Ui.centered(g, bs.names().get(i), zx + bw / 2, y + 2, t.textPrimary());
+					if (vis) hits.add(new Hit(zx, hy, bw, OPT_H, bs.actions().get(i), null, null, null));
+				}
+			}
 			case Opt.Info in -> {
 				Ui.text(g, Ui.ellipsize(in.label(), w / 2), tx, y + 2, t.textMuted());
 				Ui.rightAligned(g, Ui.ellipsize(in.value().get(), w / 2 - 4), x + w - 4, y + 2, t.textSecondary());
 			}
 		}
+	}
+
+	private void startEdit(Opt.Text t) {
+		editing = t;
+		editBuffer = t.get().get() == null ? "" : t.get().get();
+	}
+
+	private void commitEdit() {
+		if (editing != null) editing.set().accept(editBuffer);
+		editing = null;
+	}
+
+	private static void stepColor(Opt.Color col, int dir) {
+		int i = java.util.Arrays.asList(PALETTE).indexOf(col.get().get());
+		int n = PALETTE.length;
+		col.set().accept(PALETTE[((i < 0 ? 0 : i) + dir + n) % n]);
+	}
+
+	@Override
+	public boolean charTyped(net.minecraft.client.input.CharacterEvent event) {
+		if (editing == null) return super.charTyped(event);
+		String c = event.codepointAsString();
+		if (editBuffer.length() < 200 && !c.isEmpty() && c.charAt(0) >= ' ') editBuffer += c;
+		return true;
+	}
+
+	@Override
+	public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+		if (editing == null) return super.keyPressed(event);
+		switch (event.key()) {
+			case org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE -> {
+				if (!editBuffer.isEmpty()) editBuffer = editBuffer.substring(0, editBuffer.length() - 1);
+			}
+			case org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER, org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER -> commitEdit();
+			case org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE -> editing = null;
+			default -> {
+				if (event.isPaste()) editBuffer += net.minecraft.client.Minecraft.getInstance().keyboardHandler.getClipboard();
+			}
+		}
+		return true;
 	}
 
 	private static void step(Opt.Cycle cy, int dir) {
@@ -289,7 +380,7 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		for (PanelSection s : panel) {
 			Ui.section(g, s.title(), px + 8, y + 3);
 			y += 14;
-			for (Opt o : s.options()) {
+			for (Opt o : s.options().get()) {
 				drawOpt(g, o, px + 4, y, pw - 8, 5, top, vh - top, mx, my);
 				y += OPT_H + 1;
 			}
@@ -306,9 +397,16 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		updateScale();
 		double mx = event.x() / scale, my = event.y() / scale;
+		if (editing != null) commitEdit();
 		for (var e : headerRects.entrySet()) {
 			int[] r = e.getValue();
-			if (event.button() == 0 && mx >= r[0] && mx < r[0] + r[2] && my >= r[1] && my < r[1] + r[3]) {
+			boolean onHeader = mx >= r[0] && mx < r[0] + r[2] && my >= r[1] && my < r[1] + r[3];
+			if (event.button() == 1 && onHeader) {
+				List<String> list = mod.config().general.clickGuiCollapsed;
+				if (!list.remove(e.getKey())) list.add(e.getKey());
+				return true;
+			}
+			if (event.button() == 0 && onHeader) {
 				dragging = e.getKey();
 				dragDx = mx - r[0];
 				dragDy = my - r[1];
@@ -384,6 +482,7 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 
 	@Override
 	public void removed() {
+		if (editing != null) commitEdit();
 		mod.configManager.save();
 	}
 

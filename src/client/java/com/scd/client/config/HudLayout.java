@@ -21,6 +21,8 @@ public final class HudLayout {
 	public float scale = 1.0f;
 	/** Draw the rounded panel behind the content (off = floating text only). */
 	public boolean background = true;
+	/** Hidden from the click GUI's HUD column (on top of the feature's own switch). */
+	public boolean hidden = false;
 	/** Player color overrides keyed by the element's color-slot id; missing entries follow the theme. */
 	public Map<String, Integer> colors = new LinkedHashMap<>();
 
@@ -78,6 +80,7 @@ public final class HudLayout {
 		l.scale = scale;
 		l.background = background;
 		l.colors = new LinkedHashMap<>(colors);
+		l.hidden = hidden;
 		return l;
 	}
 

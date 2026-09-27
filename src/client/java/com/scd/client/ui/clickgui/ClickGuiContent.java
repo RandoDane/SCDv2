@@ -164,8 +164,7 @@ final class ClickGuiContent {
 		List<Module> market = new ArrayList<>();
 		market.add(new Module("Bazaar tooltips", "Instant buy/sell and spread", () -> c.bazaar.tooltip, v -> c.bazaar.tooltip = v)
 				.toggle("Whole-stack value", () -> c.bazaar.tooltipStackValue, v -> c.bazaar.tooltipStackValue = v)
-				.opt(new Opt.Slider("Refresh (restart)", 15, 300, 15, () -> c.market.bazaarRefreshSeconds, v -> c.market.bazaarRefreshSeconds = (int) Math.round(v),
-						v -> Math.round(v) + "s")));
+				);
 		market.add(new Module("Auction tooltips", "Estimate and lowest BIN", () -> c.market.auctionTooltips, v -> c.market.auctionTooltips = v));
 		market.add(new Module("Price graph", "Graph HUD while hovering in menus", () -> c.bazaar.graphHud, v -> c.bazaar.graphHud = v)
 				.opt(new Opt.Cycle("Range", List.of("1d", "7d", "30d"), () -> c.bazaar.graphRange, v -> c.bazaar.graphRange = v, v -> v)));
@@ -176,6 +175,24 @@ final class ClickGuiContent {
 				new Module("Bag overlay", "Missing accessories priced by Magical Power", () -> c.accessories.bagOverlay, v -> c.accessories.bagOverlay = v)
 						.opt(new Opt.Cycle("Sort", List.of("MAX", "PRICE", "VALUE"), () -> c.accessories.sort, v -> c.accessories.sort = v, v -> v)))));
 
+		// ---- HUD (appearance of every HUD) ----
+		List<Module> huds = new ArrayList<>();
+		for (var e : mod.huds.elements()) {
+			var layout = mod.huds.layout(e);
+			Module m = new Module(e.name(), "Show this HUD (its feature must be on too); options: size, panel, colours",
+					() -> !layout.hidden, v -> layout.hidden = !v)
+					.opt(new Opt.Slider("Size", 0.5, 2.5, 0.1, () -> layout.scale, v -> layout.scale = (float) (double) v, v -> Math.round(v * 100) + "%"))
+					.toggle("Background panel", () -> layout.background, v -> layout.background = v);
+			for (var role : com.scd.client.hud.HudColor.values()) {
+				m.opt(new Opt.Color(role.label(), () -> layout.colors.get(role.id()), v -> {
+					if (v == null) layout.colors.remove(role.id());
+					else layout.colors.put(role.id(), role == com.scd.client.hud.HudColor.BACKGROUND ? (v & 0x00FFFFFF) | 0xE0000000 : v);
+				}));
+			}
+			huds.add(m);
+		}
+		out.add(new Category("HUD", huds));
+
 		// ---- Performance ----
 		out.add(new Category("Performance", List.of(
 				new Module("Lag scanner", "What costs the most frames; spikes logged with location", () -> c.perf.lagScanner, v -> {
@@ -185,13 +202,27 @@ final class ClickGuiContent {
 		return out;
 	}
 
+	/** New-carry form state (kept while the menu is open). */
+	private static String newCustomer = "", newPrice = "";
+	private static String newWhat = "F7";
+	private static int newCount = 1;
+
+	private static List<String> carryTargets() {
+		List<String> out = new ArrayList<>(com.scd.logic.dungeon.Floor.CARRYABLE);
+		for (SlayerType t : SlayerType.values()) {
+			for (String tier : com.scd.logic.slayer.SlayerTier.ALL) out.add(t.displayName() + " " + tier);
+		}
+		return out;
+	}
+
 	static List<ClickGuiScreen.PanelSection> panel(ScdMod mod) {
 		ScdConfig c = mod.config();
 		List<String> themes = Theme.PRESETS.stream().map(Theme::name).toList();
 		int[] sizes = Ui.textSizes();
 		CarryService carries = mod.feature(CarryService.class);
+		SlayerFeature slayer = mod.feature(SlayerFeature.class);
 		return List.of(
-				new ClickGuiScreen.PanelSection("General", List.of(
+				new ClickGuiScreen.PanelSection("General", () -> List.of(
 						new Opt.Cycle("Theme", themes, () -> Ui.theme().name(), v -> {
 							Ui.setTheme(Theme.byName(v));
 							c.general.theme = v;
@@ -207,24 +238,76 @@ final class ClickGuiContent {
 						new Opt.Slider("Menu size", 80, 130, 5, () -> c.general.menuScale, v -> c.general.menuScale = (int) Math.round(v),
 								v -> Math.round(v) + "%"),
 						new Opt.Toggle("Only on SkyBlock", () -> c.general.requireSkyblock, v -> c.general.requireSkyblock = v),
-						new Opt.Toggle("Developer mode", () -> c.general.developerMode, v -> {
-							c.general.developerMode = v;
-							com.scd.client.core.ScdLog.setDebug(v);
-						}),
-						new Opt.Action("HUD layout...", () -> open(new HudEditorScreen(current(), mod.huds, mod.configManager))),
-						new Opt.Action("HUD appearance...", () -> open(new AppearanceScreen(current(), mod))),
-						new Opt.Action("Backend & messages...", () -> open(new GeneralScreen(current(), mod))),
-						new Opt.Action("Market API key...", () -> open(new MarketScreen(current(), mod))),
-						new Opt.Action("Overview...", () -> open(new MainScreen(current(), mod))))),
-				new ClickGuiScreen.PanelSection("Pages", List.of(
-						new Opt.Action("Slayer stats & drops...", () -> open(new SlayerScreen(current(), mod, mod.feature(SlayerFeature.class)))),
-						new Opt.Action("Reset slayer session", () -> mod.feature(SlayerFeature.class).session().reset()),
-						new Opt.Action("Accessories...", () -> open(new AccessoryScreen(current(), mod, mod.feature(AccessoryFeature.class)))),
-						new Opt.Info("Room engine", () -> mod.feature(DungeonFeature.class).rooms().describe()))),
-				new ClickGuiScreen.PanelSection("Carries", List.of(
-						new Opt.Info("Active", () -> String.valueOf(carries.active().size())),
-						new Opt.Toggle("Party chat progress", () -> c.carries.partyProgress, v -> c.carries.partyProgress = v),
-						new Opt.Action("New carry...", () -> open(new CarryFormScreen(current(), carries))),
-						new Opt.Action("Carries & ledger...", () -> open(new CarryScreen(current(), carries))))));
+						new Opt.Action("Move HUDs...", () -> open(new HudEditorScreen(current(), mod.huds, mod.configManager))))),
+				new ClickGuiScreen.PanelSection("Carries", () -> {
+					List<Opt> o = new ArrayList<>();
+					for (var carry : carries.active()) {
+						o.add(new Opt.Info(carry.customer + " · " + carry.target(), () -> carry.unitsDone + "/" + carry.unitsOwed));
+						o.add(new Opt.Buttons("", List.of("+1", "-1", "Finish", "Remove"), List.of(
+								() -> carries.adjust(carry, 1), () -> carries.adjust(carry, -1), () -> carries.finish(carry), () -> carries.remove(carry))));
+					}
+					o.add(new Opt.Info("Earned / owed", () -> com.scd.logic.Numbers.compactCoins(carries.earnedTotal()) + " / "
+							+ com.scd.logic.Numbers.compactCoins(carries.outstandingTotal())));
+					o.add(new Opt.Text("Customer", () -> newCustomer, v -> newCustomer = v.trim()));
+					o.add(new Opt.Cycle("What", carryTargets(), () -> newWhat, v -> newWhat = v, v -> v));
+					o.add(new Opt.Slider("Count", 1, 50, 1, () -> newCount, v -> newCount = (int) Math.round(v), v -> String.valueOf(Math.round(v))));
+					o.add(new Opt.Text("Price each", () -> newPrice, v -> newPrice = v.trim()));
+					o.add(new Opt.Action("Add carry", () -> addCarry(carries)));
+					o.add(new Opt.Toggle("Party chat progress", () -> c.carries.partyProgress, v -> c.carries.partyProgress = v));
+					o.add(new Opt.Text("Progress msg", () -> c.carries.progressTemplate, v -> c.carries.progressTemplate = v));
+					o.add(new Opt.Text("Finish msg", () -> c.carries.finishTemplate, v -> c.carries.finishTemplate = v));
+					return o;
+				}),
+				new ClickGuiScreen.PanelSection("Stats", () -> {
+					List<Opt> o = new ArrayList<>();
+					o.add(new Opt.Info("Purse", () -> {
+						String line = mod.game.sidebarFind(l -> l.startsWith("Purse:") || l.startsWith("Piggy:"));
+						return line != null ? line.replaceFirst("^(Purse|Piggy):\\s*", "") : "-";
+					}));
+					var session = slayer.session();
+					if (session.kills() > 0) {
+						o.add(new Opt.Info("Slayer session", () -> session.kills() + " kills · " + Math.round(session.killsPerHour()) + "/h"));
+						o.add(new Opt.Info("Avg fight / spawn", () -> com.scd.logic.Numbers.durationTenths(session.avgFightMs()) + " / "
+								+ com.scd.logic.Numbers.durationTenths(session.avgHuntMs())));
+					}
+					for (SlayerType type : SlayerType.values()) {
+						String best = null;
+						for (String tier : com.scd.logic.slayer.SlayerTier.ALL) {
+							Long ms = slayer.records().best(type, tier);
+							if (ms != null) best = tier + " " + com.scd.logic.Numbers.durationTenths(ms);
+						}
+						Long xp = slayer.rng().storedXp(type);
+						if (best == null && xp == null) continue;
+						String pb = best, rng = xp != null ? com.scd.logic.Numbers.compactCount(xp) + " RNG XP" : null;
+						o.add(new Opt.Info(type.displayName(), () -> (pb != null ? "PB " + pb : "") + (pb != null && rng != null ? " · " : "") + (rng != null ? rng : "")));
+					}
+					o.add(new Opt.Buttons("", List.of("Reset slayer session"), List.of(() -> session.reset())));
+					var acc = mod.feature(AccessoryFeature.class).service().summary();
+					if (acc != null && acc.accessoryPower() != null) {
+						o.add(new Opt.Info("Accessory Power", () -> String.valueOf(acc.accessoryPower())));
+					}
+					return o;
+				}));
+	}
+
+	private static void addCarry(CarryService carries) {
+		var price = com.scd.logic.Numbers.parseCompactLong(newPrice);
+		if (newCustomer.isEmpty() || price.isEmpty() || price.getAsLong() <= 0) {
+			com.scd.client.core.Chat.error("New carry: fill in the customer and a price like 1.5m.");
+			return;
+		}
+		String floor = com.scd.logic.dungeon.Floor.normalize(newWhat);
+		if (floor != null) {
+			carries.addDungeon(newCustomer, floor, price.getAsLong(), newCount);
+		} else {
+			String[] parts = newWhat.split(" ");
+			SlayerType type = SlayerType.parse(parts[0]);
+			if (type == null) return;
+			carries.addSlayer(newCustomer, type, parts[1], price.getAsLong(), newCount);
+		}
+		com.scd.client.core.Chat.success("Added carry: " + newCustomer + " " + newWhat + " x" + newCount);
+		newCustomer = "";
+		newPrice = "";
+		newCount = 1;
 	}
 }

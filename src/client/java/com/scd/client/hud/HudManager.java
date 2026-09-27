@@ -78,7 +78,7 @@ public final class HudManager {
 			for (int i = 0; i < elements.size(); i++) {
 				HudElement e = elements.get(i);
 				boolean preview = e.id().equals(previewId);
-				if (!preview && (!live || !e.enabled())) {
+				if (!preview && (!live || !e.enabled() || layout(e).hidden)) {
 					cache.remove(e);
 					continue;
 				}
@@ -127,7 +127,7 @@ public final class HudManager {
 			pose.translate(p.x(), p.y());
 			pose.scale(p.scale(), p.scale());
 			if (layout.background) Ui.hudPanel(g, 0, 0, p.box().width(), p.box().height(), color(layout, HudColor.BACKGROUND));
-			p.box().render(g, role -> color(layout, role));
+			p.box().render(g, role -> color(layout, role), layout.background);
 		} finally {
 			Ui.setHudDensity(0);
 			pose.popMatrix();
