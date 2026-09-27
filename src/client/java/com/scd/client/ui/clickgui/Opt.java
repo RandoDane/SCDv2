@@ -58,4 +58,8 @@ public sealed interface Opt {
 			return "";
 		}
 	}
+
+	/** A button that opens a scrollable list; picking an entry closes it. */
+	record Dropdown(String label, Supplier<List<String>> items, Consumer<String> pick) implements Opt {
+	}
 }

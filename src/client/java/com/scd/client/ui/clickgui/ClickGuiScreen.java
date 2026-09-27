@@ -45,7 +45,15 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	private double dragDx, dragDy;
 	private Hit activeSlider;
 	private double panelScroll;
+	/** Last drawn panel content height and visible height, so scrolling clamps right away. */
+	private int panelContentH, panelVisibleH;
 	private PanelPage shownPage;
+	/** The open dropdown (by label), where its list is drawn, and its scroll. */
+	private String dropdown;
+	private Opt.Dropdown dropdownOpt;
+	private int[] dropdownRect;
+	private int dropdownScroll;
+	private static final int DROPDOWN_ROWS = 10;
 	/** Menu units -> GUI units, and the menu's virtual size (the menu ignores the game's GUI scale). */
 	private float scale = 1;
 	private int vw, vh;
@@ -203,6 +211,8 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 
 	private void drawMenu(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		hits.clear();
+		// Set again while drawing when the dropdown's row is on screen.
+		dropdownRect = null;
 		headerRects.clear();
 		String hover = null;
 		for (int i = 0; i < categories.size(); i++) {
@@ -211,6 +221,7 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 			if (h != null) hover = h;
 		}
 		drawPanel(g, mouseX, mouseY);
+		drawDropdown(g, mouseX, mouseY);
 		if (hover != null && !hover.isEmpty()) {
 			Theme t = Ui.theme();
 			int w = Math.min(vw - panelW() - 16, Ui.width(hover) + 12);
@@ -381,6 +392,23 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 					if (vis) hits.add(new Hit(zx, hy, bw, optH, bs.actions().get(i), null, null, null));
 				}
 			}
+			case Opt.Dropdown dd -> {
+				boolean open = dd.label().equals(dropdown);
+				boolean hot = mx >= x && mx < x + w && my >= y && my < y + optH;
+				g.fill(x + 1, y + 1, x + w - 1, y + optH - 1, open ? t.accent() : hot ? t.cardHover() : t.card());
+				int n = dd.items().get().size();
+				Ui.centered(g, dd.label() + "  (" + n + ")", x + w / 2, textY(y, optH), open ? 0xFFFFFFFF : t.textPrimary());
+				if (open) {
+					dropdownOpt = dd;
+					int rows = Math.max(1, Math.min(DROPDOWN_ROWS, n));
+					dropdownRect = new int[]{x + 1, y + optH, w - 2, rows * optH + 2};
+				}
+				if (vis) hits.add(new Hit(x, hy, w, optH, () -> {
+					dropdown = open ? null : dd.label();
+					dropdownScroll = 0;
+					if (open) dropdownRect = null;
+				}, null, null, null));
+			}
 			case Opt.Chips ch -> {
 				int n = ch.names().size();
 				int capW = ch.label().isEmpty() ? 0 : Math.min(w / 3, Ui.width(ch.label()) + 8);
@@ -504,7 +532,10 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 			bottom = vh - gap;
 			sections = page.sections();
 		}
-		if (page != shownPage) panelScroll = 0;
+		if (page != shownPage) {
+			panelScroll = 0;
+			dropdown = null;
+		}
 		shownPage = page;
 		int y = top - (int) panelScroll;
 		g.enableScissor(px, top, vw, bottom);
@@ -528,9 +559,47 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 			g.outline(cx, y, cw, headH + bodyH, t.accent());
 			y += headH + bodyH + gap;
 		}
-		int contentH = y + (int) panelScroll - top;
-		panelScroll = Math.max(0, Math.min(panelScroll, Math.max(0, contentH - (bottom - top))));
+		panelContentH = y + (int) panelScroll - top;
+		panelVisibleH = bottom - top;
+		clampPanelScroll();
 		g.disableScissor();
+	}
+
+	/** The open dropdown's list, over everything else. */
+	private void drawDropdown(GuiGraphicsExtractor g, int mx, int my) {
+		if (dropdown == null || dropdownRect == null || dropdownOpt == null) return;
+		Theme t = Ui.theme();
+		int x = dropdownRect[0], y = dropdownRect[1], w = dropdownRect[2], h = dropdownRect[3];
+		List<String> items = dropdownOpt.items().get();
+		g.fill(x, y, x + w, y + h, t.window());
+		if (items.isEmpty()) {
+			Ui.text(g, "No other players here", x + 6, textY(y + 1, optH), t.textMuted());
+		}
+		dropdownScroll = Math.max(0, Math.min(dropdownScroll, Math.max(0, items.size() - DROPDOWN_ROWS)));
+		int end = Math.min(items.size(), dropdownScroll + DROPDOWN_ROWS);
+		for (int i = dropdownScroll; i < end; i++) {
+			int ry = y + 1 + (i - dropdownScroll) * optH;
+			String name = items.get(i);
+			boolean hot = mx >= x && mx < x + w && my >= ry && my < ry + optH;
+			if (hot) g.fill(x + 1, ry, x + w - 1, ry + optH, t.cardHover());
+			Ui.text(g, Ui.ellipsize(name, w - 12), x + 6, textY(ry, optH), t.textPrimary());
+			hits.add(new Hit(x, ry, w, optH, () -> {
+				dropdownOpt.pick().accept(name);
+				dropdown = null;
+				dropdownRect = null;
+			}, null, null, null));
+		}
+		// Scroll position hint when the list is longer than the box.
+		if (items.size() > DROPDOWN_ROWS) {
+			int trackH = h - 2, thumbH = Math.max(6, trackH * DROPDOWN_ROWS / items.size());
+			int thumbY = y + 1 + (trackH - thumbH) * dropdownScroll / Math.max(1, items.size() - DROPDOWN_ROWS);
+			g.fill(x + w - 3, thumbY, x + w - 1, thumbY + thumbH, t.accent());
+		}
+		g.outline(x, y, w, h, t.accent());
+	}
+
+	private void clampPanelScroll() {
+		panelScroll = Math.max(0, Math.min(panelScroll, Math.max(0, panelContentH - panelVisibleH)));
 	}
 
 	/** A large accent button with bold centred text (Move HUDs, Go back). */
@@ -562,6 +631,15 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 				dragging = e.getKey();
 				dragDx = mx - r[0];
 				dragDy = my - r[1];
+				return true;
+			}
+		}
+		if (dropdown != null && dropdownRect != null) {
+			boolean inside = mx >= dropdownRect[0] && mx < dropdownRect[0] + dropdownRect[2] && my >= dropdownRect[1] && my < dropdownRect[1] + dropdownRect[3];
+			if (!inside) {
+				// A click anywhere else just closes the list.
+				dropdown = null;
+				dropdownRect = null;
 				return true;
 			}
 		}
@@ -617,8 +695,14 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	@Override
 	public boolean mouseScrolled(double rawX, double rawY, double sx, double sy) {
 		double mx = rawX / scale, my = rawY / scale;
+		if (dropdownRect != null && mx >= dropdownRect[0] && mx < dropdownRect[0] + dropdownRect[2] && my >= dropdownRect[1] && my < dropdownRect[1] + dropdownRect[3]) {
+			int n = dropdownOpt.items().get().size();
+			dropdownScroll = Math.max(0, Math.min(dropdownScroll - (int) Math.signum(sy) * 2, Math.max(0, n - DROPDOWN_ROWS)));
+			return true;
+		}
 		if (mx >= vw - panelW()) {
 			panelScroll -= sy * 20;
+			clampPanelScroll();
 			return true;
 		}
 		for (int i = 0; i < categories.size(); i++) {

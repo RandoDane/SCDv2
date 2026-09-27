@@ -314,12 +314,7 @@ final class ClickGuiContent {
 					List<Opt> o = new ArrayList<>();
 					o.add(new Opt.Text("Clients", () -> newCustomer, v -> newCustomer = v.trim(),
 							typed -> com.scd.client.hypixel.Players.suggest(typed, 20)));
-					// Lobby players matching what's typed (nearest first): click one to fill it in.
-					String typed = ClickGuiScreen.liveText("Clients");
-					List<String> picks = com.scd.client.hypixel.Players.suggest(typed != null ? typed : "", 3);
-					if (!picks.isEmpty() && !(picks.size() == 1 && picks.getFirst().equalsIgnoreCase(newCustomer) && typed == null)) {
-						o.add(new Opt.Chips("", picks, () -> newCustomer, v -> newCustomer = v));
-					}
+					o.add(new Opt.Dropdown("Add player from lobby", () -> com.scd.client.hypixel.Players.suggest("", 200), v -> newCustomer = v));
 					o.add(new Opt.Chips("", List.of(DUNGEON, SLAYER), () -> newKind, v -> newKind = v));
 					if (newKind.equals(DUNGEON)) {
 						var floors = com.scd.logic.dungeon.Floor.CARRYABLE;

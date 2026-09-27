@@ -177,6 +177,13 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		});
 		if (!"Bob".equals(saved)) throw new AssertionError("text field saved '" + saved + "' instead of 'Bob'");
 		ctx.takeScreenshot("00d-carries-page");
+		// "Add player from lobby" sits right under Clients: open its list.
+		ctx.getInput().setCursorPos(at[0], at[1] + 13 * (at[1] / (28 + 31 + 6 + 16 + 6)));
+		ctx.getInput().pressMouse(0);
+		ctx.waitTicks(3);
+		ctx.takeScreenshot("00e-lobby-dropdown");
+		ctx.getInput().setCursorPos(10, 10);
+		ctx.getInput().pressMouse(0);
 		ctx.runOnClient(mc -> com.scd.client.ui.clickgui.ClickGuiScreen.closePage());
 	}
 
