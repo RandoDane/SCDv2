@@ -407,7 +407,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		ctx.takeScreenshot("14b-route-recording");
 		server.runCommand("tp @p " + (c + 8) + " 91 " + (c - 2));
 		ctx.waitTicks(10);
-		server.runCommand("execute as @p at @s run summon item ~ ~ ~ {Item:{id:\"minecraft:bone\",count:1},PickupDelay:0s}");
+		server.runCommand("execute as @p at @s run summon item ~ ~ ~ {Item:{id:\"minecraft:bone\",count:1,components:{\"minecraft:custom_name\":\"Decoy\"}},PickupDelay:0s}");
 		ctx.waitTicks(20);
 		server.runCommand("execute as @p at @s run summon bat ~2 ~1 ~ {NoAI:1b}");
 		ctx.waitTicks(5);
@@ -438,7 +438,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		check(ctx.computeOnClient(mc -> routes.playbackIndex()) == 1, "chest click did not advance");
 		server.runCommand("tp @p " + (c + 8) + " 91 " + (c - 2));
 		ctx.waitTicks(5);
-		server.runCommand("execute as @p at @s run summon item ~ ~ ~ {Item:{id:\"minecraft:bone\",count:1},PickupDelay:0s}");
+		server.runCommand("execute as @p at @s run summon item ~ ~ ~ {Item:{id:\"minecraft:bone\",count:1,components:{\"minecraft:custom_name\":\"Decoy\"}},PickupDelay:0s}");
 		ctx.waitTicks(20);
 		check(ctx.computeOnClient(mc -> routes.playbackIndex()) == 2, "item pickup did not advance");
 		server.runCommand("execute as @p at @s run summon bat ~2 ~1 ~ {NoAI:1b}");

@@ -169,11 +169,15 @@ final class RouteRecorder {
 				|| state.is(net.minecraft.tags.BlockTags.TRAPDOORS) || state.is(net.minecraft.tags.BlockTags.FENCE_GATES);
 	}
 
-	void onItemPickup(Vec3 itemPos, Vec3 player) {
+	/**
+	 * An item picked up. Known secret items are a step right away; anything else (mob drops) is
+	 * only remembered, so it becomes a step only if the secret counter goes up right after.
+	 */
+	void onItemPickup(Vec3 itemPos, Vec3 player, boolean secretItem) {
 		if (!active() || room.anchor() == null || itemPos.distanceToSqr(player) > 6 * 6) return;
 		recentItem = itemPos;
 		recentItemAt = System.currentTimeMillis();
-		finish(RouteStep.SecretType.ITEM, rel(BlockPos.containing(itemPos)), player);
+		if (secretItem) finish(RouteStep.SecretType.ITEM, rel(BlockPos.containing(itemPos)), player);
 	}
 
 	/** Wither essence ("You found a Wither Essence!"): the skull nearest the player. */

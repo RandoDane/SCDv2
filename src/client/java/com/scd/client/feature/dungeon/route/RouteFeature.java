@@ -71,8 +71,9 @@ public final class RouteFeature implements Feature {
 			var p = Minecraft.getInstance().player;
 			if (p == null || !(entity instanceof net.minecraft.world.entity.item.ItemEntity) || entity.distanceToSqr(p) > 3.5 * 3.5) return;
 			ScdLog.guard("route item", () -> {
-				runner.onItemPickup(entity.position());
-				recorder.onItemPickup(entity.position(), p.position());
+				boolean secret = isSecretItem(((net.minecraft.world.entity.item.ItemEntity) entity).getItem());
+				if (secret) runner.onItemPickup(entity.position());
+				recorder.onItemPickup(entity.position(), p.position(), secret);
 			});
 		});
 		mod.bus.subscribe(Events.Tick.class, e -> tick());
@@ -84,9 +85,10 @@ public final class RouteFeature implements Feature {
 			}
 		});
 		mod.bus.subscribe(Events.ItemPickedUp.class, e -> {
-			runner.onItemPickup(e.pos());
+			boolean secret = isSecretItem(e.stack());
+			if (secret) runner.onItemPickup(e.pos());
 			var p = Minecraft.getInstance().player;
-			if (p != null) recorder.onItemPickup(e.pos(), p.position());
+			if (p != null) recorder.onItemPickup(e.pos(), p.position(), secret);
 		});
 		mod.bus.subscribe(Events.EntityDied.class, e -> {
 			if (!(e.entity() instanceof Bat bat)) return;
@@ -397,5 +399,18 @@ public final class RouteFeature implements Feature {
 		runner.clear();
 		Chat.info("Deleted your route for " + room.label() + ".");
 		return 1;
+	}
+
+	/** Items that are dungeon secrets (everything else, like mob drops, only counts if the secret counter goes up). */
+	private static final List<String> SECRET_ITEMS = List.of("Decoy", "Inflatable Jerry", "Spirit Leap", "Trap", "Training Weights",
+			"Defuse Kit", "Dungeon Chest Key", "Treasure Talisman", "Revive Stone", "Architect's First Draft", "Secret Dye", "Candycomb");
+
+	static boolean isSecretItem(net.minecraft.world.item.ItemStack stack) {
+		if (stack == null || stack.isEmpty()) return false;
+		String name = net.minecraft.ChatFormatting.stripFormatting(stack.getHoverName().getString());
+		if (name == null) return false;
+		if ((name.contains("Healing") || name.contains("Health Potion")) && name.contains("Splash")) return true;
+		for (String s : SECRET_ITEMS) if (name.contains(s)) return true;
+		return false;
 	}
 }
