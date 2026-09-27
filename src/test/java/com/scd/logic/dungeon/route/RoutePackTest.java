@@ -64,4 +64,19 @@ class RoutePackTest {
 		assertEquals(2, again.removeRoom("Altar"));
 		assertTrue(again.rooms.isEmpty());
 	}
+
+	@Test
+	void handPlacedNodesSurviveSaveAndLoad() {
+		RouteStep s = new RouteStep();
+		s.manual = true;
+		s.locations.add(new int[]{1, 70, 1});
+		s.locations.add(new int[]{5, 70, 9});
+		s.secretType = RouteStep.SecretType.ITEM;
+		s.secret = new int[]{5, 70, 10};
+		RouteStep back = RoutePack.readStep(RoutePack.writeStep(s));
+		org.junit.jupiter.api.Assertions.assertTrue(back.manual);
+		org.junit.jupiter.api.Assertions.assertEquals(2, back.locations.size());
+		RouteStep plain = RoutePack.readStep(RoutePack.writeStep(new RouteStep()));
+		org.junit.jupiter.api.Assertions.assertFalse(plain.manual);
+	}
 }

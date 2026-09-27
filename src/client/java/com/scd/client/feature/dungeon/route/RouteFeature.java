@@ -105,6 +105,14 @@ public final class RouteFeature implements Feature {
 			return InteractionResult.PASS;
 		});
 		ClientPlayerBlockBreakEvents.AFTER.register((level, player, pos, state) -> recorder.onBlockBroken(pos));
+		// While recording: crouch + left-click drops a path node on the block you stand on.
+		net.fabricmc.fabric.api.event.client.player.ClientPreAttackCallback.EVENT.register((client, player, clicks) -> {
+			if (clicks <= 0 || !recorder.active() || !player.isShiftKeyDown()) return false;
+			int n = recorder.addNode(player.position());
+			if (n > 0) client.gui.hud.setOverlayMessage(net.minecraft.network.chat.Component.literal("Node " + n + " placed")
+					.withStyle(net.minecraft.ChatFormatting.AQUA), false);
+			return n > 0;
+		});
 		UseItemCallback.EVENT.register((player, level, hand) -> {
 			if (level.isClientSide() && player.getItemInHand(hand).is(Items.ENDER_PEARL)) {
 				recorder.onPearl(player.position(), player.getYRot(), player.getXRot());

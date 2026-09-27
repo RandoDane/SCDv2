@@ -45,6 +45,12 @@ public final class RouteStep {
 	/** Ender pearl throw spots, with {yaw, pitch} per pearl in {@link #pearlAngles}. */
 	public final List<int[]> pearls = new ArrayList<>();
 	public final List<float[]> pearlAngles = new ArrayList<>();
+	/**
+	 * The path was placed by hand as nodes (crouch + left-click while recording): drawn as straight
+	 * lines exactly through {@link #locations}, never smoothed. Saved as "scd_nodes" (ignored by
+	 * SecretRoutes, which just sees the node list as the path).
+	 */
+	public boolean manual;
 	public SecretType secretType = SecretType.EXIT;
 	public int[] secret;
 

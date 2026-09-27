@@ -16,6 +16,8 @@ import java.util.List;
  * etherwarp, broken blocks are mines, levers/buttons are interacts, TNT placed with a right-click is
  * a TNT spot, thrown pearls keep their angles. Each secret (chest/skull click, item pickup, bat
  * kill, or {@code /scd route mark} for an exit) closes the current step and starts the next.
+ * Crouch + left-click drops a node: from then on that step's path is straight lines through the
+ * nodes instead of the sampled walk.
  */
 final class RouteRecorder {
 	private static final double SAMPLE = 2.4;
@@ -102,9 +104,32 @@ final class RouteRecorder {
 
 	private void sample(Vec3 player, boolean force) {
 		if (room.anchor() == null) return;
+		// Hand-placed nodes replace the walked path for this step.
+		if (step.manual && !force) return;
 		if (!force && lastSample != null && lastSample.distanceToSqr(player) < SAMPLE * SAMPLE) return;
 		step.locations.add(rel(BlockPos.containing(player)));
 		lastSample = player;
+	}
+
+	/**
+	 * Adds the block the player stands on as a path node. The first node of a step drops the
+	 * sampled walk (keeping where the step started), so the step becomes straight lines.
+	 * Returns the node number within the step, or 0 when not recording.
+	 */
+	int addNode(Vec3 player) {
+		if (!active() || room.anchor() == null || step == null) return 0;
+		if (!step.manual) {
+			int[] start = step.locations.isEmpty() ? null : step.locations.getFirst();
+			step.locations.clear();
+			if (start != null) step.locations.add(start);
+			step.manual = true;
+		}
+		int[] node = rel(BlockPos.containing(player));
+		int[] last = step.locations.isEmpty() ? null : step.locations.getLast();
+		if (last == null || last[0] != node[0] || last[1] != node[1] || last[2] != node[2]) step.locations.add(node);
+		lastSample = player;
+		ScdLog.info("[routes] node " + (step.locations.size() - 1) + " at " + fmt(node));
+		return Math.max(1, step.locations.size() - 1);
 	}
 
 	private BlockPos lastInteract;
@@ -252,18 +277,28 @@ final class RouteRecorder {
 		// The whole path so far (straightened like playback), not just the leg in progress.
 		Vec3 last = null;
 		for (RouteStep done : steps) {
-			List<Vec3> pts = RouteRunner.path(room, done.locations, smoothing);
+			markNodes(done, walls);
+			List<Vec3> pts = RouteRunner.path(room, done.locations, done.manual ? 0 : smoothing);
 			RouteRunner.polyline(last, pts, RouteRunner.PATH, walls);
 			if (!pts.isEmpty()) last = pts.getLast();
 		}
 		if (step != null) {
-			List<Vec3> pts = RouteRunner.path(room, step.locations, smoothing);
+			markNodes(step, walls);
+			List<Vec3> pts = RouteRunner.path(room, step.locations, step.manual ? 0 : smoothing);
 			RouteRunner.polyline(last, pts, RouteRunner.PATH, walls);
 			if (!pts.isEmpty()) last = pts.getLast();
 			var player = net.minecraft.client.Minecraft.getInstance().player;
 			if (last != null && player != null) {
 				com.scd.client.feature.world.WorldGizmos.line(last, player.getPosition(partialTick).add(0, 0.1, 0), RouteRunner.PATH, walls);
 			}
+		}
+	}
+
+	/** The blocks under hand-placed nodes (not the step's start point). */
+	private void markNodes(RouteStep s, boolean walls) {
+		if (!s.manual) return;
+		for (int i = 1; i < s.locations.size(); i++) {
+			com.scd.client.feature.world.WorldGizmos.block(world(s.locations.get(i)).below(), 0x9060A5FA, walls);
 		}
 	}
 

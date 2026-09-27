@@ -134,6 +134,7 @@ public final class RoutePack {
 	static RouteStep readStep(JsonObject o) {
 		RouteStep s = new RouteStep();
 		readPositions(o, "locations", s.locations);
+		s.manual = o.has("scd_nodes") && o.get("scd_nodes").getAsBoolean();
 		readPositions(o, "etherwarps", s.etherwarps);
 		readPositions(o, "mines", s.mines);
 		readPositions(o, "interacts", s.interacts);
@@ -156,6 +157,7 @@ public final class RoutePack {
 	static JsonObject writeStep(RouteStep s) {
 		JsonObject o = new JsonObject();
 		o.add("locations", positions(s.locations));
+		if (s.manual) o.addProperty("scd_nodes", true);
 		o.add("etherwarps", positions(s.etherwarps));
 		o.add("mines", positions(s.mines));
 		o.add("interacts", positions(s.interacts));

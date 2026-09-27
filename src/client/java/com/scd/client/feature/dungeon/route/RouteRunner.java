@@ -190,7 +190,7 @@ final class RouteRunner {
 	}
 
 	private List<Vec3> cachedPath(RouteStep s) {
-		return pathCache.computeIfAbsent(s, k -> path(room, k.locations, smoothing));
+		return pathCache.computeIfAbsent(s, k -> path(room, k.locations, k.manual ? 0 : smoothing));
 	}
 
 	static void polyline(Vec3 from, List<Vec3> pts, int color, boolean walls) {
