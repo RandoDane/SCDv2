@@ -13,4 +13,8 @@ public final class DungeonEvents {
 	 */
 	public record RunCompleted(CompletionReport report, long clearTimeMs) {
 	}
+
+	/** The player walked into a different room (null: left the room grid, e.g. into the boss). */
+	public record RoomEntered(MappedRoom room) {
+	}
 }

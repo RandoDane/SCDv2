@@ -8,6 +8,7 @@ import com.scd.client.feature.carry.CarryFormScreen;
 import com.scd.client.feature.carry.CarryScreen;
 import com.scd.client.feature.carry.CarryService;
 import com.scd.client.feature.dungeon.DungeonFeature;
+import com.scd.client.feature.dungeon.MappedRoom;
 import com.scd.client.feature.dungeon.DungeonScreen;
 import com.scd.client.feature.slayer.SlayerFeature;
 import com.scd.client.feature.slayer.SlayerScreen;
@@ -65,6 +66,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 			}
 			slayerScenario(ctx, server, mod);
 			dungeonScenario(ctx, server, mod);
+			roomScenario(ctx, server, mod);
 			if (System.getenv("SCD_KEY") != null) valuationScenario(ctx, server, mod);
 			if (debugBackend != null) {
 				ctx.runOnClient(mc -> mc.player.connection.sendCommand("scd record mark end of scenarios"));
@@ -231,5 +233,61 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		check(ctx.computeOnClient(mc -> carries.find(carry.id).unitsDone) == 1, "dungeon carry not credited");
 		ctx.takeScreenshot("13-after-dungeon-completion");
 		ctx.runOnClient(mc -> carries.remove(carry));
+	}
+
+	/**
+	 * Room engine end to end: build a room "core" column at tile (2,2) with its blue-terracotta clay
+	 * on the WEST corner, stand on it inside a fake Catacombs sidebar, name the unknown room with
+	 * /scd dungeon room name, and check it is then identified from its core and anchored WEST from the block.
+	 */
+	private static void roomScenario(ClientGameTestContext ctx, TestServerContext server, ScdMod mod) {
+		DungeonFeature dungeon = mod.feature(DungeonFeature.class);
+		ctx.runOnClient(mc -> {
+			try {
+				java.nio.file.Files.deleteIfExists(com.scd.client.storage.ScdPaths.file("dungeon/rooms.json"));
+			} catch (java.io.IOException e) {
+				throw new RuntimeException(e);
+			}
+			dungeon.rooms().reloadDatabase();
+			mod.config().dungeon.roomDebug = true;
+		});
+		int c = com.scd.logic.dungeon.room.DungeonGrid.centre(2); // -121
+		server.runCommand("forceload add " + (c - 16) + " " + (c - 16) + " " + (c + 16) + " " + (c + 16));
+		server.runCommand("fill " + c + " 80 " + c + " " + c + " 89 " + c + " stone_bricks");
+		server.runCommand("setblock " + c + " 90 " + c + " glass");
+		server.runCommand("fill " + c + " 60 " + c + " " + c + " 61 " + c + " bedrock");
+		server.runCommand("fill " + (c - 15) + " 90 " + (c - 15) + " " + (c + 15) + " 90 " + (c + 15) + " smooth_stone replace air");
+		server.runCommand("setblock " + c + " 90 " + c + " glass");
+		server.runCommand("setblock " + (c + 15) + " 90 " + (c - 15) + " blue_terracotta");
+		server.runCommand("tp @p " + (c + 6) + " 91 " + (c - 6));
+		sidebar(server, List.of("Dec 12th", "⏣ The Catacombs (F7)", "", "Time Elapsed: 01m 10s", "Cleared: 12% (80)"));
+		ctx.waitTicks(40);
+		check(ctx.computeOnClient(mc -> dungeon.rooms().current() != null), "no room at the player's tile: " + ctx.computeOnClient(mc -> dungeon.rooms().describe()));
+		check(ctx.computeOnClient(mc -> dungeon.rooms().current().name() == null), "test room should start unknown");
+
+		ctx.runOnClient(mc -> mc.player.connection.sendCommand("scd dungeon room name \"SCD Test Room\" 3"));
+		ctx.waitTicks(40);
+		MappedRoom room = ctx.computeOnClient(mc -> dungeon.rooms().current());
+		check(room != null && "SCD Test Room".equals(room.name()), "named room not identified by its core: " + (room == null ? null : room.label()));
+		check(room.info().secrets() == 3, "secret count not saved");
+		check(room.anchor() != null && room.anchor().rotation() == com.scd.logic.dungeon.room.RoomRotation.WEST,
+				"clay not found / wrong rotation: " + room.anchor());
+		check(room.anchor().x() == c + 15 && room.anchor().z() == c - 15, "anchor not on the clay: " + room.anchor());
+		var rel = ctx.computeOnClient(mc -> room.toRelative(mc.player.blockPosition()));
+		var back = ctx.computeOnClient(mc -> room.toWorld(rel));
+		check(back.equals(ctx.computeOnClient(mc -> mc.player.blockPosition())), "relative frame does not round-trip");
+		System.out.println("SCD_TEST_ROOM " + room.label() + " " + room.anchor() + " player rel " + rel);
+		ctx.takeScreenshot("14-room-hud");
+
+		ctx.runOnClient(mc -> {
+			try {
+				java.nio.file.Files.deleteIfExists(com.scd.client.storage.ScdPaths.file("dungeon/rooms.json"));
+			} catch (java.io.IOException e) {
+				throw new RuntimeException(e);
+			}
+			dungeon.rooms().reloadDatabase();
+			mod.config().dungeon.roomDebug = false;
+		});
+		sidebar(server, List.of("Dec 12th", "⏣ Hub"));
 	}
 }

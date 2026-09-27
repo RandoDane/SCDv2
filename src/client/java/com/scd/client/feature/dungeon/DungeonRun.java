@@ -48,6 +48,10 @@ public final class DungeonRun {
 		announced270 = announced300 = true;
 	}
 
+	boolean inBoss() {
+		return inBoss;
+	}
+
 	void onMessage(String text) {
 		RunMessages.Event e = RunMessages.classify(text);
 		if (e == null) return;

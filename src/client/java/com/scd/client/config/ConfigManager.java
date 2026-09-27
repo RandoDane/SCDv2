@@ -93,7 +93,6 @@ public final class ConfigManager {
 
 			JsonObject dungeon = obj(root, "dungeon");
 			if (dungeon != null) {
-				c.dungeon.roomMapping = bool(dungeon, "roomMappingEnabled", c.dungeon.roomMapping);
 				c.dungeon.scoreHud = bool(dungeon, "scoreHudEnabled", c.dungeon.scoreHud);
 				c.dungeon.scoreBreakdown = bool(dungeon, "scoreHudShowBreakdown", c.dungeon.scoreBreakdown);
 				c.dungeon.scoreRoomsSecrets = bool(dungeon, "scoreHudShowRoomsSecrets", c.dungeon.scoreRoomsSecrets);

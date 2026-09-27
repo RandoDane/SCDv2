@@ -53,9 +53,9 @@ public final class DungeonScreen extends ScdScreen {
 		rows.button(active > 0 ? "Dungeon carries (" + active + " active)..." : "Carries...",
 				() -> Minecraft.getInstance().gui.setScreen(new CarryScreen(this, carries)));
 
-		rows.header("Room mapping");
-		rows.toggle("Contribute room fingerprints", "Opt-in, experimental: uploads block layouts (no player data) to your SCD backend",
-				() -> c.roomMapping, v -> c.roomMapping = v);
-		rows.value("Scanner", dungeon::scannerState);
+		rows.header("Rooms");
+		rows.toggle("Room HUD", "Name, secrets and crypts of the room you're in", () -> c.roomHud, v -> c.roomHud = v);
+		rows.toggle("Route-making details", "Adds rotation, anchor and your room-relative position to the room HUD", () -> c.roomDebug, v -> c.roomDebug = v);
+		rows.value("Room engine", dungeon::roomEngineState);
 	}
 }

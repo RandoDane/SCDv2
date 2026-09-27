@@ -137,35 +137,6 @@ public final class BackendClient {
 		return http.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenApply(HttpResponse::statusCode);
 	}
 
-	/** Fire-and-forget opt-in room fingerprint upload; failures are only logged. */
-	public void reportDungeonRoom(String floor, List<Backend.RoomBlock> blocks) {
-		if (baseUrl == null) return;
-		JsonObject body = new JsonObject();
-		body.addProperty("floor", floor);
-		JsonArray arr = new JsonArray();
-		for (var b : blocks) {
-			JsonObject o = new JsonObject();
-			o.addProperty("x", b.relX());
-			o.addProperty("y", b.y());
-			o.addProperty("z", b.relZ());
-			o.addProperty("id", b.blockId());
-			arr.add(o);
-		}
-		body.add("blocks", arr);
-		HttpRequest request = request("/api/dungeon/rooms/report", 10)
-				.header("Content-Type", "application/json")
-				.POST(HttpRequest.BodyPublishers.ofString(body.toString()))
-				.build();
-		http.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-				.thenAccept(res -> {
-					if (res.statusCode() / 100 != 2) ScdLog.warn("Room report rejected: HTTP " + res.statusCode());
-				})
-				.exceptionally(err -> {
-					ScdLog.warn("Room report failed: " + err.getMessage());
-					return null;
-				});
-	}
-
 	private <T> CompletableFuture<T> get(String path, int timeoutSeconds, Function<JsonElement, T> parser) {
 		if (baseUrl == null) return CompletableFuture.failedFuture(new BackendException(status.message()));
 		HttpRequest request;

@@ -73,7 +73,4 @@ public final class Backend {
 	public record AccessorySummary(String username, int accessoryCount, Integer accessoryPower, Integer peakMagicalPower,
 			List<Accessory> accessories, List<MissingAccessory> missing) {
 	}
-
-	public record RoomBlock(int relX, int y, int relZ, String blockId) {
-	}
 }

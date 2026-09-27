@@ -6,7 +6,8 @@ A ground-up redesign of [RandoDane/scd](https://github.com/RandoDane/scd) 1.x fo
 - **Market prices (scd.wtf)**: Bazaar insta-buy/sell, Auction House estimate + lowest BIN on tooltips, whole-stack value, hover price graph, `/scd price`.
 - **Slayer**: quest/boss tracking from the sidebar, boss located via its "Spawned by" tag, fight + AFK-proof hunt timers, HP bar, data-driven mechanic cues, spawn/kill/miniboss alerts, glow/box/tracer highlight, personal bests, RNG meter (chat + menu + Daemon Shard estimate), drop tally with market value, session stats (kills/hr, XP, drops/hr), Explosive Arrow counter. Kills are only booked on `SLAYER QUEST COMPLETE!`.
 - **Carries**: one model for Slayer (per kill) and Dungeon (per run) carries, auto-credited, party-chat progress from templates, clickable Done/+5/+10 prompts, manual adjust, earned/outstanding totals.
-- **Dungeons**: live score estimate (tested port of Skyblocker/Odin's formula, with boss-room baseline), S/S+ alerts, end-of-run summary, opt-in room mapping.
+- **Dungeons**: live score estimate (tested port of Skyblocker/Odin's formula, with boss-room baseline), S/S+ alerts, end-of-run summary.
+- **Room engine**: identifies every Catacombs room from its centre-column "core" hash (140 rooms bundled), reads the dungeon map for shapes/types/checkmarks, finds each room's blue-terracotta anchor for a rotation-independent room frame. Room HUD (name, secrets, crypts; optional rotation + your room-relative position), `/scd dungeon room`, `/scd dungeon rooms`, and `/scd dungeon room name "<name>" [secrets]` to teach it rooms it doesn't know (saved to `config/scd/dungeon/rooms.json`).
 - **Accessories**: exact Accessory Power from a live bag scan, missing accessories priced from the market and sortable by coins per Magical Power.
 - **UI**: one themed toolkit for every screen and HUD; HUD editor that moves/resizes all overlays at once with snapping and anchors.
 
@@ -38,3 +39,7 @@ xvfb-run -a ./gradlew runClientGameTest   # full in-game test (needs a display; 
    (chat + hover text, sidebar/tab changes, nameplates, menus with lore, SCD state/decisions/errors, marks).
 Everything is also written locally to `config/scd/recordings/<session>.jsonl` (and server-side to
 `/root/CCBz/server/data/debug-sessions/<session>.jsonl`), ready for offline replay.
+
+## Third-party data
+- `assets/scd/dungeon/rooms.json` is the room database from [Odin](https://github.com/odtheking/Odin), BSD 3-Clause, © 2025 odtheking — license in `assets/scd/dungeon/rooms.LICENSE.txt`.
+- Poppins font: SIL Open Font License (`assets/scd/font/OFL.txt`).

@@ -93,8 +93,10 @@ public final class ScdConfig {
 		/** Title + ping the moment the live estimate first reaches 270 (S) and 300 (S+). */
 		public boolean scoreMilestoneAlerts = true;
 		public boolean completionSummary = true;
-		/** Opt-in: upload anonymous room block fingerprints to the backend's mapping database. */
-		public boolean roomMapping = false;
+		/** Current room name / secrets HUD. */
+		public boolean roomHud = true;
+		/** Adds rotation, anchor and room-relative position to the room HUD (for making routes). */
+		public boolean roomDebug = false;
 	}
 
 	public static final class Accessories {
