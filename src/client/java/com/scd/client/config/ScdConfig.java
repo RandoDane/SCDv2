@@ -153,6 +153,13 @@ public final class ScdConfig {
 		public boolean mapHud = true;
 		/** Quiz, Three Weirdos and Higher/Lower Blaze solvers (show only). */
 		public boolean puzzleSolvers = true;
+		/** Solvers switched off individually, by puzzle room name (e.g. "Ice Fill"). */
+		public java.util.List<String> disabledPuzzles = new java.util.ArrayList<>();
+
+		/** Whether the solver for this puzzle room should run and draw. */
+		public boolean puzzleOn(String room) {
+			return puzzleSolvers && room != null && !disabledPuzzles.contains(room);
+		}
 		/** Watcher move timer and blood mob landing spots with spawn countdown. */
 		public boolean bloodCamp = true;
 		/** Split times (blood open, Watcher, boss, clear) with PB deltas on the score HUD. */

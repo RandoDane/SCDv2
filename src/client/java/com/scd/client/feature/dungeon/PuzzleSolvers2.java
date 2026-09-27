@@ -129,7 +129,7 @@ final class PuzzleSolvers2 {
 		var mc = Minecraft.getInstance();
 		if (mc.level == null || mc.player == null) return;
 		long t = mod.tasks.currentTick();
-		switch (room.name()) {
+		if (mod.config().dungeon.puzzleOn(room.name())) switch (room.name()) {
 			case "Creeper Beams" -> {
 				if (t % 10 == 0) beams(room, mc.level);
 			}
@@ -325,20 +325,21 @@ final class PuzzleSolvers2 {
 	// ---- drawing ------------------------------------------------------------------------------
 
 	private void draw() {
+		var cfg = mod.config().dungeon;
 		int[] colors = {0xFFFACC15, 0xFF4ADE80, 0xFFE879F9, 0xFF22D3EE, 0xFFFB923C, 0xFFF87171, 0xFFFFFFFF, 0xFFA78BFA};
-		for (int i = 0; i < beams.size(); i++) {
+		if (cfg.puzzleOn("Creeper Beams")) for (int i = 0; i < beams.size(); i++) {
 			int c = colors[i % colors.length];
 			Vec3[] b = beams.get(i);
 			WorldGizmos.block(BlockPos.containing(b[0]), c, true);
 			WorldGizmos.block(BlockPos.containing(b[1]), c, true);
 			WorldGizmos.line(b[0], b[1], c, true);
 		}
-		for (int i = 0; i + 1 < icePath.size(); i++) WorldGizmos.line(icePath.get(i), icePath.get(i + 1), 0xFF22D3EE, true);
-		for (int i = 0; i + 1 < slidePath.size(); i++) WorldGizmos.line(slidePath.get(i), slidePath.get(i + 1), 0xFFF87171, true);
-		for (BlockPos p : tpPads) {
+		if (cfg.puzzleOn("Ice Fill")) for (int i = 0; i + 1 < icePath.size(); i++) WorldGizmos.line(icePath.get(i), icePath.get(i + 1), 0xFF22D3EE, true);
+		if (cfg.puzzleOn("Ice Path")) for (int i = 0; i + 1 < slidePath.size(); i++) WorldGizmos.line(slidePath.get(i), slidePath.get(i + 1), 0xFFF87171, true);
+		if (cfg.puzzleOn("Teleport Maze")) for (BlockPos p : tpPads) {
 			if (tpVisited.contains(p)) WorldGizmos.block(p, 0x80888888, true);
 			else if (tpCandidates.contains(p) && tpCandidates.size() < tpPads.size()) WorldGizmos.block(p, tpCandidates.size() == 1 ? 0xFF4ADE80 : 0xFFFACC15, true);
 		}
-		if (tttMove != null) WorldGizmos.block(tttMove, 0xFF4ADE80, true);
+		if (tttMove != null && cfg.puzzleOn("Tic Tac Toe")) WorldGizmos.block(tttMove, 0xFF4ADE80, true);
 	}
 }

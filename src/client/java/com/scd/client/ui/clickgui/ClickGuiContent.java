@@ -98,7 +98,14 @@ final class ClickGuiContent {
 				.toggle("Tooltip lines", () -> d.chestProfitTooltip, v -> d.chestProfitTooltip = v)
 				.toggle("Outline best chest", () -> d.chestProfitHighlight, v -> d.chestProfitHighlight = v)
 				.toggle("\"Best\" label", () -> d.chestProfitLabel, v -> d.chestProfitLabel = v));
-		dun.add(new Module("Puzzle solvers", "Show-only: Quiz, Weirdos, Blaze, Beams, Ice, TP Maze, Tic Tac Toe", () -> d.puzzleSolvers, v -> d.puzzleSolvers = v));
+		Module solvers = new Module("Puzzle solvers", "Show-only helpers; expand to switch single solvers off", () -> d.puzzleSolvers, v -> d.puzzleSolvers = v);
+		for (String puzzle : List.of("Quiz", "Three Weirdos", "Higher/Lower Blaze", "Creeper Beams", "Ice Fill", "Ice Path", "Teleport Maze", "Tic Tac Toe")) {
+			solvers.opt(new Opt.Toggle(puzzle, () -> !d.disabledPuzzles.contains(puzzle), v -> {
+				d.disabledPuzzles.remove(puzzle);
+				if (!v) d.disabledPuzzles.add(puzzle);
+			}));
+		}
+		dun.add(solvers);
 		dun.add(new Module("Puzzle HUD", "Puzzle names and status", () -> d.puzzleHud, v -> d.puzzleHud = v));
 		dun.add(new Module("Blood camp", "Watcher move timer, mob landing spots", () -> d.bloodCamp, v -> d.bloodCamp = v));
 		dun.add(new Module("Door highlight", "Wither/blood doors: red locked, green openable", () -> d.doorHighlight, v -> d.doorHighlight = v)

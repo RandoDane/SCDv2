@@ -86,31 +86,34 @@ final class PuzzleSolvers {
 
 	private void onChat(String text) {
 		// Quiz
-		if (text.contains("answered Question #") || text.contains("answered the final question") || text.startsWith("[STATUE] Oruo the Omniscient:")) {
-			quizLetter = null;
-		}
-		if (text.equals("What SkyBlock year is it?")) {
-			long year = (System.currentTimeMillis() / 1000 - SKYBLOCK_EPOCH_S) / YEAR_S + 1;
-			quizSolutions = List.of("Year " + year);
-			quizLetter = null;
-			return;
-		}
-		for (var e : quizAnswers.entrySet()) {
-			if (text.contains(e.getKey())) {
-				quizSolutions = e.getValue();
+		if (mod.config().dungeon.puzzleOn("Quiz")) {
+			if (text.contains("answered Question #") || text.contains("answered the final question") || text.startsWith("[STATUE] Oruo the Omniscient:")) {
+				quizLetter = null;
+			}
+			if (text.equals("What SkyBlock year is it?")) {
+				long year = (System.currentTimeMillis() / 1000 - SKYBLOCK_EPOCH_S) / YEAR_S + 1;
+				quizSolutions = List.of("Year " + year);
 				quizLetter = null;
 				return;
 			}
-		}
-		Matcher m = QUIZ_CHOICE.matcher(text);
-		if (m.matches() && quizSolutions.contains(m.group(2).trim())) {
-			quizLetter = m.group(1);
-			Chat.info(Component.literal("Quiz: " + m.group(1) + " " + m.group(2)).withStyle(ChatFormatting.GREEN));
-			return;
+			for (var e : quizAnswers.entrySet()) {
+				if (text.contains(e.getKey())) {
+					quizSolutions = e.getValue();
+					quizLetter = null;
+					return;
+				}
+			}
+			Matcher m = QUIZ_CHOICE.matcher(text);
+			if (m.matches() && quizSolutions.contains(m.group(2).trim())) {
+				quizLetter = m.group(1);
+				Chat.info(Component.literal("Quiz: " + m.group(1) + " " + m.group(2)).withStyle(ChatFormatting.GREEN));
+				return;
+			}
 		}
 		// Three Weirdos
-		m = WEIRDO.matcher(text);
-		if (m.matches()) findWeirdoChest(m.group(1));
+		if (!mod.config().dungeon.puzzleOn("Three Weirdos")) return;
+		Matcher w = WEIRDO.matcher(text);
+		if (w.matches()) findWeirdoChest(w.group(1));
 	}
 
 	/** The truthful NPC's chest: the chest block right next to its armor stand. */
@@ -132,6 +135,7 @@ final class PuzzleSolvers {
 
 	private void blazes() {
 		blazeOrder.clear();
+		if (!mod.config().dungeon.puzzleOn("Higher/Lower Blaze")) return;
 		String room = roomName();
 		if (!"Higher Blaze".equals(room) && !"Lower Blaze".equals(room)) return;
 		var mc = Minecraft.getInstance();
@@ -148,7 +152,7 @@ final class PuzzleSolvers {
 	}
 
 	private void draw() {
-		if (quizLetter != null && "Quiz".equals(roomName())) {
+		if (quizLetter != null && "Quiz".equals(roomName()) && mod.config().dungeon.puzzleOn("Quiz")) {
 			MappedRoom r = dungeon.rooms().current();
 			BlockPos spot = r.toWorld(QUIZ_SPOTS.get(quizLetter));
 			if (spot != null) {
@@ -156,7 +160,7 @@ final class PuzzleSolvers {
 				WorldGizmos.label(Vec3.atCenterOf(spot).add(0, 1, 0), quizLetter + " answer", 0xFF4ADE80, true);
 			}
 		}
-		if (weirdoChest != null) WorldGizmos.block(weirdoChest, 0xFF4ADE80, true);
+		if (weirdoChest != null && mod.config().dungeon.puzzleOn("Three Weirdos")) WorldGizmos.block(weirdoChest, 0xFF4ADE80, true);
 		if (!blazeOrder.isEmpty()) {
 			Entity next = blazeOrder.getFirst();
 			WorldGizmos.box(blazeBox(next), 0xFF4ADE80, true);
