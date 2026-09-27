@@ -16,6 +16,7 @@ public final class ScdConfig {
 	public Slayer slayer = new Slayer();
 	public Carries carries = new Carries();
 	public Dungeon dungeon = new Dungeon();
+	public Perf perf = new Perf();
 	public Accessories accessories = new Accessories();
 	public Map<String, HudLayout> huds = new LinkedHashMap<>();
 
@@ -30,6 +31,13 @@ public final class ScdConfig {
 		public boolean developerMode = false;
 		/** Only run SkyBlock features while the sidebar says SKYBLOCK (off = also on other servers, for testing). */
 		public boolean requireSkyblock = true;
+	}
+
+	public static final class Perf {
+		/** Lag scanner: frame/tick timing, per-type entity/block entity/particle costs, spike hotspots. */
+		public boolean lagScanner = false;
+		/** Frames at least this long (and 2.5x the recent median) are logged as spikes. */
+		public int spikeMs = 50;
 	}
 
 	public static final class Backend {

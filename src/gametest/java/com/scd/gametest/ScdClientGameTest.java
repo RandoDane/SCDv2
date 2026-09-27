@@ -67,6 +67,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 			slayerScenario(ctx, server, mod);
 			dungeonScenario(ctx, server, mod);
 			roomScenario(ctx, server, mod);
+			lagScenario(ctx, server, mod);
 			if (System.getenv("SCD_KEY") != null) valuationScenario(ctx, server, mod);
 			if (debugBackend != null) {
 				ctx.runOnClient(mc -> mc.player.connection.sendCommand("scd record mark end of scenarios"));
@@ -425,5 +426,32 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		ctx.waitTicks(5);
 		ctx.setScreen(() -> null);
 		ctx.waitTicks(2);
+	}
+
+	/** Lag scanner: 200 named armor stands must show up as a measured cost with the right count. */
+	private static void lagScenario(ClientGameTestContext ctx, TestServerContext server, ScdMod mod) {
+		var scanner = mod.feature(com.scd.client.feature.perf.LagScanner.class);
+		server.runCommand("tp @p 0 -60 0");
+		for (int i = 0; i < 200; i++) {
+			server.runCommand("summon armor_stand " + (i % 20 - 10) + " -60 " + (i / 20 + 3) + " {NoGravity:1b,CustomNameVisible:1b,CustomName:\"stand " + i + "\"}");
+		}
+		ctx.runOnClient(mc -> {
+			mod.config().perf.lagScanner = true;
+			scanner.setEnabled(true);
+		});
+		ctx.waitTicks(70);
+		var snap = ctx.computeOnClient(mc -> scanner.latest());
+		check(snap != null, "lag scanner produced no snapshot");
+		var stands = snap.top().stream().filter(l -> l.label().equals("Armor Stand")).findFirst().orElse(null);
+		System.out.println("SCD_TEST_LAG fps=" + Math.round(snap.fps()) + " top=" + snap.top());
+		check(stands != null && stands.count() >= 200, "armor stands not measured: " + snap.top());
+		ctx.takeScreenshot("16-lag-scanner");
+		ctx.runOnClient(mc -> mc.player.connection.sendCommand("scd lag report"));
+		ctx.waitTicks(5);
+		ctx.runOnClient(mc -> {
+			mod.config().perf.lagScanner = false;
+			scanner.setEnabled(false);
+		});
+		server.runCommand("kill @e[type=armor_stand]");
 	}
 }

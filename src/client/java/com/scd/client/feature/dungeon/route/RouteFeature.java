@@ -119,6 +119,8 @@ public final class RouteFeature implements Feature {
 		var mc = Minecraft.getInstance();
 		if (mc.player == null) return;
 		MappedRoom current = dungeon.rooms().current();
+		// Left the room grid (boss, next floor, hub): nothing to play.
+		if (current == null && runner.room() != null) runner.clear();
 		// Entered before the room was identified/anchored: pick the route up once it is.
 		if (current != null && current != runner.room() && current.name() != null) load(current);
 		runner.tick(mc.player.position());

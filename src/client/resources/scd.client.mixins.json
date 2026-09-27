@@ -6,7 +6,10 @@
 		"ChatPacketMixin",
 		"EntityRendererMixin",
 		"LivingEntityMixin",
-		"ItemPickupMixin"
+		"ItemPickupMixin",
+		"EntityRenderProbeMixin",
+		"BlockEntityRenderProbeMixin",
+		"ParticleProbeMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

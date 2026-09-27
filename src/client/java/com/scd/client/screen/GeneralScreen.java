@@ -57,6 +57,15 @@ public final class GeneralScreen extends ScdScreen {
 			g.text("Finish message", null, c.carries.finishTemplate, TextField.any(), s -> c.carries.finishTemplate = s);
 			g.note("Placeholders: {player} {done} {owed} {left} {unit} {target} {price} {total}");
 		});
+		rows.group("perf", "Performance", () -> c.perf.lagScanner ? "scanning" : null, true, g -> {
+			g.toggle("Lag scanner", "Measures frame/tick time and what costs the most (entities, block entities, particles), logs spikes with where they happened",
+					() -> c.perf.lagScanner, v -> {
+						c.perf.lagScanner = v;
+						mod.feature(com.scd.client.feature.perf.LagScanner.class).setEnabled(v);
+					});
+			g.slider("Spike threshold", 20, 200, 10, () -> c.perf.spikeMs, v -> c.perf.spikeMs = (int) Math.round(v), v -> Math.round(v) + "ms");
+			g.note("/scd lag shows the current top costs, /scd lag places the laggiest spots, /scd lag report writes everything to config/scd/lag.");
+		});
 		rows.group("other", "Other", null, true, g -> {
 			g.toggle("Only on SkyBlock", "Keep features idle on other servers/modes", () -> c.general.requireSkyblock, v -> c.general.requireSkyblock = v);
 			g.toggle("Developer mode", "Enables /scd debug and verbose logging", () -> c.general.developerMode, v -> {

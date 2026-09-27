@@ -55,7 +55,7 @@ public final class ScdClient implements ClientModInitializer {
 
 		// Order matters: later features look earlier ones up in init().
 		for (Feature f : List.of(new MayorService(), new BazaarFeature(), new SlayerFeature(), new CarryService(),
-				new DungeonFeature(), new com.scd.client.feature.dungeon.route.RouteFeature(), new AccessoryFeature(), new DebugFeature(), new com.scd.client.feature.debug.SessionRecorder())) {
+				new DungeonFeature(), new com.scd.client.feature.dungeon.route.RouteFeature(), new AccessoryFeature(), new DebugFeature(), new com.scd.client.feature.perf.LagScanner(), new com.scd.client.feature.debug.SessionRecorder())) {
 			mod.add(f);
 			ScdLog.guard("init " + f.getClass().getSimpleName(), () -> f.init(mod));
 		}
