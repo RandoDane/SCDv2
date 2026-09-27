@@ -29,6 +29,8 @@ public abstract class ScdScreen extends Screen {
 	private int navRow = NAV_ROW_MAX;
 	private static final int SCROLL_STEP = 20;
 
+	private static final net.minecraft.resources.Identifier LOGO = net.minecraft.resources.Identifier.fromNamespaceAndPath("scd", "logo");
+
 	protected final Screen parent;
 	private final int preferredWidth;
 	private final Set<String> expanded = new HashSet<>();
@@ -211,8 +213,8 @@ public abstract class ScdScreen extends Screen {
 		if (sidebar) {
 			Ui.rect(g, winX + 1, winY + 1, SIDEBAR_W - 1, winH - 2, 7, t.sidebar());
 			g.fill(winX + SIDEBAR_W, winY + 1, winX + SIDEBAR_W + 1, winY + winH - 1, t.border());
-			Ui.rect(g, winX + 12, winY + 14, 16, 16, 5, t.accent());
-			Ui.centered(g, "S", winX + 20, winY + 18, com.scd.client.ui.widget.FlatButton.contrastTextFor(t.accent()));
+			// scd.wtf logo: 64px pixel art on a 4px grid, drawn at 16 GUI px so it stays crisp at every GUI scale.
+			g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, winX + 12, winY + 14, 16, 16);
 			Ui.title(g, "SCD", winX + 34, winY + 14, t.textPrimary());
 			String lastSection = null;
 			int ny = winY + 52;

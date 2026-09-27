@@ -56,7 +56,7 @@ public final class MainScreen extends ScdScreen {
 					double[] d = slayer.records().killsPerDay(1);
 					return String.valueOf((int) d[0]);
 				}, Ui.DANGER),
-				new Rows.Stat("Owed to you", () -> Numbers.coins(carries.outstandingTotal()), Ui.SUCCESS),
+				new Rows.Stat("Owed", () -> Numbers.coins(carries.outstandingTotal()), Ui.SUCCESS),
 				new Rows.Stat("Market", () -> !mod.market.hasKey() ? "Off" : mod.market.status().ok() ? "Online" : "Offline",
 						mod.market.status().ok() ? Ui.SUCCESS : Ui.WARNING)));
 		LocalDate today = LocalDate.now();
