@@ -84,6 +84,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 			com.scd.client.ui.clickgui.ClickGuiScreen.expand("HUD/Dungeon map");
 		});
 		shot(ctx, "00-clickgui", () -> new com.scd.client.ui.clickgui.ClickGuiScreen(mod));
+		textFieldTest(ctx, mod);
 		shot(ctx, "00b-subpage", () -> new AccessoryScreen(new com.scd.client.ui.clickgui.ClickGuiScreen(mod), mod, mod.feature(AccessoryFeature.class)));
 		shot(ctx, "01-main", () -> new MainScreen(null, mod));
 		shot(ctx, "02-slayer", () -> new SlayerScreen(null, mod, mod.feature(SlayerFeature.class)));
@@ -141,6 +142,39 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 			ctx.runOnClient(mc -> com.scd.client.ui.Ui.setTheme(com.scd.client.ui.Theme.byName("Midnight")));
 		}
 		ctx.setScreen(() -> null);
+	}
+
+	/** Click the side panel's Customer field, type, and check both what's shown and what's saved. */
+	private static void textFieldTest(ClientGameTestContext ctx, ScdMod mod) {
+		ctx.setScreen(() -> new com.scd.client.ui.clickgui.ClickGuiScreen(mod));
+		ctx.waitTicks(5);
+		double[] at = ctx.computeOnClient(mc -> {
+			var w = mc.getWindow();
+			int density = Math.max(1, Math.round(w.getHeight() / 540f));
+			int vw = w.getWidth() / density;
+			int pw = Math.max(120, vw / 5), cx = vw - pw + 6, cw = pw - 12;
+			// General card (header 16 + 6 rows of 13 + 2), gap 6, Carries header 16, "Earned" row, then Customer.
+			int y = 28 + 96 + 6 + 16 + 13 + 6;
+			return new double[]{(cx + cw * 3 / 4) * density, y * density};
+		});
+		ctx.getInput().setCursorPos(at[0], at[1]);
+		ctx.getInput().pressMouse(0);
+		ctx.waitTicks(2);
+		ctx.getInput().typeChars("Bob");
+		ctx.waitTicks(3);
+		ctx.takeScreenshot("00c-text-field");
+		ctx.getInput().pressKey(org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER);
+		ctx.waitTicks(2);
+		String saved = ctx.computeOnClient(mc -> {
+			try {
+				var f = Class.forName("com.scd.client.ui.clickgui.ClickGuiContent").getDeclaredField("newCustomer");
+				f.setAccessible(true);
+				return (String) f.get(null);
+			} catch (ReflectiveOperationException e) {
+				return "<" + e + ">";
+			}
+		});
+		if (!"Bob".equals(saved)) throw new AssertionError("text field saved '" + saved + "' instead of 'Bob'");
 	}
 
 	private static void shot(ClientGameTestContext ctx, String name, java.util.function.Supplier<net.minecraft.client.gui.screens.Screen> screen) {

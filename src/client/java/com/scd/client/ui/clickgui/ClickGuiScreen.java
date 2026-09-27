@@ -309,11 +309,14 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 				if (vis) hits.add(new Hit(x, hy, w, optH, a.run(), null, null, null));
 			}
 			case Opt.Text tx2 -> {
-				boolean editingThis = editing == tx2;
+				// Panel options are rebuilt every frame, so match the field by label, not identity.
+				boolean editingThis = editing != null && editing.label().equals(tx2.label());
+				if (editingThis) editing = tx2;
 				Ui.text(g, Ui.ellipsize(tx2.label(), w / 3), tx, textY(y, optH), t.textSecondary());
 				String v = editingThis ? editBuffer + ((System.currentTimeMillis() / 500) % 2 == 0 ? "_" : " ") : tx2.get().get();
 				int vx = x + w / 3 + 4, vw = w - w / 3 - 8;
 				g.fill(vx - 2, y + 1, x + w - 2, y + optH - 1, editingThis ? t.field() : t.window());
+				if (editingThis) g.outline(vx - 2, y + 1, x + w - vx, optH - 2, t.accent());
 				// Show the end of what's being typed.
 				String shown = v;
 				while (Ui.width(shown) > vw && shown.length() > 1) shown = shown.substring(1);
@@ -412,16 +415,18 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		int cx = px + gap, cw = pw - 2 * gap;
 		for (PanelSection s : panel) {
 			List<Opt> opts = s.options().get();
-			int bodyH = opts.size() * optH + 1;
+			// +2: a background-coloured line under the last row, then the outline.
+			int bodyH = opts.size() * optH + 2;
 			Ui.rect(g, cx, y, cw, headH, 3, t.accent());
 			headerText(g, s.title().toUpperCase(java.util.Locale.ROOT), cx + cw / 2, y);
 			g.fill(cx, y + headH, cx + cw, y + headH + bodyH, t.window());
-			g.outline(cx, y, cw, headH + bodyH, t.accent());
 			int ry = y + headH;
 			for (Opt o : opts) {
 				drawOpt(g, o, cx + 2, ry, cw - 4, 6, top, vh - top, mx, my);
 				ry += optH;
 			}
+			// Outline last so nothing drawn for the rows can cover it.
+			g.outline(cx, y, cw, headH + bodyH, t.accent());
 			y += headH + bodyH + gap;
 		}
 		int contentH = y + (int) panelScroll - top;
