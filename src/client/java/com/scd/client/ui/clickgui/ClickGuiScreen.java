@@ -119,6 +119,16 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		Ui.setTextScale(textDensity / pixelDensity);
 	}
 
+	/** Category titles: bold and a step larger than row text, with a font made for that density. */
+	private void headerText(GuiGraphicsExtractor g, String text, int centerX, int top) {
+		float density = quarter(textDensity * 1.3f);
+		Ui.setHudDensity(density);
+		Ui.setTextScale(density / pixelDensity);
+		int textH = Math.round(7 * density / pixelDensity);
+		Ui.bold(g, text, centerX - Ui.widthBold(text) / 2, top + Math.max(0, (headH - textH) / 2), 0xFFFFFFFF);
+		beginText();
+	}
+
 	private static void endText() {
 		Ui.setHudDensity(0);
 		Ui.setTextScale(1f);
@@ -195,7 +205,7 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		int x = pos[0], y = pos[1];
 		// Header: the drag handle.
 		Ui.rect(g, x, y, colW, headH, 3, t.accent());
-		Ui.centered(g, c.name().toUpperCase(java.util.Locale.ROOT), x + colW / 2, textY(y, headH), 0xFFFFFFFF);
+		headerText(g, c.name().toUpperCase(java.util.Locale.ROOT), x + colW / 2, y);
 		headerRects.put(c.name(), new int[]{x, y, colW, headH});
 		// Right-click on the header folds the category away (left-drag moves it).
 		if (mod.config().general.clickGuiCollapsed.contains(c.name())) return null;
