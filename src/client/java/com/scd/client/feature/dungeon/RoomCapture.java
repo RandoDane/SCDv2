@@ -35,6 +35,10 @@ final class RoomCapture {
 	private final ScdMod mod;
 	private final DungeonFeature dungeon;
 	private final Set<String> captured = new HashSet<>();
+	/** Block-layout signatures already saved per puzzle room, to keep one copy per variation. */
+	private final Map<String, Set<Integer>> variants = new java.util.concurrent.ConcurrentHashMap<>();
+	/** Puzzle rooms already copied this run (they're re-copied each run to catch new variations). */
+	private final Set<MappedRoom> copiedThisRun = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 	private Job job;
 	/** Room to capture again even though a copy exists ({@code /scd rooms recapture}). */
 	private MappedRoom forced;
@@ -58,6 +62,7 @@ final class RoomCapture {
 		} catch (Exception e) {
 			ScdLog.warn("Could not list captured rooms", e);
 		}
+		Thread.ofVirtual().start(this::loadVariants);
 		mod.bus.subscribe(Events.Tick.class, e -> {
 			if (!mod.config().dungeon.captureRooms || !dungeon.state().inDungeon()) {
 				job = null;
@@ -65,7 +70,30 @@ final class RoomCapture {
 			}
 			ScdLog.guard("room capture", this::tick);
 		});
-		mod.bus.subscribe(Events.WorldChanged.class, e -> job = null);
+		mod.bus.subscribe(Events.WorldChanged.class, e -> {
+			job = null;
+			copiedThisRun.clear();
+		});
+	}
+
+	private void loadVariants() {
+		try (var files = Files.list(DIR)) {
+			for (Path f : files.toList()) {
+				try {
+					CompoundTag t = NbtIo.readCompressed(f, net.minecraft.nbt.NbtAccounter.unlimitedHeap());
+					t.getInt("signature").ifPresent(sig -> variants.computeIfAbsent(t.getStringOr("name", "?"), k -> java.util.concurrent.ConcurrentHashMap.newKeySet()).add(sig));
+				} catch (Exception ignored) {
+					// An unreadable copy just gets captured again.
+				}
+			}
+		} catch (Exception ignored) {
+			// No captures yet.
+		}
+	}
+
+	/** Saved variations of a puzzle room so far. */
+	int variantCount(String room) {
+		return variants.getOrDefault(room, Set.of()).size();
 	}
 
 	static String fileName(String room) {
@@ -91,7 +119,8 @@ final class RoomCapture {
 			if (mod.tasks.currentTick() % 20 != 0) return;
 			for (MappedRoom r : dungeon.rooms().rooms()) {
 				if (r.name() == null || r.anchor() == null || !r.complete()) continue;
-				if (has(r.name()) && r != forced) continue;
+				boolean puzzle = r.kind() == com.scd.logic.dungeon.room.RoomKind.PUZZLE;
+				if (r != forced && (puzzle ? copiedThisRun.contains(r) : has(r.name()))) continue;
 				if (start(r, level)) break;
 			}
 			return;
@@ -112,8 +141,9 @@ final class RoomCapture {
 		j.cursor = end;
 		if (end >= total) {
 			job = null;
-			if (j.room == forced) forced = null;
-			save(j);
+			boolean wasForced = j.room == forced;
+			if (wasForced) forced = null;
+			save(j, wasForced);
 		}
 	}
 
@@ -139,12 +169,29 @@ final class RoomCapture {
 		j.sy = Math.min(level.getMaxY(), Math.max(r.highestBlock, 100) + 2) + 1;
 		j.blocks = new int[j.sx * j.sy * j.sz];
 		job = j;
+		copiedThisRun.add(r);
 		return true;
 	}
 
-	private void save(Job j) {
+	/** The block layout as one number: same blocks in the same places = same variation. */
+	private static int signature(Job j) {
+		int h = 1;
+		for (int b : j.blocks) h = 31 * h + (b == 0 ? 0 : j.order.get(b - 1).hashCode());
+		return h;
+	}
+
+	private void save(Job j, boolean forcedCopy) {
 		String name = j.room.name();
+		int sig = signature(j);
+		boolean puzzle = j.room.kind() == com.scd.logic.dungeon.room.RoomKind.PUZZLE;
+		Set<Integer> known = variants.computeIfAbsent(name, k -> java.util.concurrent.ConcurrentHashMap.newKeySet());
+		if (puzzle && !forcedCopy && known.contains(sig)) return; // this variation is already saved
+		// First copy is "<room>", later variations "<room> (2)", "(3)"...
+		String base = fileName(name), id = base;
+		if (puzzle && !forcedCopy) for (int n = 2; captured.contains(id); n++) id = base + " (" + n + ")";
+		known.add(sig);
 		CompoundTag tag = new CompoundTag();
+		tag.putInt("signature", sig);
 		tag.putString("name", name);
 		if (j.room.kind() != null) tag.putString("kind", j.room.kind().name());
 		if (j.room.info() != null) tag.putString("shape", j.room.info().shape().key);
@@ -157,13 +204,14 @@ final class RoomCapture {
 		for (BlockState s : j.order) palette.add(NbtUtils.writeBlockState(s));
 		tag.put("palette", palette);
 		tag.putIntArray("blocks", j.blocks);
-		captured.add(fileName(name));
-		Path file = DIR.resolve(fileName(name) + ".nbt");
+		captured.add(id);
+		Path file = DIR.resolve(id + ".nbt");
+		String label = id;
 		Thread.ofVirtual().start(() -> {
 			try {
 				Files.createDirectories(DIR);
 				NbtIo.writeCompressed(tag, file);
-				ScdLog.info("[rooms] captured " + name + " (" + j.order.size() + " block types)");
+				ScdLog.info("[rooms] captured " + label + " (" + j.order.size() + " block types)");
 			} catch (Exception e) {
 				ScdLog.warn("Could not save captured room " + name, e);
 			}

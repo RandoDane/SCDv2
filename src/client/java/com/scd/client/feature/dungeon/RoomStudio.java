@@ -49,7 +49,8 @@ final class RoomStudio {
 	static final List<String> TYPES = List.of("chest", "item", "bat", "essence", "lever", "redstone", "other");
 
 	/** Where a captured room sits in the singleplayer world: world = captured + (dx, 0, dz). */
-	record Placement(String name, int dx, int dz, RoomRotation rotation, int anchorX, int anchorZ, int[] min, int[] size) {
+	/** {@code id} is the copy (e.g. "Boulder (3)" for a puzzle variation), {@code name} the real room it belongs to. */
+	record Placement(String id, String name, int dx, int dz, RoomRotation rotation, int anchorX, int anchorZ, int[] min, int[] size) {
 		boolean contains(double x, double z) {
 			return x >= min[0] + dx && x < min[0] + dx + size[0] && z >= min[2] + dz && z < min[2] + dz + size[2];
 		}
@@ -147,10 +148,11 @@ final class RoomStudio {
 			if (Files.isRegularFile(PLACEMENTS)) {
 				for (var el : JsonParser.parseString(Files.readString(PLACEMENTS)).getAsJsonArray()) {
 					JsonObject o = el.getAsJsonObject();
-					Placement p = new Placement(o.get("name").getAsString(), o.get("dx").getAsInt(), o.get("dz").getAsInt(),
+					String room = o.get("name").getAsString();
+					Placement p = new Placement(o.has("id") ? o.get("id").getAsString() : room, room, o.get("dx").getAsInt(), o.get("dz").getAsInt(),
 							RoomRotation.valueOf(o.get("rotation").getAsString()), o.get("anchorX").getAsInt(), o.get("anchorZ").getAsInt(),
 							ints(o.getAsJsonArray("min")), ints(o.getAsJsonArray("size")));
-					placements.put(p.name(), p);
+					placements.put(p.id(), p);
 				}
 			}
 			if (Files.isRegularFile(LABELS)) {
@@ -185,6 +187,7 @@ final class RoomStudio {
 		JsonArray out = new JsonArray();
 		for (Placement p : placements.values()) {
 			JsonObject o = new JsonObject();
+			o.addProperty("id", p.id());
 			o.addProperty("name", p.name());
 			o.addProperty("dx", p.dx());
 			o.addProperty("dz", p.dz());
@@ -285,7 +288,7 @@ final class RoomStudio {
 			int slot = placements.size();
 			int[] min = building.getIntArray("min").orElseThrow(), size = building.getIntArray("size").orElseThrow();
 			int slotX = (slot % PER_ROW) * SLOT, slotZ = (slot / PER_ROW) * SLOT;
-			buildingAt = new Placement(building.getStringOr("name", "?"), slotX - min[0], slotZ - min[2],
+			buildingAt = new Placement(next.getFileName().toString().replaceFirst("\\.nbt$", ""), building.getStringOr("name", "?"), slotX - min[0], slotZ - min[2],
 					RoomRotation.valueOf(building.getStringOr("rotation", "NORTH")), building.getIntOr("anchorX", 0), building.getIntOr("anchorZ", 0), min, size);
 			buildCursor = 0;
 		}
@@ -304,7 +307,7 @@ final class RoomStudio {
 		}
 		buildCursor = end;
 		if (end >= blocks.length) {
-			placements.put(buildingAt.name(), buildingAt);
+			placements.put(buildingAt.id(), buildingAt);
 			building = null;
 			built++;
 			if (built == toBuild || built % 10 == 0) {
@@ -321,6 +324,7 @@ final class RoomStudio {
 		if (server == null || mc.player == null) return fail("Only in the singleplayer world with the rooms.");
 		Placement p = find(name);
 		if (p == null) return fail("No built room called \"" + name + "\". /scd rooms list");
+		String shown = p.id();
 		int cx = p.min()[0] + p.dx() + p.size()[0] / 2, cz = p.min()[2] + p.dz() + p.size()[2] / 2;
 		var uuid = mc.player.getUUID();
 		server.execute(() -> {
@@ -337,15 +341,15 @@ final class RoomStudio {
 			var sp = server.getPlayerList().getPlayer(uuid);
 			if (sp != null) sp.connection.teleport(cx + 0.5, y, cz + 0.5, sp.getYRot(), sp.getXRot());
 		});
-		Chat.info("Teleported to " + p.name() + ".");
+		Chat.info("Teleported to " + shown + ".");
 		return 1;
 	}
 
 	private Placement find(String name) {
 		Placement exact = placements.get(name);
 		if (exact != null) return exact;
-		for (Placement p : placements.values()) if (p.name().equalsIgnoreCase(name)) return p;
-		for (Placement p : placements.values()) if (p.name().toLowerCase(Locale.ROOT).contains(name.toLowerCase(Locale.ROOT))) return p;
+		for (Placement p : placements.values()) if (p.id().equalsIgnoreCase(name)) return p;
+		for (Placement p : placements.values()) if (p.id().toLowerCase(Locale.ROOT).contains(name.toLowerCase(Locale.ROOT))) return p;
 		return null;
 	}
 
@@ -446,8 +450,8 @@ final class RoomStudio {
 
 	private boolean inSession(Placement p) {
 		if (p == null) return false;
-		if (sessionRoom != null && !sessionRoom.name().equals(p.name()) && !session.isEmpty()) {
-			Chat.error("You have an unsaved route in " + sessionRoom.name() + ": /scd studio save or /scd studio clear.");
+		if (sessionRoom != null && !sessionRoom.id().equals(p.id()) && !session.isEmpty()) {
+			Chat.error("You have an unsaved route in " + sessionRoom.id() + ": /scd studio save or /scd studio clear.");
 			return false;
 		}
 		sessionRoom = p;
@@ -647,7 +651,15 @@ final class RoomStudio {
 		return ClientCommands.literal("rooms")
 				.executes(ctx -> {
 					int total = dungeon.rooms().database().size();
-					Chat.info("Captured " + capture.count() + " of " + total + " rooms. In singleplayer: /scd rooms build, /scd rooms tp <name>, /scd secret add <type>.");
+					int rooms = 0;
+					List<String> puzzles = new ArrayList<>();
+					for (var info : dungeon.rooms().database().rooms()) {
+						if (capture.has(info.name())) rooms++;
+						if (info.kind() == com.scd.logic.dungeon.room.RoomKind.PUZZLE) puzzles.add(info.name() + " " + capture.variantCount(info.name()));
+					}
+					puzzles.sort(null);
+					Chat.info("Captured " + rooms + " of " + total + " rooms. Puzzle variations: " + String.join(", ", puzzles)
+							+ ". In singleplayer: /scd rooms build, /scd rooms tp <name>, /scd studio kit.");
 					return 1;
 				})
 				.then(ClientCommands.literal("build").executes(ctx -> build()))
