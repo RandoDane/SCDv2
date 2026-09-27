@@ -38,7 +38,7 @@ public final class Ui {
 	/**
 	 * One font definition per GUI scale (1-6), rasterized at exactly that scale so every glyph pixel
 	 * lands on one screen pixel - a single oversampled font shrunk with nearest-neighbour sampling
-	 * looked thin and jagged at scales 2-3. Body text is Montserrat Medium, headings SemiBold.
+	 * looked thin and jagged at scales 2-3. Body text is Montserrat SemiBold, headings Bold.
 	 */
 	private static final int[] TEXT_SIZES = {70, 80, 90, 100, 110};
 	private static final FontDescription[][] REGULAR_BY_SCALE = faces("ui_");

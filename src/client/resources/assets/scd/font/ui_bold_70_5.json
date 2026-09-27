@@ -1,1 +1,1 @@
-{"providers": [{"type": "ttf", "file": "scd:montserrat-semibold.ttf", "size": 5.775, "oversample": 5.0, "shift": [0.0, 1.2], "skip": ""}, {"type": "reference", "id": "minecraft:default"}]}
+{"providers": [{"type": "ttf", "file": "scd:montserrat-bold.ttf", "size": 5.775, "oversample": 5.0, "shift": [0.0, 1.2], "skip": ""}, {"type": "reference", "id": "minecraft:default"}]}
