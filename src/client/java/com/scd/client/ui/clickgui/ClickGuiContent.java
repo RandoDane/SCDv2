@@ -170,7 +170,7 @@ final class ClickGuiContent {
 		// ---- Market ----
 		List<Module> market = new ArrayList<>();
 		market.add(new Module("Bazaar tooltips", "Instant buy/sell and spread", () -> c.bazaar.tooltip, v -> c.bazaar.tooltip = v)
-				.toggle("Whole-stack value", () -> c.bazaar.tooltipStackValue, v -> c.bazaar.tooltipStackValue = v)
+				.toggle("Shift: stack price", () -> c.bazaar.tooltipStackValue, v -> c.bazaar.tooltipStackValue = v)
 				);
 		market.add(new Module("Auction tooltips", "Estimate and lowest BIN", () -> c.market.auctionTooltips, v -> c.market.auctionTooltips = v));
 		market.add(new Module("Price graph", "Graph HUD while hovering in menus", () -> c.bazaar.graphHud, v -> c.bazaar.graphHud = v)

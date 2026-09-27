@@ -187,14 +187,20 @@ public final class BazaarFeature implements Feature {
 			if (mod.config().market.auctionTooltips) auctionTooltip(stack, id, lines);
 			return;
 		}
+		// Holding Shift over a stack in a menu shows both prices for the whole stack.
+		var mc = net.minecraft.client.Minecraft.getInstance();
+		boolean canStack = mod.config().bazaar.tooltipStackValue && stack.getCount() > 1
+				&& mc.gui.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>;
+		boolean whole = canStack && mc.hasShiftDown();
+		int n = whole ? stack.getCount() : 1;
+		String each = whole ? " (x" + n + ")" : "";
 		lines.add(Component.literal("Bazaar").withStyle(ChatFormatting.DARK_GRAY));
-		lines.add(Component.literal("  Insta-Sell: ").withStyle(ChatFormatting.GRAY)
-				.append(Component.literal(Numbers.coins(p.sellPrice()) + " coins").withStyle(ChatFormatting.GREEN)));
-		lines.add(Component.literal("  Insta-Buy:  ").withStyle(ChatFormatting.GRAY)
-				.append(Component.literal(Numbers.coins(p.buyPrice()) + " coins").withStyle(ChatFormatting.GOLD)));
-		if (mod.config().bazaar.tooltipStackValue && stack.getCount() > 1) {
-			lines.add(Component.literal("  Stack (x" + stack.getCount() + "): ").withStyle(ChatFormatting.GRAY)
-					.append(Component.literal(Numbers.coins(p.sellPrice() * stack.getCount()) + " coins").withStyle(ChatFormatting.GREEN)));
+		lines.add(Component.literal("  Insta-Sell" + each + ": ").withStyle(ChatFormatting.GRAY)
+				.append(Component.literal(Numbers.coins(p.sellPrice() * n) + " coins").withStyle(ChatFormatting.GREEN)));
+		lines.add(Component.literal("  Insta-Buy" + each + ":  ").withStyle(ChatFormatting.GRAY)
+				.append(Component.literal(Numbers.coins(p.buyPrice() * n) + " coins").withStyle(ChatFormatting.GOLD)));
+		if (canStack && !whole) {
+			lines.add(Component.literal("  Shift: price for all " + stack.getCount()).withStyle(ChatFormatting.DARK_GRAY));
 		}
 		lines.add(Component.literal("  Spread: ").withStyle(ChatFormatting.GRAY)
 				.append(Component.literal(Numbers.percent(p.spreadPercent(), 1)).withStyle(ChatFormatting.DARK_GRAY)));
