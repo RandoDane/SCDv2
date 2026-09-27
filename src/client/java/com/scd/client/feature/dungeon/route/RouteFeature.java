@@ -207,11 +207,18 @@ public final class RouteFeature implements Feature {
 		while (nextKey.consumeClick()) runner.next();
 		while (backKey.consumeClick()) runner.previous();
 		while (nodeKey.consumeClick()) {
-			if (!recorder.active() || mc.player == null) continue;
-			int n = recorder.addNode(mc.player.position());
+			if (mc.player == null) continue;
+			int n = recorder.active() ? recorder.addNode(mc.player.position()) : nodeFallback != null ? nodeFallback.applyAsInt(mc.player.position()) : 0;
 			if (n > 0) mc.gui.hud.setOverlayMessage(net.minecraft.network.chat.Component.literal("Node " + n + " placed")
 					.withStyle(net.minecraft.ChatFormatting.AQUA), false);
 		}
+	}
+
+	/** Where N goes when not recording in a dungeon (the singleplayer room studio). */
+	private java.util.function.ToIntFunction<net.minecraft.world.phys.Vec3> nodeFallback;
+
+	public void setNodeFallback(java.util.function.ToIntFunction<net.minecraft.world.phys.Vec3> fallback) {
+		nodeFallback = fallback;
 	}
 
 	RouteRunner runner() {

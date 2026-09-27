@@ -76,6 +76,8 @@ public final class DungeonFeature implements Feature {
 		secrets = new SecretTracker(mod, this);
 		mod.huds.add(new DungeonMapHud(mod::config, this, secrets));
 		learning = new RoomLearning(mod, this);
+		capture = new RoomCapture(mod, this);
+		studio = new RoomStudio(mod, this);
 		new PuzzleSolvers(mod, this);
 		new PuzzleSolvers2(mod, this);
 		new BloodCamp(mod, this);
@@ -306,6 +308,7 @@ public final class DungeonFeature implements Feature {
 
 	@Override
 	public void registerCommands(LiteralArgumentBuilder<FabricClientCommandSource> root) {
+		root.then(studio.roomsCommand(capture)).then(studio.secretCommand()).then(studio.studioCommand());
 		root.then(ClientCommands.literal("dungeon")
 				.executes(ctx -> {
 					ScdScreen.open(new com.scd.client.ui.clickgui.ClickGuiScreen(mod));
@@ -347,6 +350,8 @@ public final class DungeonFeature implements Feature {
 	}
 
 	private RoomLearning learning;
+	private RoomCapture capture;
+	private RoomStudio studio;
 
 	private int roomInfo() {
 		MappedRoom r = rooms.current();

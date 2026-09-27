@@ -373,6 +373,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		System.out.println("SCD_TEST_ROOM " + room.label() + " " + room.anchor() + " player rel " + rel);
 		ctx.takeScreenshot("14-room-hud");
 		routeScenario(ctx, server, mod, c);
+		studioScenario(ctx);
 
 		ctx.runOnClient(mc -> {
 			try {
@@ -390,6 +391,18 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 	 * Record a 4-step route (chest, item, bat, exit) in the test room, then play it back and check each
 	 * secret advances it; round-trip it through a share code; optionally load a real SecretRoutes pack.
 	 */
+	/** The room was captured on sight; build the copies in this singleplayer world and jump to one. */
+	private static void studioScenario(ClientGameTestContext ctx) {
+		for (int i = 0; i < 40 && !java.nio.file.Files.exists(com.scd.client.storage.ScdPaths.file("dungeon/captured/SCD Test Room.nbt")); i++) ctx.waitTicks(5);
+		ctx.runOnClient(mc -> mc.player.connection.sendCommand("scd rooms build"));
+		ctx.waitTicks(60);
+		ctx.runOnClient(mc -> mc.player.connection.sendCommand("scd rooms tp SCD Test Room"));
+		ctx.waitTicks(20);
+		double x = ctx.computeOnClient(mc -> mc.player.getX()), z = ctx.computeOnClient(mc -> mc.player.getZ());
+		check(x >= 0 && x < 160 && z >= 0 && z < 160, "rooms tp did not land in the first grid slot: " + x + "," + z);
+		ctx.takeScreenshot("14c-studio-room");
+	}
+
 	private static void routeScenario(ClientGameTestContext ctx, TestServerContext server, ScdMod mod, int c) {
 		var routes = mod.feature(com.scd.client.feature.dungeon.route.RouteFeature.class);
 		var chest = new net.minecraft.core.BlockPos(c + 3, 91, c + 3);
