@@ -222,6 +222,28 @@ final class RoomStudio {
 		}
 	}
 
+	/** Every known secret of a room: your labels, then any other secret found in its routes (room coordinates). */
+	List<Label> waypoints(String room) {
+		List<Label> out = new ArrayList<>(labelsFor(room));
+		var routes = mod.feature(com.scd.client.feature.dungeon.route.RouteFeature.class).library()
+				.routesFor(room, mod.config().dungeon.disabledRoutePacks);
+		for (var route : routes) {
+			for (var step : route.steps()) {
+				if (step.secret == null) continue;
+				String type = switch (step.secretType) {
+					case ITEM -> "item";
+					case BAT -> "bat";
+					case INTERACT -> "chest";
+					default -> null;
+				};
+				if (type == null) continue;
+				BlockPos rel = new BlockPos(step.secret[0], step.secret[1], step.secret[2]);
+				if (out.stream().noneMatch(l -> l.rel().equals(rel))) out.add(new Label(type, rel));
+			}
+		}
+		return out;
+	}
+
 	/** Secrets labelled for a room (room coordinates). */
 	List<Label> labelsFor(String room) {
 		return labels.getOrDefault(room, List.of());
@@ -403,11 +425,19 @@ final class RoomStudio {
 		} else if (dungeon.state().inDungeon()) {
 			MappedRoom r = dungeon.rooms().current();
 			if (r == null || r.name() == null || r.anchor() == null) return;
-			for (Label l : labelsFor(r.name())) mark(r.toWorld(l.rel()), l.type());
+			for (Label l : waypoints(r.name())) mark(r.toWorld(l.rel()), l.type());
 		}
 	}
 
 	private static void mark(BlockPos pos, String type) {
+		if (type.equals("chest")) {
+			// Route secrets only say "interact": name it after the block that's there.
+			var level = Minecraft.getInstance().level;
+			var b = level != null ? level.getBlockState(pos).getBlock() : null;
+			if (b == net.minecraft.world.level.block.Blocks.LEVER) type = "lever";
+			else if (b instanceof net.minecraft.world.level.block.AbstractSkullBlock) type = "essence";
+			else if (b == net.minecraft.world.level.block.Blocks.REDSTONE_BLOCK) type = "redstone";
+		}
 		WorldGizmos.block(pos, color(type), true);
 		WorldGizmos.label(Vec3.atCenterOf(pos).add(0, 1.0, 0), title(type), color(type), true);
 	}

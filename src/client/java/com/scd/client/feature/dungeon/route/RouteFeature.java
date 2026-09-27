@@ -124,7 +124,7 @@ public final class RouteFeature implements Feature {
 		com.scd.client.feature.world.WorldGizmos.onWorldExtract(partialTick -> {
 			ScdConfig.Dungeon c = mod.config().dungeon;
 			if (recorder.active()) recorder.render(c.routesThroughWalls, partialTick, c.routesSmoothing);
-			else if (c.routes) runner.render(c.routesThroughWalls, c.routesShowNext, partialTick, c.routesSmoothing);
+			else if (c.routes && c.labeledSecrets) runner.render(c.routesThroughWalls, c.routesShowNext, partialTick, c.routesSmoothing);
 		});
 	}
 

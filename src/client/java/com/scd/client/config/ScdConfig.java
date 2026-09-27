@@ -155,7 +155,7 @@ public final class ScdConfig {
 		public boolean puzzleSolvers = true;
 		/** Save a copy of every room played through, to rebuild them in singleplayer. */
 		public boolean captureRooms = true;
-		/** Draw the secrets you labelled yourself (in singleplayer copies and in real runs). */
+		/** Secret waypoints: every known secret in the room (labels + route secrets); routes require it. */
 		public boolean labeledSecrets = true;
 		/** Solvers switched off individually, by puzzle room name (e.g. "Ice Fill"). */
 		public java.util.List<String> disabledPuzzles = new java.util.ArrayList<>();

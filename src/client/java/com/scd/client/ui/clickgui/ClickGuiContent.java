@@ -108,7 +108,6 @@ final class ClickGuiContent {
 		dun.add(solvers);
 		dun.add(new Module("Puzzle HUD", "Puzzle names and status", () -> d.puzzleHud, v -> d.puzzleHud = v));
 		dun.add(new Module("Capture rooms", "Save a copy of each room you play, to rebuild in singleplayer (/scd rooms)", () -> d.captureRooms, v -> d.captureRooms = v));
-		dun.add(new Module("Labelled secrets", "Show secrets you marked in the singleplayer room studio", () -> d.labeledSecrets, v -> d.labeledSecrets = v));
 		dun.add(new Module("Blood camp", "Watcher move timer, mob landing spots", () -> d.bloodCamp, v -> d.bloodCamp = v));
 		dun.add(new Module("Door highlight", "Wither/blood doors: red locked, green openable", () -> d.doorHighlight, v -> d.doorHighlight = v)
 				.toggle("Key spawn alert", () -> d.keyAlert, v -> d.keyAlert = v));
@@ -148,12 +147,21 @@ final class ClickGuiContent {
 
 		// ---- Routes ----
 		RouteFeature routes = mod.feature(RouteFeature.class);
-		Module show = new Module("Secret routes", "Play routes in identified rooms", () -> d.routes, v -> d.routes = v)
+		// Waypoints work alone; routes need them (on turns waypoints on, waypoints off turns routes off).
+		Module waypoints = new Module("Secret waypoints", "Every known secret in your room: your labels plus the secrets in its routes",
+				() -> d.labeledSecrets, v -> {
+			d.labeledSecrets = v;
+			if (!v) d.routes = false;
+		});
+		Module show = new Module("Secret routes", "Play routes in identified rooms (needs Secret waypoints)", () -> d.routes, v -> {
+			d.routes = v;
+			if (v) d.labeledSecrets = true;
+		})
 				.toggle("Through walls", () -> d.routesThroughWalls, v -> d.routesThroughWalls = v)
 				.toggle("Preview next step", () -> d.routesShowNext, v -> d.routesShowNext = v)
 				.opt(new Opt.Slider("Smoothing", 0, 4, 0.5, () -> d.routesSmoothing, v -> d.routesSmoothing = v,
 						v -> v == 0 ? "raw" : String.format(Locale.ROOT, "%.1f", v)));
-		List<Module> routeMods = new ArrayList<>(List.of(show));
+		List<Module> routeMods = new ArrayList<>(List.of(waypoints, show));
 		Module packs = new Module("Route packs", "Use pack files from config/scd/routes (your own routes always play)",
 				() -> d.routePacks, v -> d.routePacks = v)
 				.opt(new Opt.Info("Your routes", () -> String.valueOf(routes.library().mine().rooms.size())));
