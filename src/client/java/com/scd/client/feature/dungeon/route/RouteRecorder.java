@@ -16,7 +16,7 @@ import java.util.List;
  * etherwarp, broken blocks are mines, levers/buttons are interacts, TNT placed with a right-click is
  * a TNT spot, thrown pearls keep their angles. Each secret (chest/skull click, item pickup, bat
  * kill, or {@code /scd route mark} for an exit) closes the current step and starts the next.
- * Crouch + left-click drops a node: from then on that step's path is straight lines through the
+ * The node key (N) drops a node: from then on that step's path is straight lines through the
  * nodes instead of the sampled walk.
  */
 final class RouteRecorder {

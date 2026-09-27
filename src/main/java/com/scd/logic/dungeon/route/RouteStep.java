@@ -46,7 +46,7 @@ public final class RouteStep {
 	public final List<int[]> pearls = new ArrayList<>();
 	public final List<float[]> pearlAngles = new ArrayList<>();
 	/**
-	 * The path was placed by hand as nodes (crouch + left-click while recording): drawn as straight
+	 * The path was placed by hand as nodes (the node key, N by default, while recording): drawn as straight
 	 * lines exactly through {@link #locations}, never smoothed. Saved as "scd_nodes" (ignored by
 	 * SecretRoutes, which just sees the node list as the path).
 	 */

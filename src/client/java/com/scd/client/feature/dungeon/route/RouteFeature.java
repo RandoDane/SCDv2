@@ -43,7 +43,7 @@ public final class RouteFeature implements Feature {
 	private RouteLibrary library;
 	private final RouteRunner runner = new RouteRunner();
 	private final RouteRecorder recorder = new RouteRecorder();
-	private KeyMapping nextKey, backKey;
+	private KeyMapping nextKey, backKey, nodeKey;
 	/** Where the player first stepped into the current room (world), to pick routes by door. */
 	private MappedRoom entryRoom;
 	private net.minecraft.world.phys.Vec3 entryWorld;
@@ -105,14 +105,6 @@ public final class RouteFeature implements Feature {
 			return InteractionResult.PASS;
 		});
 		ClientPlayerBlockBreakEvents.AFTER.register((level, player, pos, state) -> recorder.onBlockBroken(pos));
-		// While recording: crouch + left-click drops a path node on the block you stand on.
-		net.fabricmc.fabric.api.event.client.player.ClientPreAttackCallback.EVENT.register((client, player, clicks) -> {
-			if (clicks <= 0 || !recorder.active() || !player.isShiftKeyDown()) return false;
-			int n = recorder.addNode(player.position());
-			if (n > 0) client.gui.hud.setOverlayMessage(net.minecraft.network.chat.Component.literal("Node " + n + " placed")
-					.withStyle(net.minecraft.ChatFormatting.AQUA), false);
-			return n > 0;
-		});
 		UseItemCallback.EVENT.register((player, level, hand) -> {
 			if (level.isClientSide() && player.getItemInHand(hand).is(Items.ENDER_PEARL)) {
 				recorder.onPearl(player.position(), player.getYRot(), player.getXRot());
@@ -123,6 +115,8 @@ public final class RouteFeature implements Feature {
 		var category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("scd", "routes"));
 		nextKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.scd.route_next", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
 		backKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.scd.route_back", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
+		// While recording: drops a path node on the block you stand on.
+		nodeKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.scd.route_node", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, category));
 
 		mod.huds.add(new RouteHud(mod::config, this));
 		com.scd.client.feature.world.WorldGizmos.onWorldExtract(partialTick -> {
@@ -210,6 +204,12 @@ public final class RouteFeature implements Feature {
 		recorder.tick(mc.player.position());
 		while (nextKey.consumeClick()) runner.next();
 		while (backKey.consumeClick()) runner.previous();
+		while (nodeKey.consumeClick()) {
+			if (!recorder.active() || mc.player == null) continue;
+			int n = recorder.addNode(mc.player.position());
+			if (n > 0) mc.gui.hud.setOverlayMessage(net.minecraft.network.chat.Component.literal("Node " + n + " placed")
+					.withStyle(net.minecraft.ChatFormatting.AQUA), false);
+		}
 	}
 
 	RouteRunner runner() {
