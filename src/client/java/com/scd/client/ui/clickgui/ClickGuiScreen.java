@@ -136,7 +136,6 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 			int bg = on ? (t.accent() & 0x00FFFFFF) | 0xB0000000 : hot ? t.cardHover() : t.window();
 			g.fill(x + 1, ry, x + COL_W - 1, ry + ROW_H, bg);
 			Ui.text(g, Ui.ellipsize(m.name, COL_W - 14), x + 6, ry + 3, on ? 0xFFFFFFFF : t.textPrimary());
-			if (!m.options.isEmpty()) g.fill(x + COL_W - 6, ry + ROW_H / 2 - 1, x + COL_W - 4, ry + ROW_H / 2 + 1, t.textMuted());
 			if (hot) hover = m.description;
 			if (visible(ry, ROW_H, top, visibleH)) {
 				hits.add(new Hit(x, Math.max(ry, top), COL_W, ROW_H, m.on != null ? () -> m.set.accept(!m.on.getAsBoolean()) : () -> toggleExpanded(key),
