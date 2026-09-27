@@ -53,6 +53,11 @@ public final class AccessoryScreen extends ScdScreen {
 	}
 
 	@Override
+	protected String navKey() {
+		return "accessories";
+	}
+
+	@Override
 	protected void build(Rows rows) {
 		var c = mod.config().accessories;
 		rows.toggle("Bag overlay", "Missing-accessories panel next to the in-game Accessory Bag", () -> c.bagOverlay, v -> c.bagOverlay = v);

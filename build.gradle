@@ -9,6 +9,13 @@ repositories {
 loom {
 	splitEnvironmentSourceSets()
 
+	runs {
+		configureEach {
+			// A typical 1080p window, so gametest screenshots match what players see.
+			programArgs "--width", "1920", "--height", "1080"
+		}
+	}
+
 	mods {
 		"scd" {
 			sourceSet sourceSets.main

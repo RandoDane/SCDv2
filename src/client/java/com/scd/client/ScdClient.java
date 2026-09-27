@@ -49,6 +49,7 @@ public final class ScdClient implements ClientModInitializer {
 		String version = FabricLoader.getInstance().getModContainer("scd").map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("dev");
 		mod = new ScdMod(version);
 		Ui.setTheme(Theme.byName(mod.config().general.theme));
+		Ui.setSmoothFont(mod.config().general.smoothFont);
 		mod.configManager.onChange(() -> mod.backend.setBaseUrl(mod.config().backend.serverUrl));
 
 		// Order matters: later features look earlier ones up in init().
@@ -58,6 +59,7 @@ public final class ScdClient implements ClientModInitializer {
 			ScdLog.guard("init " + f.getClass().getSimpleName(), () -> f.init(mod));
 		}
 		mod.huds.register();
+		registerNav();
 
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> ScdLog.guard("tick", this::tick));
 		ScreenEvents.AFTER_INIT.register((mc, screen, w, h) -> {
@@ -73,6 +75,34 @@ public final class ScdClient implements ClientModInitializer {
 
 		ScdLog.info("SCD " + version + " ready: " + mod.features().size() + " features, " + mod.huds.elements().size() + " HUD elements, market key "
 				+ (mod.market.hasKey() ? "set" : "missing"));
+	}
+
+	/** Sidebar pages, top to bottom. */
+	private void registerNav() {
+		record P(String key, String section, String label, net.minecraft.world.item.Item icon, java.util.function.Supplier<net.minecraft.client.gui.screens.Screen> open) {
+		}
+		for (P p : List.of(
+				new P("overview", "Main", "Overview", net.minecraft.world.item.Items.NETHER_STAR, () -> new MainScreen(null, mod)),
+				new P("market", "Main", "Market", net.minecraft.world.item.Items.EMERALD, () -> new com.scd.client.screen.MarketScreen(null, mod)),
+				new P("slayer", "Main", "Slayer", net.minecraft.world.item.Items.ROTTEN_FLESH,
+						() -> new com.scd.client.feature.slayer.SlayerScreen(null, mod, mod.feature(SlayerFeature.class))),
+				new P("carries", "Main", "Carries", net.minecraft.world.item.Items.GOLD_INGOT,
+						() -> new com.scd.client.feature.carry.CarryScreen(null, mod.feature(CarryService.class))),
+				new P("dungeons", "Main", "Dungeons", net.minecraft.world.item.Items.WITHER_SKELETON_SKULL,
+						() -> new com.scd.client.feature.dungeon.DungeonScreen(null, mod, mod.feature(DungeonFeature.class))),
+				new P("accessories", "Main", "Accessories", net.minecraft.world.item.Items.ENDER_EYE,
+						() -> new com.scd.client.feature.accessory.AccessoryScreen(null, mod, mod.feature(AccessoryFeature.class))),
+				new P("hud", "Setup", "HUD layout", net.minecraft.world.item.Items.PAINTING,
+						() -> new HudEditorScreen(new MainScreen(null, mod), mod.huds, mod.configManager)),
+				new P("general", "Setup", "General", net.minecraft.world.item.Items.COMPARATOR,
+						() -> new com.scd.client.screen.GeneralScreen(null, mod)))) {
+			// Built lazily: item stacks can't exist before the game's registries are bound.
+			net.minecraft.world.item.ItemStack[] icon = new net.minecraft.world.item.ItemStack[1];
+			com.scd.client.ui.Nav.register(new com.scd.client.ui.Nav.Item(p.key(), p.section(), p.label(), () -> {
+				if (icon[0] == null) icon[0] = new net.minecraft.world.item.ItemStack(p.icon());
+				return icon[0];
+			}, p.open()));
+		}
 	}
 
 	private void tick() {

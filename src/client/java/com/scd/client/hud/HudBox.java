@@ -40,7 +40,8 @@ public final class HudBox {
 		}
 
 		public int width() {
-			return Ui.width(caps ? text.toUpperCase(Locale.ROOT) : text);
+			String s = caps ? text.toUpperCase(Locale.ROOT) : text;
+			return caps || role == HudColor.TITLE ? Ui.widthBold(s) : Ui.width(s);
 		}
 	}
 
@@ -72,11 +73,11 @@ public final class HudBox {
 
 	private record Hero(String label, String value) implements Row {
 		public int height() {
-			return LINE + 18;
+			return LINE + 16;
 		}
 
 		public int width() {
-			return Math.max(Ui.width(label.toUpperCase(Locale.ROOT)), Ui.width(value) * 2);
+			return Math.max(Ui.widthBold(label.toUpperCase(Locale.ROOT)), Ui.widthTitle(value));
 		}
 	}
 
@@ -214,15 +215,17 @@ public final class HudBox {
 			switch (row) {
 				case Text t -> {
 					int color = t.fixed() != null ? t.fixed() : palette.color(t.role());
-					Ui.text(g, t.caps() ? t.text().toUpperCase(Locale.ROOT) : t.text(), x, y + 1, color);
+					String str = t.caps() ? t.text().toUpperCase(Locale.ROOT) : t.text();
+					if (t.caps() || t.role() == HudColor.TITLE) Ui.bold(g, str, x, y + 1, color);
+					else Ui.text(g, str, x, y + 1, color);
 				}
 				case Bar b -> Ui.bar(g, x, y, w, 5, b.frac(), b.color());
-				case Divider d -> g.fill(x, y + 2, x + w, y + 3, 0x40FFFFFF);
+				case Divider d -> g.fill(x, y + 2, x + w, y + 3, 0x28FFFFFF);
 				case Space s -> {
 				}
 				case Hero h -> {
-					Ui.text(g, h.label().toUpperCase(Locale.ROOT), x, y + 1, palette.color(HudColor.LABEL));
-					Ui.scaled(g, h.value(), x, y + LINE + 1, palette.color(HudColor.VALUE), 2);
+					Ui.section(g, h.label(), x, y + 1);
+					Ui.title(g, h.value(), x, y + LINE + 2, palette.color(HudColor.VALUE));
 				}
 				case Grid gr -> {
 					int colW = (w - 12) / 2;
@@ -230,7 +233,7 @@ public final class HudBox {
 					for (int i = 0; i < gr.cells().size(); i++) {
 						String[] c = gr.cells().get(i);
 						int cx = i % 2 == 0 ? x : x + colW + 12;
-						Ui.text(g, c[0].toUpperCase(Locale.ROOT), cx, gy + 1, palette.color(HudColor.LABEL));
+						Ui.bold(g, c[0].toUpperCase(Locale.ROOT), cx, gy + 1, palette.color(HudColor.LABEL));
 						Ui.text(g, c[1], cx, gy + LINE + 2, palette.color(HudColor.VALUE));
 						if (i % 2 == 1) gy += LINE * 2 + 3;
 					}

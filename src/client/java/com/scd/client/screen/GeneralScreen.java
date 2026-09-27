@@ -21,6 +21,11 @@ public final class GeneralScreen extends ScdScreen {
 	}
 
 	@Override
+	protected String navKey() {
+		return "general";
+	}
+
+	@Override
 	protected void onClosing() {
 		applyUrl();
 		mod.configManager.save();
@@ -35,6 +40,18 @@ public final class GeneralScreen extends ScdScreen {
 	@Override
 	protected void build(Rows rows) {
 		ScdConfig c = mod.config();
+		rows.header("Appearance");
+		rows.cycle("Theme", com.scd.client.ui.Theme.PRESETS, Ui::theme, t -> {
+			Ui.setTheme(t);
+			c.general.theme = t.name();
+			rebuild();
+		}, com.scd.client.ui.Theme::name);
+		rows.toggle("Smooth font", "Anti-aliased font in SCD menus and HUDs", () -> c.general.smoothFont, v -> {
+			c.general.smoothFont = v;
+			Ui.setSmoothFont(v);
+			rebuild();
+		});
+
 		rows.header("SCD backend");
 		rows.note("Your own SCD server: mayor perks, attribute-shard ids, accessory profiles and room reports. Prices never come from here.");
 		rows.text("Server URL", "http://host:3000", url, TextField.any(), s -> url = s);

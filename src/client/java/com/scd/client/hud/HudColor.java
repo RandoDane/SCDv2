@@ -10,7 +10,7 @@ import java.util.function.ToIntFunction;
  * match the 1.x slot ids, so imported overrides keep working.
  */
 public enum HudColor {
-	BACKGROUND("background", "Background tint", Theme::hudTint),
+	BACKGROUND("panel", "Background", Theme::hudBackground),
 	TITLE("bossTitle", "Title", Theme::accent),
 	TEXT("bossText", "Body text", Theme::textSecondary),
 	LABEL("statsLabel", "Labels", Theme::textMuted),

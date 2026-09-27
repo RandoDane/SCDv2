@@ -82,7 +82,8 @@ public final class HudStyleScreen extends ScdScreen {
 			layout.colors.remove(role.id());
 		} else if (digits.length() == 6) {
 			try {
-				layout.colors.put(role.id(), 0xFF000000 | Integer.parseInt(digits, 16));
+				int alpha = role == HudColor.BACKGROUND ? 0xE0000000 : 0xFF000000; // keep the panel translucent
+				layout.colors.put(role.id(), alpha | Integer.parseInt(digits, 16));
 			} catch (NumberFormatException ignored) {
 				// keep the last valid color until the input is complete
 			}

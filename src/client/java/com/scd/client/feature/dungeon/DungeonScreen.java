@@ -32,6 +32,11 @@ public final class DungeonScreen extends ScdScreen {
 	}
 
 	@Override
+	protected String navKey() {
+		return "dungeons";
+	}
+
+	@Override
 	protected void build(Rows rows) {
 		ScdConfig.Dungeon c = mod.config().dungeon;
 		rows.header("Score HUD");

@@ -45,7 +45,7 @@ public final class Rows {
 	}
 
 	public static final int ROW = 20;
-	private static final int GAP = 4;
+	private static final int GAP = 6;
 
 	final List<Row> rows = new ArrayList<>();
 	private final int x;
@@ -92,13 +92,9 @@ public final class Rows {
 	}
 
 	public void header(String text) {
-		if (!rows.isEmpty()) y += 4;
+		if (!rows.isEmpty()) y += 8;
 		int ix = x();
-		int w = width();
-		add(12, (g, rx, ry, rw, mx, my) -> {
-			Ui.section(g, text, ix, ry + 2);
-			Ui.divider(g, ix + Ui.width(text.toUpperCase()) + 6, ry + 6, w - Ui.width(text.toUpperCase()) - 6);
-		});
+		add(10, (g, rx, ry, rw, mx, my) -> Ui.section(g, text, ix, ry + 1));
 	}
 
 	/** Multi-line muted paragraph, word-wrapped to the row width. */
@@ -135,61 +131,61 @@ public final class Rows {
 	public void toggle(String label, String description, BooleanSupplier getter, Consumer<Boolean> setter) {
 		int ix = x();
 		int w = width();
-		int height = description != null ? 22 : 14;
+		int height = description != null ? 24 : 15;
 		Row row = add(height, (g, rx, ry, rw, mx, my) -> {
-			Ui.text(g, label, ix, ry + 2, Ui.theme().textSecondary());
-			if (description != null) Ui.text(g, Ui.ellipsize(description, w - ToggleSwitch.WIDTH - 8), ix, ry + 12, Ui.theme().textMuted());
+			Ui.text(g, label, ix, ry + 2, Ui.theme().textPrimary());
+			if (description != null) Ui.text(g, Ui.ellipsize(description, w - ToggleSwitch.WIDTH - 12), ix, ry + 13, Ui.theme().textMuted());
 		});
-		ToggleSwitch sw = new ToggleSwitch(ix + w - ToggleSwitch.WIDTH, 1, label, getter, setter);
+		ToggleSwitch sw = new ToggleSwitch(ix + w - ToggleSwitch.WIDTH, (height - ToggleSwitch.HEIGHT) / 2, label, getter, setter);
 		widget(row, sw);
 	}
 
 	public FlatButton button(String label, Runnable action) {
-		Row row = add(16, null);
-		return widget(row, new FlatButton(x(), 0, width(), 16, label, action));
+		Row row = add(Ui.CONTROL_H, null);
+		return widget(row, new FlatButton(x(), 0, width(), Ui.CONTROL_H, label, action));
 	}
 
 	/** Several equal-width buttons on one row. Labels and actions are paired by index. */
 	public List<FlatButton> buttons(List<String> labels, List<Runnable> actions) {
-		Row row = add(16, null);
+		Row row = add(Ui.CONTROL_H, null);
 		int n = labels.size();
 		int gap = 6;
 		int bw = (width() - gap * (n - 1)) / n;
 		List<FlatButton> out = new ArrayList<>();
 		for (int i = 0; i < n; i++) {
-			out.add(widget(row, new FlatButton(x() + i * (bw + gap), 0, bw, 16, labels.get(i), actions.get(i))));
+			out.add(widget(row, new FlatButton(x() + i * (bw + gap), 0, bw, Ui.CONTROL_H, labels.get(i), actions.get(i))));
 		}
 		return out;
 	}
 
 	public <T> void cycle(String label, List<T> values, Supplier<T> getter, Consumer<T> setter, Function<T, String> fmt) {
 		int ix = x();
-		int pickerW = Math.min(140, width() / 2);
-		Row row = add(16, (g, rx, ry, rw, mx, my) -> Ui.text(g, label, ix, ry + 4, Ui.theme().textSecondary()));
-		widget(row, new CyclePicker<>(ix + width() - pickerW, 0, pickerW, 16, values, getter, setter, fmt));
+		int pickerW = Math.min(150, width() / 2);
+		Row row = add(Ui.CONTROL_H, (g, rx, ry, rw, mx, my) -> Ui.text(g, label, ix, ry + 5, Ui.theme().textPrimary()));
+		widget(row, new CyclePicker<>(ix + width() - pickerW, 0, pickerW, Ui.CONTROL_H, values, getter, setter, fmt));
 	}
 
 	public void slider(String label, double min, double max, double step, DoubleSupplier getter, Consumer<Double> setter, DoubleFunction<String> fmt) {
 		int ix = x();
-		int sw = Math.min(140, width() / 2);
-		Row row = add(14, (g, rx, ry, rw, mx, my) -> Ui.text(g, label, ix, ry + 3, Ui.theme().textSecondary()));
-		widget(row, new FlatSlider(ix + width() - sw, 0, sw, 14, min, max, step, getter, setter, fmt));
+		int sw = Math.min(190, width() / 2 + 40);
+		Row row = add(16, (g, rx, ry, rw, mx, my) -> Ui.text(g, label, ix, ry + 4, Ui.theme().textPrimary()));
+		widget(row, new FlatSlider(ix + width() - sw, 0, sw, 16, min, max, step, getter, setter, fmt));
 	}
 
 	/** Label above a full-width text field. */
 	public TextField text(String label, String hint, String value, Predicate<Character> filter, Consumer<String> onChange) {
 		int ix = x();
-		Row row = add(label != null ? 28 : 16, label == null ? null
-				: (g, rx, ry, rw, mx, my) -> Ui.section(g, label, ix, ry));
-		return widget(row, new TextField(ix, label != null ? 12 : 0, width(), 16, hint, value, filter, onChange));
+		Row row = add(label != null ? 31 : Ui.CONTROL_H, label == null ? null
+				: (g, rx, ry, rw, mx, my) -> Ui.text(g, label, ix, ry, Ui.theme().textSecondary()));
+		return widget(row, new TextField(ix, label != null ? 13 : 0, width(), Ui.CONTROL_H, hint, value, filter, onChange));
 	}
 
 	/** A clickable navigation card (title + description + chevron). */
 	public void nav(String title, String description, Runnable open) {
 		int ix = x();
 		int w = width();
-		Row row = add(30, null);
-		widget(row, new NavCard(ix, 0, w, 30, title, description, open));
+		Row row = add(32, null);
+		widget(row, new NavCard(ix, 0, w, 32, title, description, open));
 	}
 
 	/**
@@ -200,8 +196,8 @@ public final class Rows {
 		boolean open = expanded.contains(key);
 		int ix = x();
 		int w = width();
-		Row row = add(18, null);
-		widget(row, new NavCard.Expander(ix, 0, w, 18, title, status, open, () -> {
+		Row row = add(22, null);
+		widget(row, new NavCard.Expander(ix, 0, w, 22, title, status, open, () -> {
 			if (!expanded.remove(key)) expanded.add(key);
 			rebuild.run();
 		}));
@@ -211,6 +207,46 @@ public final class Rows {
 			indent -= 10;
 			y += 2;
 		}
+	}
+
+	/** One stat for {@link #stats}: small caption, big value, optional tint for the caption dot. */
+	public record Stat(String label, Supplier<String> value, int tint) {
+	}
+
+	/** A row of equal-width stat cards (caption + large value), like a dashboard header. */
+	public void stats(List<Stat> stats) {
+		int ix = x();
+		int w = width();
+		int n = stats.size();
+		int gap = 8;
+		int cw = (w - gap * (n - 1)) / n;
+		add(42, (g, rx, ry, rw, mx, my) -> {
+			for (int i = 0; i < n; i++) {
+				Stat s = stats.get(i);
+				int cx = ix + i * (cw + gap);
+				Ui.card(g, cx, ry, cw, 42, false);
+				Ui.rect(g, cx + 9, ry + 10, 5, 5, 2.5f, s.tint() != 0 ? s.tint() : Ui.theme().accent());
+				Ui.text(g, Ui.ellipsize(s.label(), cw - 26), cx + 18, ry + 8, Ui.theme().textSecondary());
+				Ui.title(g, Ui.ellipsize(s.value().get(), cw - 16), cx + 9, ry + 21, Ui.theme().textPrimary());
+			}
+		});
+	}
+
+	/**
+	 * A card with a title and a smooth filled line chart. {@code values} is re-read every frame;
+	 * {@code firstLabel}/{@code lastLabel} caption the x axis.
+	 */
+	public void chart(String title, String subtitle, Supplier<double[]> values, String firstLabel, String lastLabel) {
+		int ix = x();
+		int w = width();
+		add(120, (g, rx, ry, rw, mx, my) -> {
+			Ui.card(g, ix, ry, w, 120, false);
+			Ui.bold(g, title, ix + 10, ry + 8, Ui.theme().textPrimary());
+			if (subtitle != null) Ui.text(g, subtitle, ix + 10, ry + 19, Ui.theme().textMuted());
+			Charts.area(g, ix + 10, ry + 34, w - 20, 70, values.get(), Ui.theme().accent());
+			Ui.text(g, firstLabel, ix + 10, ry + 108, Ui.theme().textMuted());
+			Ui.rightAligned(g, lastLabel, ix + w - 10, ry + 108, Ui.theme().textMuted());
+		});
 	}
 
 	/** Anything else: fixed height, custom painting, optional widgets positioned relative to the row. */

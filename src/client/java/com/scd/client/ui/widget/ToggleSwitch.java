@@ -13,10 +13,10 @@ import net.minecraft.network.chat.Component;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
-/** Pill on/off switch bound to a getter/setter pair, so it always shows the live value. */
+/** Pill switch with a round knob, bound to a getter/setter so it always shows the live value. */
 public class ToggleSwitch extends AbstractWidget {
-	public static final int WIDTH = 26;
-	public static final int HEIGHT = 12;
+	public static final int WIDTH = 24;
+	public static final int HEIGHT = 13;
 
 	private final BooleanSupplier getter;
 	private final Consumer<Boolean> setter;
@@ -38,11 +38,11 @@ public class ToggleSwitch extends AbstractWidget {
 		Theme t = Ui.theme();
 		boolean on = getter.getAsBoolean();
 		int x = getX(), y = getY(), w = getWidth(), h = getHeight();
-		g.fill(x, y, x + w, y + h, on ? t.accent() : t.trackOff());
-		g.outline(x, y, w, h, isHoveredOrFocused() ? t.textSecondary() : t.border());
-		int knob = h - 4;
-		int kx = on ? x + w - knob - 2 : x + 2;
-		g.fill(kx, y + 2, kx + knob, y + 2 + knob, t.textPrimary());
+		int track = on ? t.accent() : (isHoveredOrFocused() ? Ui.blend(t.trackOff(), 0xFFFFFFFF, 0.08f) : t.trackOff());
+		Ui.rect(g, x, y, w, h, h / 2f, track);
+		float knob = h - 4;
+		float kx = on ? x + w - knob - 2 : x + 2;
+		Ui.rect(g, kx, y + 2, knob, knob, knob / 2f, on ? 0xFFFFFFFF : t.textSecondary());
 	}
 
 	@Override

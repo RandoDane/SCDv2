@@ -21,7 +21,9 @@ public final class ScdConfig {
 
 	public static final class General {
 		/** Name of the {@code Theme} preset every SCD screen and HUD is skinned with. */
-		public String theme = "Classic";
+		public String theme = "Midnight";
+		/** Smooth (TTF) font in SCD screens and HUDs; off = Minecraft's pixel font. */
+		public boolean smoothFont = true;
 		/** Unlocks /scd debug and verbose logging - for troubleshooting, off for normal play. */
 		public boolean developerMode = false;
 		/** Only run SkyBlock features while the sidebar says SKYBLOCK (off = also on other servers, for testing). */

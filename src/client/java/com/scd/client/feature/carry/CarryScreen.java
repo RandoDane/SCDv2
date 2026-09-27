@@ -33,6 +33,11 @@ public final class CarryScreen extends ScdScreen {
 	}
 
 	@Override
+	protected String navKey() {
+		return "carries";
+	}
+
+	@Override
 	protected void build(Rows rows) {
 		List<Carry> list = carries.all().stream().filter(c -> showCompleted || c.isActive()).toList();
 		rows.toggle("Show completed", null, () -> showCompleted, v -> {

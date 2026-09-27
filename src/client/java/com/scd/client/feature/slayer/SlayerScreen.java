@@ -34,6 +34,11 @@ public final class SlayerScreen extends ScdScreen {
 	}
 
 	@Override
+	protected String navKey() {
+		return "slayer";
+	}
+
+	@Override
 	protected void build(Rows rows) {
 		ScdConfig.Slayer c = mod.config().slayer;
 		rows.header("HUD");

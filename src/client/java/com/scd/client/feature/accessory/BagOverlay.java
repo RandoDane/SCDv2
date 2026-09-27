@@ -104,7 +104,10 @@ final class BagOverlay {
 		int height = fixed - 30 + gridRows * (CELL + GAP) + (nav ? 20 : 0) + (loaded ? 0 : 10);
 
 		Ui.panel(g, x, y, WIDTH, height);
-		int cy = Ui.header(g, x + PAD, y + PAD, WIDTH - PAD * 2, "Accessories", "SCD");
+		Ui.title(g, "Accessories", x + PAD, y + PAD - 1, t.textPrimary());
+		Ui.rightAligned(g, "SCD", x + WIDTH - PAD, y + PAD + 2, t.textMuted());
+		g.fill(x + 1, y + PAD + 17, x + WIDTH - 1, y + PAD + 18, t.border());
+		int cy = y + PAD + 24;
 		Ui.text(g, "Scanned " + scanner.count() + " · page " + scanner.pagesSeen() + "/" + Math.max(1, scanner.totalPages()), x + PAD, cy, t.textSecondary());
 		cy += lh;
 		if (scanner.complete()) {
@@ -144,8 +147,8 @@ final class BagOverlay {
 			int by = cy + (idx / COLS) * (CELL + GAP);
 			var m = missing.get(i);
 			boolean hover = Ui.contains(bx, by, CELL, CELL, mouseX, mouseY);
-			g.fillGradient(bx, by, bx + CELL, by + CELL, hover ? t.cardHoverTop() : t.cardTop(), hover ? t.cardHoverBottom() : t.cardBottom());
-			g.outline(bx, by, CELL, CELL, hover ? t.accent() : Ui.rarityColor(m.tier()) & 0x80FFFFFF);
+			Ui.rect(g, bx, by, CELL, CELL, 4, hover ? t.cardHover() : t.card(),
+					hover ? t.accent() : Ui.blend(t.border(), Ui.rarityColor(m.tier()), 0.45f));
 			g.item(ItemIcons.of(m.icon()), bx + 2, by + 2);
 			if (hover) hovered = m;
 		}

@@ -31,9 +31,9 @@ class NavCard extends AbstractWidget {
 		int x = getX(), y = getY(), w = getWidth(), h = getHeight();
 		boolean hovered = isHoveredOrFocused();
 		Ui.card(g, x, y, w, h, hovered);
-		Ui.text(g, getMessage().getString(), x + 10, y + 5, Ui.theme().textPrimary());
-		Ui.text(g, Ui.ellipsize(description, w - 30), x + 10, y + 17, Ui.theme().textSecondary());
-		Ui.rightAligned(g, "›", x + w - 8, y + h / 2 - 4, hovered ? Ui.theme().accent() : Ui.theme().textMuted());
+		Ui.bold(g, getMessage().getString(), x + 11, y + 6, Ui.theme().textPrimary());
+		Ui.text(g, Ui.ellipsize(description, w - 34), x + 11, y + 18, Ui.theme().textMuted());
+		Ui.rightAligned(g, "›", x + w - 10, y + h / 2 - 4, hovered ? Ui.theme().accent() : Ui.theme().textMuted());
 	}
 
 	@Override
@@ -66,11 +66,16 @@ class NavCard extends AbstractWidget {
 			boolean hovered = isHoveredOrFocused();
 			Ui.card(g, x, y, w, h, hovered);
 			int ty = y + (h - Ui.lineHeight()) / 2 + 1;
-			Ui.text(g, getMessage().getString(), x + 10, ty, Ui.theme().textPrimary());
-			int right = x + w - 8;
+			Ui.bold(g, getMessage().getString(), x + 11, ty, Ui.theme().textPrimary());
+			int right = x + w - 10;
 			Ui.rightAligned(g, open ? "▾" : "▸", right, ty, hovered ? Ui.theme().accent() : Ui.theme().textMuted());
 			String s = status != null ? status.get() : null;
-			if (s != null && !s.isEmpty()) Ui.rightAligned(g, s, right - 12, ty, Ui.theme().accent());
+			if (s != null && !s.isEmpty()) {
+				int sw = Ui.width(s) + 12;
+				int sx = right - 14 - sw;
+				Ui.rect(g, sx, y + 5, sw, h - 10, (h - 10) / 2f, Ui.theme().accentOver(Ui.theme().card(), 0.2f));
+				Ui.centered(g, s, sx + sw / 2, ty, Ui.blend(Ui.theme().accent(), 0xFFFFFFFF, 0.3f));
+			}
 		}
 
 		@Override

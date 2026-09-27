@@ -8,6 +8,8 @@ import java.util.Map;
 public final class SlayerData {
 	/** "ZOMBIE_IV" -> fastest fight in ms. */
 	public Map<String, Long> bestKillMs = new HashMap<>();
+	/** "2026-09-27" -> Slayer kills that day (all types), for the Overview activity chart. */
+	public Map<String, Integer> killsByDay = new HashMap<>();
 	/** type -> tier -> lifetime kill count seen by SCD. */
 	public Map<String, Map<String, Integer>> kills = new HashMap<>();
 	public Map<String, Rng> rng = new HashMap<>();

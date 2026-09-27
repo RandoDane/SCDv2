@@ -12,8 +12,10 @@ import java.util.function.Consumer;
 import java.util.function.DoubleFunction;
 import java.util.function.DoubleSupplier;
 
-/** Flat slider over [min, max] snapped to {@code step}; click or drag anywhere on the track. */
+/** Slim rounded track with a knob; the value label sits to the left of the track. Click or drag. */
 public class FlatSlider extends AbstractWidget {
+	private static final int LABEL_W = 44;
+
 	private final double min, max, step;
 	private final DoubleSupplier getter;
 	private final Consumer<Double> setter;
@@ -30,6 +32,14 @@ public class FlatSlider extends AbstractWidget {
 		this.formatter = formatter;
 	}
 
+	private int trackX() {
+		return getX() + LABEL_W;
+	}
+
+	private int trackW() {
+		return getWidth() - LABEL_W - 4;
+	}
+
 	@Override
 	public void onClick(MouseButtonEvent event, boolean doubleClick) {
 		setFrom(event.x());
@@ -41,7 +51,7 @@ public class FlatSlider extends AbstractWidget {
 	}
 
 	private void setFrom(double mouseX) {
-		double frac = Math.max(0, Math.min(1, (mouseX - getX()) / getWidth()));
+		double frac = Math.max(0, Math.min(1, (mouseX - trackX()) / trackW()));
 		double v = min + Math.round((frac * (max - min)) / step) * step;
 		v = Math.max(min, Math.min(max, v));
 		if (v != getter.getAsDouble()) setter.accept(v);
@@ -50,13 +60,16 @@ public class FlatSlider extends AbstractWidget {
 	@Override
 	protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
 		Theme t = Ui.theme();
-		int x = getX(), y = getY(), w = getWidth(), h = getHeight();
 		double value = getter.getAsDouble();
-		g.fill(x, y, x + w, y + h, t.trackOff());
-		int filled = (int) Math.round(w * (value - min) / (max - min));
-		if (filled > 0) g.fill(x, y, x + filled, y + h, t.accent());
-		g.outline(x, y, w, h, isHoveredOrFocused() ? t.textSecondary() : t.border());
-		Ui.centered(g, formatter.apply(value), x + w / 2, y + (h - Ui.lineHeight()) / 2 + 1, t.textPrimary());
+		float frac = (float) ((value - min) / (max - min));
+		int cy = getY() + getHeight() / 2;
+		Ui.rightAligned(g, formatter.apply(value), trackX() - 8, cy - Ui.lineHeight() / 2 + 1, t.textPrimary());
+		int tx = trackX(), tw = trackW();
+		Ui.rect(g, tx, cy - 2, tw, 4, 2, t.trackOff());
+		if (frac > 0) Ui.rect(g, tx, cy - 2, Math.max(4, tw * frac), 4, 2, t.accent());
+		float knob = 10;
+		float kx = tx + tw * frac - knob / 2;
+		Ui.rect(g, kx, cy - knob / 2, knob, knob, knob / 2, isHoveredOrFocused() ? 0xFFFFFFFF : Ui.blend(t.textPrimary(), t.accent(), 0.15f));
 	}
 
 	@Override

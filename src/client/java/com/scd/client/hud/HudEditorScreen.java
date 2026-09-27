@@ -87,18 +87,18 @@ public final class HudEditorScreen extends Screen {
 			boolean isSel = p.element() == selected;
 			boolean isHover = hovered != null && hovered.element() == p.element();
 			int edge = isSel ? Ui.theme().accent() : isHover ? 0xC0FFFFFF : 0x50FFFFFF;
-			g.outline(p.x() - 1, p.y() - 1, p.width() + 2, p.height() + 2, edge);
+			Ui.ring(g, p.x() - 1, p.y() - 1, p.width() + 2, p.height() + 2, 7, edge);
 			if (isSel || isHover) {
 				String tag = p.element().name() + "  " + Math.round(p.scale() * 100) + "%";
 				int ty = p.y() > 12 ? p.y() - 11 : p.y() + p.height() + 3;
-				g.fill(p.x() - 1, ty - 1, p.x() + Ui.width(tag) + 3, ty + 9, 0xC0000000);
-				Ui.text(g, tag, p.x() + 1, ty, edge);
+				Ui.rect(g, p.x() - 1, ty - 3, Ui.width(tag) + 10, 13, 4, Ui.theme().window());
+				Ui.text(g, tag, p.x() + 4, ty, edge);
 			}
 		}
 
 		String help = "Drag to move · Scroll resize · Arrows nudge · R reset · B background · Double-click: next in stack";
-		g.fill(width / 2 - Ui.width(help) / 2 - 4, 4, width / 2 + Ui.width(help) / 2 + 4, 17, 0xA0000000);
-		Ui.centered(g, help, width / 2, 7, Ui.theme().textPrimary());
+		Ui.rect(g, width / 2 - Ui.width(help) / 2 - 8, 4, Ui.width(help) + 16, 15, 7, Ui.theme().window());
+		Ui.centered(g, help, width / 2, 8, Ui.theme().textSecondary());
 		if (placed.isEmpty()) {
 			Ui.centered(g, "No HUDs are enabled - turn some on in /scd first.", width / 2, height / 2, Ui.theme().textSecondary());
 		}

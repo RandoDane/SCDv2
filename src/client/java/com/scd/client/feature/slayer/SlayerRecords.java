@@ -19,6 +19,7 @@ public final class SlayerRecords {
 	/** Records a kill; true if it's a new personal best (including the first ever for that tier). */
 	boolean recordKill(SlayerType type, String tier, long fightMs) {
 		SlayerData data = store.get();
+		data.killsByDay.merge(java.time.LocalDate.now().toString(), 1, Integer::sum);
 		if (tier != null) data.kills.computeIfAbsent(type.name(), k -> new HashMap<>()).merge(tier, 1, Integer::sum);
 		String key = SlayerData.recordKey(type, tier);
 		Long current = data.bestKillMs.get(key);
@@ -26,6 +27,16 @@ public final class SlayerRecords {
 		if (best) data.bestKillMs.put(key, fightMs);
 		store.markDirty();
 		return best;
+	}
+
+	/** Kills per day for the last {@code days} days, oldest first. */
+	public double[] killsPerDay(int days) {
+		double[] out = new double[days];
+		var today = java.time.LocalDate.now();
+		for (int i = 0; i < days; i++) {
+			out[i] = store.get().killsByDay.getOrDefault(today.minusDays(days - 1 - i).toString(), 0);
+		}
+		return out;
 	}
 
 	public int kills(SlayerType type, String tier) {

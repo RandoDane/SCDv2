@@ -29,6 +29,11 @@ public final class MarketScreen extends ScdScreen {
 	}
 
 	@Override
+	protected String navKey() {
+		return "market";
+	}
+
+	@Override
 	protected void build(Rows rows) {
 		ScdConfig c = mod.config();
 		rows.header("scd.wtf API");
