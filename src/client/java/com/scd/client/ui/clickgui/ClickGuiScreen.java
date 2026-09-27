@@ -74,8 +74,16 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	}
 
 	/** The text option being edited, and its unsaved value. */
-	private Opt.Text editing;
-	private String editBuffer = "";
+	private static Opt.Text editing;
+	private static String editBuffer = "";
+	/** Tab completion: what was typed before the first Tab, and which match is shown. */
+	private static String tabPrefix;
+	private static int tabIndex;
+
+	/** What's being typed into the field with this label right now, or null when it isn't being edited. */
+	public static String liveText(String label) {
+		return editing != null && editing.label().equals(label) ? editBuffer : null;
+	}
 
 	/** Palette for colour options (null first = theme colour). */
 	private static final Integer[] PALETTE = {null, 0xFFFFFFFF, 0xFFAAAAAA, 0xFF555555, 0xFFFF5555, 0xFFFFAA00, 0xFFFFFF55, 0xFF55FF55,
@@ -411,6 +419,7 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 
 	private void startEdit(Opt.Text t) {
 		editing = t;
+		tabPrefix = null;
 		editBuffer = t.get().get() == null ? "" : t.get().get();
 	}
 
@@ -430,6 +439,7 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		if (editing == null) return super.charTyped(event);
 		String c = event.codepointAsString();
 		if (editBuffer.length() < 200 && !c.isEmpty() && c.charAt(0) >= ' ') editBuffer += c;
+		tabPrefix = null;
 		return true;
 	}
 
@@ -443,8 +453,20 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		switch (event.key()) {
 			case org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE -> {
 				if (!editBuffer.isEmpty()) editBuffer = editBuffer.substring(0, editBuffer.length() - 1);
+				tabPrefix = null;
 			}
 			case org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER, org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER -> commitEdit();
+			case org.lwjgl.glfw.GLFW.GLFW_KEY_TAB -> {
+				if (editing.complete() == null) return true;
+				// Repeated Tab cycles through the matches for what was typed before the first one.
+				if (tabPrefix == null) {
+					tabPrefix = editBuffer;
+					tabIndex = 0;
+				} else tabIndex++;
+				List<String> matches = editing.complete().apply(tabPrefix);
+				if (!matches.isEmpty()) editBuffer = matches.get(tabIndex % matches.size());
+				return true;
+			}
 			case org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE -> editing = null;
 			default -> {
 				if (event.isPaste()) editBuffer += net.minecraft.client.Minecraft.getInstance().keyboardHandler.getClipboard();

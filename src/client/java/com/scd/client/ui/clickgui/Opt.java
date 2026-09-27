@@ -28,8 +28,11 @@ public sealed interface Opt {
 	record Info(String label, Supplier<String> value) implements Opt {
 	}
 
-	/** Inline text: click to edit, Enter to save, Esc to cancel. */
-	record Text(String label, Supplier<String> get, Consumer<String> set) implements Opt {
+	/** Inline text: click to edit, Enter to save, Esc to cancel; Tab completes when {@code complete} is set. */
+	record Text(String label, Supplier<String> get, Consumer<String> set, Function<String, List<String>> complete) implements Opt {
+		public Text(String label, Supplier<String> get, Consumer<String> set) {
+			this(label, get, set, null);
+		}
 	}
 
 	/** Colour from a palette (click forward, right-click back); null = follow the theme. */

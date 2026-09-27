@@ -142,12 +142,21 @@ public final class BazaarFeature implements Feature {
 		return p != null && p.buyPrice() > 0 ? p.buyPrice() : null;
 	}
 
-	/** The price graph on top of the menu, left of the inventory (right of it when there's no room). */
+	/**
+	 * The price graph on top of the menu. By default it sits left of the inventory (right of it when
+	 * there's no room); once moved in the HUD editor it stays where the player put it.
+	 */
 	private void drawGraphBesideInventory(PriceGraphHud graph, net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> cs,
 			net.minecraft.client.gui.GuiGraphicsExtractor g) {
 		if (!mod.config().bazaar.graphHud || !mod.active()) return;
 		var placed = mod.huds.place(graph, false, cs.width, cs.height);
 		if (placed == null) return;
+		var layout = mod.huds.layout(graph);
+		var def = graph.defaults();
+		if (layout.anchorX != def.anchorX || layout.anchorY != def.anchorY || layout.offsetX != def.offsetX || layout.offsetY != def.offsetY) {
+			mod.huds.draw(g, placed);
+			return;
+		}
 		var acc = (com.scd.client.mixin.ContainerScreenAccessor) cs;
 		int left = acc.scd$leftPos(), top = acc.scd$topPos();
 		int x = left - placed.width() - 8;

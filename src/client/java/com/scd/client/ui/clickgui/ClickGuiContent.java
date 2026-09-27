@@ -275,7 +275,7 @@ final class ClickGuiContent {
 
 	private static final Map<SlayerType, String> SLAYER_SHORT = new java.util.EnumMap<>(Map.of(
 			SlayerType.ZOMBIE, "Rev", SlayerType.SPIDER, "Tara", SlayerType.WOLF, "Sven",
-			SlayerType.ENDERMAN, "Eman", SlayerType.BLAZE, "Blaze", SlayerType.VAMPIRE, "Vamp"));
+			SlayerType.ENDERMAN, "Eman", SlayerType.BLAZE, "Blaze"));
 
 	private static int maxTier(SlayerType t) {
 		return switch (t) {
@@ -305,7 +305,14 @@ final class ClickGuiContent {
 				}),
 				new ClickGuiScreen.PanelSection("New carry", () -> {
 					List<Opt> o = new ArrayList<>();
-					o.add(new Opt.Text("Customer", () -> newCustomer, v -> newCustomer = v.trim()));
+					o.add(new Opt.Text("Clients", () -> newCustomer, v -> newCustomer = v.trim(),
+							typed -> com.scd.client.hypixel.Players.suggest(typed, 20)));
+					// Lobby players matching what's typed (nearest first): click one to fill it in.
+					String typed = ClickGuiScreen.liveText("Clients");
+					List<String> picks = com.scd.client.hypixel.Players.suggest(typed != null ? typed : "", 3);
+					if (!picks.isEmpty() && !(picks.size() == 1 && picks.getFirst().equalsIgnoreCase(newCustomer) && typed == null)) {
+						o.add(new Opt.Chips("", picks, () -> newCustomer, v -> newCustomer = v));
+					}
 					o.add(new Opt.Chips("", List.of(DUNGEON, SLAYER), () -> newKind, v -> newKind = v));
 					if (newKind.equals(DUNGEON)) {
 						var floors = com.scd.logic.dungeon.Floor.CARRYABLE;
@@ -355,7 +362,7 @@ final class ClickGuiContent {
 		var price = com.scd.logic.Numbers.parseCompactLong(newPrice);
 		carryStatusColor = 0xFFF87171;
 		if (newCustomer.isEmpty()) {
-			carryStatus = "Enter the customer's name";
+			carryStatus = "Enter the client's name";
 			return;
 		}
 		if (price.isEmpty() || price.getAsLong() <= 0) {
