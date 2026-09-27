@@ -66,6 +66,8 @@ public final class DungeonFeature implements Feature {
 		});
 		mod.huds.add(new ScoreHud(mod::config, () -> score, this::splitLines));
 		mod.huds.add(new RoomHud(mod::config, rooms::current));
+		new ChestProfit(mod);
+		new DungeonExtras(mod, this);
 	}
 
 	private void onTick() {

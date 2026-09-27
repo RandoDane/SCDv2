@@ -155,6 +155,7 @@ public final class RouteFeature implements Feature {
 			int before = secretCount;
 			secretCount = count;
 			if (before >= 0 && count > before) {
+				mod.bus.post(new DungeonEvents.SecretFound(count, Integer.parseInt(m.group(2))));
 				runner.onSecretCounted();
 				net.minecraft.core.BlockPos looked = Minecraft.getInstance().hitResult instanceof net.minecraft.world.phys.BlockHitResult hit
 						&& hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK ? hit.getBlockPos() : null;

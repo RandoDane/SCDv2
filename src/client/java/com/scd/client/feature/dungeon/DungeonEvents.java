@@ -17,4 +17,8 @@ public final class DungeonEvents {
 	/** The player walked into a different room (null: left the room grid, e.g. into the boss). */
 	public record RoomEntered(MappedRoom room) {
 	}
+
+	/** The room's secret counter went up (action bar): you found a secret. */
+	public record SecretFound(int count, int total) {
+	}
 }

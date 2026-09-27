@@ -52,11 +52,21 @@ public final class DungeonScreen extends ScdScreen {
 			g.toggle("S / S+ alerts", "Title + sound the first time the estimate reaches 270 and 300", () -> c.scoreMilestoneAlerts, v -> c.scoreMilestoneAlerts = v);
 		});
 		rows.group("runs", "Runs", null, true, g -> {
+			g.toggle("Chest profit", "Value, cost and profit on reward chests (Croesus and run end); best chest outlined", () -> c.chestProfit, v -> c.chestProfit = v);
 			g.toggle("Completion summary", "One chat line with floor, time, score, secrets, damage", () -> c.completionSummary, v -> c.completionSummary = v);
 			CarryService carries = mod.feature(CarryService.class);
 			long active = carries.active().stream().filter(x -> x.kind == com.scd.client.feature.carry.Carry.Kind.DUNGEON).count();
 			g.button(active > 0 ? "Dungeon carries (" + active + " active)..." : "Carries...",
 					() -> Minecraft.getInstance().gui.setScreen(new CarryScreen(this, carries)));
+		});
+		rows.group("helpers", "Helpers", null, true, g -> {
+			g.toggle("Puzzle HUD", "Each puzzle's name and status (✔ done, ✖ failed, ✦ open)", () -> c.puzzleHud, v -> c.puzzleHud = v);
+			g.toggle("Deaths HUD", "Deaths per player this run", () -> c.deathHud, v -> c.deathHud = v);
+			g.toggle("Teammate death alert", null, () -> c.deathAlert, v -> c.deathAlert = v);
+			g.toggle("Teammate low-health alert", "When a teammate's health on the sidebar turns red", () -> c.lowHealthAlert, v -> c.lowHealthAlert = v);
+			g.toggle("Blessings HUD", "Power, Time, Stone, Life and Wisdom levels", () -> c.blessingHud, v -> c.blessingHud = v);
+			g.toggle("Invincibility timers", "Bonzo's Mask, Spirit Mask and Phoenix: invincible time and cooldown", () -> c.invincibilityHud, v -> c.invincibilityHud = v);
+			g.toggle("Secret chime", "Sound and a brief box on the clicked block when a secret counts", () -> c.secretChime, v -> c.secretChime = v);
 		});
 		rows.group("rooms", "Rooms", null, false, g -> {
 			g.toggle("Room HUD", "Name, secrets and crypts of the room you're in", () -> c.roomHud, v -> c.roomHud = v);

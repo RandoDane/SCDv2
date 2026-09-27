@@ -107,6 +107,12 @@ public final class Numbers {
 	}
 
 	/** Item counts: 2_541 -> "2.5K", 15_000_000 -> "15M" - like coins() but drops a trailing ".0". */
+	/** Signed compact coins: 2_100_000 -> "2.1M", -350_000 -> "-350K". */
+	public static String compactCoins(double n) {
+		String s = compactCount(Math.round(Math.abs(n)));
+		return n < 0 ? "-" + s : s;
+	}
+
 	public static String compactCount(long n) {
 		long abs = Math.abs(n);
 		if (abs >= 1_000_000_000) return trimZero(n / 1_000_000_000.0) + "B";

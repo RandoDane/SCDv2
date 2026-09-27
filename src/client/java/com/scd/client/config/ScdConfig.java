@@ -101,6 +101,19 @@ public final class ScdConfig {
 		/** Title + ping the moment the live estimate first reaches 270 (S) and 300 (S+). */
 		public boolean scoreMilestoneAlerts = true;
 		public boolean completionSummary = true;
+		/** Value, cost and profit on dungeon reward chests (Croesus + run end), best chest highlighted. */
+		public boolean chestProfit = true;
+		public boolean puzzleHud = true;
+		public boolean deathHud = true;
+		/** Title when a teammate dies. */
+		public boolean deathAlert = true;
+		/** Title when a teammate's sidebar health turns red. */
+		public boolean lowHealthAlert = true;
+		public boolean blessingHud = true;
+		/** Bonzo's Mask / Spirit Mask / Phoenix invincibility and cooldown timers. */
+		public boolean invincibilityHud = true;
+		/** Chime + brief box on the clicked block when the room's secret counter goes up. */
+		public boolean secretChime = true;
 		/** Split times (blood open, Watcher, boss, clear) with PB deltas on the score HUD. */
 		public boolean scoreSplits = true;
 		/** Assume a Spirit pet in the party: the first death costs 1 point instead of 2 (Odin assumes this always). */

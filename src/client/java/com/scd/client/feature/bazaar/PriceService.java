@@ -16,6 +16,8 @@ public final class PriceService {
 	private final ScdMod mod;
 	private final Map<String, Backend.Product> products = new ConcurrentHashMap<>();
 	private final Map<String, String> shards = new ConcurrentHashMap<>();
+	/** Lower-case display name -> Bazaar product id. */
+	private volatile Map<String, String> byName = Map.of();
 	private volatile long lastRefreshMs;
 	private volatile boolean loggedFirst;
 
@@ -52,10 +54,18 @@ public final class PriceService {
 		for (var p : list) next.put(p.itemId(), p);
 		products.keySet().retainAll(next.keySet());
 		products.putAll(next);
+		Map<String, String> names = new java.util.HashMap<>();
+		for (var p : list) if (p.name() != null) names.put(p.name().toLowerCase(java.util.Locale.ROOT), p.itemId());
+		byName = names;
 	}
 
 	public Backend.Product get(String itemId) {
 		return itemId == null ? null : products.get(itemId);
+	}
+
+	/** Bazaar product id for a display name ("Wither Essence"), or null. */
+	public String idByName(String name) {
+		return name == null ? null : byName.get(name.toLowerCase(java.util.Locale.ROOT));
 	}
 
 	public String shardFor(String attributeKey) {

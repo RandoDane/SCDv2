@@ -10,7 +10,9 @@
 		"EntityRenderProbeMixin",
 		"BlockEntityRenderProbeMixin",
 		"ParticleProbeMixin",
-		"LevelExtractorGizmoMixin"
+		"LevelExtractorGizmoMixin",
+		"ContainerScreenAccessor",
+		"TabOverlayAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

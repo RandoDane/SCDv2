@@ -25,6 +25,9 @@ public final class BazaarFeature implements Feature {
 	private AuctionPriceCache auctions;
 	private ItemValuation valuation;
 	private final HoverState hover = new HoverState();
+	/** Display name -> item id resolved via Auction House search ("" = not found). */
+	private final java.util.Map<String, String> nameIds = new java.util.concurrent.ConcurrentHashMap<>();
+	private final java.util.Set<String> nameLookups = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
 	@Override
 	public void init(ScdMod mod) {
@@ -86,6 +89,51 @@ public final class BazaarFeature implements Feature {
 		var a = auctions.get(itemId);
 		if (a == null) return null;
 		return a.price() != null ? a.price() : a.lbin();
+	}
+
+	/**
+	 * Item id for a display name as shown in lore ("Necron's Handle", "Wither Essence",
+	 * "Enchanted Book (Ultimate Wise V)"): fixed rules, then Bazaar names, then an Auction House
+	 * search (asynchronous: null until it returns).
+	 */
+	public String idForName(String name) {
+		String hint = com.scd.logic.dungeon.loot.ChestLoot.idHint(name);
+		if (hint != null) return hint;
+		String bz = prices.idByName(name);
+		if (bz != null) return bz;
+		String cached = nameIds.get(name);
+		if (cached != null) return cached.isEmpty() ? null : cached;
+		if (nameLookups.add(name)) {
+			mod.market.auctionSearch(name, 5).whenComplete((list, err) -> {
+				String id = "";
+				if (list != null) {
+					for (var k : list) {
+						if (k.name() != null && k.name().equalsIgnoreCase(name)) {
+							id = k.key() != null ? k.key() : k.itemId();
+							break;
+						}
+					}
+					if (id.isEmpty() && !list.isEmpty()) id = list.getFirst().key();
+				}
+				if (err == null) nameIds.put(name, id == null ? "" : id);
+				nameLookups.remove(name);
+			});
+		}
+		return null;
+	}
+
+	/** Coin value of {@code amount} of a named item; null while unknown. */
+	public Double valueOfName(String name, int amount) {
+		String id = idForName(name);
+		if (id == null) return null;
+		Double unit = valueOf(id);
+		return unit != null ? unit * amount : null;
+	}
+
+	/** Bazaar instant-buy price (what it costs you), e.g. for Dungeon Chest Keys; null if unknown. */
+	public Double buyPrice(String itemId) {
+		var p = prices.get(itemId);
+		return p != null && p.buyPrice() > 0 ? p.buyPrice() : null;
 	}
 
 	public HoverState hover() {

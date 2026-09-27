@@ -37,6 +37,7 @@ public final class GameState {
 	private List<String> sidebar = List.of();
 	private String sidebarTitle = "";
 	private List<String> tabList;
+	private List<Component> sidebarRaw = List.of();
 	private long tabListTick = -1;
 	private long tick;
 	private String area;
@@ -74,14 +75,19 @@ public final class GameState {
 		// Highest score first = top of the sidebar, matching what the player sees.
 		entries.sort(Comparator.comparingInt(PlayerScoreEntry::value).reversed());
 		List<String> lines = new ArrayList<>(entries.size());
+		List<Component> raw = new ArrayList<>(entries.size());
 		for (PlayerScoreEntry entry : entries) {
 			String owner = entry.owner();
 			var team = scoreboard.getPlayersTeam(owner);
 			Component text = team != null ? team.getFormattedName(Component.literal(owner)) : entry.ownerName();
 			String clean = Text.clean(text.getString());
-			if (!clean.isEmpty()) lines.add(clean);
+			if (!clean.isEmpty()) {
+				lines.add(clean);
+				raw.add(text);
+			}
 		}
 		sidebar = List.copyOf(lines);
+		sidebarRaw = List.copyOf(raw);
 		setArea(findArea(lines));
 	}
 
@@ -148,6 +154,25 @@ public final class GameState {
 	}
 
 	/** Cleaned tab-list lines in display order; computed at most once per tick, on demand. */
+	/** Sidebar lines as components (same order as {@link #sidebar()}), for colour checks. */
+	public List<Component> sidebarRaw() {
+		return sidebarRaw;
+	}
+
+	/** Tab list footer, cleaned, one entry per line (dungeon blessings, effects...). */
+	public List<String> tabFooter() {
+		var hud = Minecraft.getInstance().gui.hud;
+		if (hud == null) return List.of();
+		Component footer = ((com.scd.client.mixin.TabOverlayAccessor) hud.getTabList()).scd$footer();
+		if (footer == null) return List.of();
+		List<String> out = new ArrayList<>();
+		for (String l : footer.getString().split("\n")) {
+			String c = Text.clean(l).trim();
+			if (!c.isEmpty()) out.add(c);
+		}
+		return out;
+	}
+
 	public List<String> tabList() {
 		if (tabList != null && tabListTick == tick) return tabList;
 		tabListTick = tick;
