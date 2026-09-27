@@ -21,6 +21,13 @@ final class RouteRecorder {
 	private static final double WARP_JUMP = 4.5;
 
 	private MappedRoom room;
+	private long lastFinish;
+	private boolean lastWasGuess;
+	/** Recent candidates for "what was that secret" when only the counter says one was found. */
+	private BlockPos recentClick;
+	private long recentClickAt;
+	private Vec3 recentItem;
+	private long recentItemAt;
 	private final List<RouteStep> steps = new ArrayList<>();
 	private RouteStep step;
 	private Vec3 lastSample;
@@ -109,6 +116,8 @@ final class RouteRecorder {
 		if (pos.equals(lastInteract) && now - lastInteractAt < 500) return;
 		lastInteract = pos.immutable();
 		lastInteractAt = now;
+		recentClick = lastInteract;
+		recentClickAt = now;
 		if (holdingTnt) {
 			step.tnts.add(rel(pos));
 		} else if (block == Blocks.CHEST || block == Blocks.TRAPPED_CHEST || block == Blocks.PLAYER_HEAD || block == Blocks.PLAYER_WALL_HEAD
@@ -128,7 +137,29 @@ final class RouteRecorder {
 
 	void onItemPickup(Vec3 itemPos, Vec3 player) {
 		if (!active() || room.anchor() == null || itemPos.distanceToSqr(player) > 6 * 6) return;
+		recentItem = itemPos;
+		recentItemAt = System.currentTimeMillis();
 		finish(RouteStep.SecretType.ITEM, rel(BlockPos.containing(itemPos)), player);
+	}
+
+	/** Wither essence ("You found a Wither Essence!"): the skull nearest the player. */
+	void onEssence(BlockPos skull, Vec3 player) {
+		if (!active() || room.anchor() == null) return;
+		finish(RouteStep.SecretType.INTERACT, rel(skull != null ? skull : BlockPos.containing(player)), player);
+	}
+
+	/** The action bar secret counter went up; uses the freshest clue for what it was. */
+	void onSecretCounted(Vec3 player, BlockPos lookedAt) {
+		if (!active() || room.anchor() == null) return;
+		long now = System.currentTimeMillis();
+		if (now - lastFinish < 1500) return; // already recorded from a precise signal
+		if (recentItem != null && now - recentItemAt < 3000) {
+			finish(RouteStep.SecretType.ITEM, rel(BlockPos.containing(recentItem)), player, true);
+		} else if (recentClick != null && now - recentClickAt < 3000) {
+			finish(RouteStep.SecretType.INTERACT, rel(recentClick), player, true);
+		} else {
+			finish(RouteStep.SecretType.INTERACT, rel(lookedAt != null ? lookedAt : BlockPos.containing(player)), player, true);
+		}
 	}
 
 	void onBatDeath(Vec3 batPos, Vec3 player) {
@@ -156,6 +187,32 @@ final class RouteRecorder {
 	}
 
 	private void finish(RouteStep.SecretType type, int[] secret, Vec3 player) {
+		finish(type, secret, player, false);
+	}
+
+	/**
+	 * Several signals can describe one secret (a click, the essence chat, the counter). Within 1.5s
+	 * they merge into the last step when it is the same spot, or when the last step was only a
+	 * counter guess (then the precise signal wins). Anything else is a new secret.
+	 */
+	private void finish(RouteStep.SecretType type, int[] secret, Vec3 player, boolean guess) {
+		long now = System.currentTimeMillis();
+		if (now - lastFinish < 1500 && !steps.isEmpty() && type != RouteStep.SecretType.EXIT) {
+			RouteStep last = steps.getLast();
+			if (last.secretType != RouteStep.SecretType.EXIT && last.secret != null) {
+				boolean samePlace = Math.abs(last.secret[0] - secret[0]) + Math.abs(last.secret[1] - secret[1]) + Math.abs(last.secret[2] - secret[2]) <= 3;
+				if (guess && samePlace) return;
+				if (lastWasGuess && !guess) {
+					last.secretType = type;
+					last.secret = secret;
+					lastWasGuess = false;
+					return;
+				}
+				if (samePlace) return;
+			}
+		}
+		lastWasGuess = guess;
+		lastFinish = now;
 		sample(player, true);
 		step.secretType = type;
 		step.secret = secret;
@@ -168,6 +225,36 @@ final class RouteRecorder {
 	private int[] rel(BlockPos world) {
 		BlockPos r = room.toRelative(world);
 		return new int[]{r.getX(), r.getY(), r.getZ()};
+	}
+
+	/** Live overlay while recording: the start block, every secret taken so far, and the path in progress. */
+	void render(boolean walls, float partialTick) {
+		if (!active() || room.anchor() == null) return;
+		RouteStep first = !steps.isEmpty() ? steps.getFirst() : step;
+		if (first != null && !first.locations.isEmpty()) RouteRunner.markStart(world(first.locations.getFirst()), walls);
+		for (int i = 0; i < steps.size(); i++) {
+			RouteStep s = steps.get(i);
+			if (s.secret == null) continue;
+			boolean exit = s.secretType == RouteStep.SecretType.EXIT || s.secretType == RouteStep.SecretType.EXIT_ROUTE;
+			RouteRunner.markSecret(world(s.secret), (i + 1) + " " + (exit ? "waypoint" : s.secretType.key.toLowerCase(java.util.Locale.ROOT)),
+					exit ? RouteRunner.PATH : RouteRunner.SECRET, walls);
+		}
+		if (step != null) {
+			Vec3 prev = null;
+			for (int[] p : step.locations) {
+				Vec3 v = Vec3.atBottomCenterOf(world(p)).add(0, 0.1, 0);
+				if (prev != null) com.scd.client.feature.world.WorldGizmos.line(prev, v, RouteRunner.PATH, walls);
+				prev = v;
+			}
+			var player = net.minecraft.client.Minecraft.getInstance().player;
+			if (prev != null && player != null) {
+				com.scd.client.feature.world.WorldGizmos.line(prev, player.getPosition(partialTick).add(0, 0.1, 0), RouteRunner.PATH, walls);
+			}
+		}
+	}
+
+	private BlockPos world(int[] rel) {
+		return room.toWorld(new BlockPos(rel[0], rel[1], rel[2]));
 	}
 
 	int pendingPoints() {

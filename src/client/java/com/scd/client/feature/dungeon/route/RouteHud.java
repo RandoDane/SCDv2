@@ -46,7 +46,9 @@ final class RouteHud extends HudElement {
 		if (!s.tnts.isEmpty()) sb.append(sb.isEmpty() ? "" : " · ").append(s.tnts.size()).append(" TNT");
 		if (!s.pearls.isEmpty()) sb.append(sb.isEmpty() ? "" : " · ").append(s.pearls.size()).append(" pearl").append(s.pearls.size() > 1 ? "s" : "");
 		if (!sb.isEmpty()) box.text(sb.toString(), HudColor.LABEL);
-		if (run.routeCount() > 1) box.text("route " + (run.routeIndex() + 1) + "/" + run.routeCount() + "  (/scd route alt)", HudColor.LABEL);
+		if (run.routeCount() > 1) {
+			box.text("route " + (run.routeIndex() + 1) + "/" + run.routeCount() + (run.entryMatched() ? " · nearest your entrance" : "") + "  (/scd route alt)", HudColor.LABEL);
+		}
 		return box;
 	}
 }

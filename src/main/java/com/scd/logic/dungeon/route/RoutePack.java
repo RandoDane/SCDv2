@@ -30,20 +30,51 @@ public final class RoutePack {
 	public final Map<String, String> header = new LinkedHashMap<>();
 	/** Room name (optionally ":n" for alternatives) -> steps. */
 	public final Map<String, List<RouteStep>> rooms = new LinkedHashMap<>();
+	/** One route of a room: its pack key and steps. */
+	public record Route(String key, List<RouteStep> steps) {
+	}
 
 	/** Routes for a room: the main one first, then alternatives ":2", ":3" ... */
-	public List<List<RouteStep>> routesFor(String room) {
-		List<List<RouteStep>> out = new ArrayList<>();
+	public List<Route> routesFor(String room) {
+		List<Route> out = new ArrayList<>();
 		for (var e : rooms.entrySet()) {
 			String k = e.getKey();
-			int colon = k.indexOf(':');
-			String base = colon >= 0 ? k.substring(0, colon) : k;
-			if (base.equals(room)) {
-				if (colon < 0) out.addFirst(e.getValue());
-				else out.add(e.getValue());
-			}
+			if (!baseName(k).equals(room)) continue;
+			Route r = new Route(k, e.getValue());
+			if (k.indexOf(':') < 0) out.addFirst(r);
+			else out.add(r);
 		}
 		return out;
+	}
+
+	public static String baseName(String key) {
+		int colon = key.indexOf(':');
+		return colon >= 0 ? key.substring(0, colon) : key;
+	}
+
+	/** Adds a route for {@code room} as a new alternative ("Room", then "Room:2", ...); returns its key. */
+	public String add(String room, List<RouteStep> steps) {
+		String key = room;
+		for (int n = 2; rooms.containsKey(key); n++) key = room + ":" + n;
+		rooms.put(key, steps);
+		return key;
+	}
+
+	/** Room-relative {x, z} of the block a route starts on, or null for an empty route. */
+	public static int[] start(List<RouteStep> steps) {
+		for (RouteStep s : steps) {
+			if (!s.locations.isEmpty()) return new int[]{s.locations.getFirst()[0], s.locations.getFirst()[2]};
+			if (s.secret != null) return new int[]{s.secret[0], s.secret[2]};
+		}
+		return null;
+	}
+
+	/** Removes every route of a room; returns how many. */
+	public int removeRoom(String room) {
+		List<String> keys = new ArrayList<>();
+		for (String k : rooms.keySet()) if (baseName(k).equals(room)) keys.add(k);
+		keys.forEach(rooms::remove);
+		return keys.size();
 	}
 
 	/**

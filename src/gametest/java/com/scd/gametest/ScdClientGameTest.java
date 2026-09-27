@@ -332,6 +332,9 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		server.runCommand("tp @p " + (c + 2) + " 91 " + (c + 2));
 		ctx.waitTicks(10);
 		clickBlock(ctx, chest);
+		server.runCommand("tp @p " + (c - 6) + " 91 " + (c - 1) + " -135 20");
+		ctx.waitTicks(10);
+		ctx.takeScreenshot("14b-route-recording");
 		server.runCommand("tp @p " + (c + 8) + " 91 " + (c - 2));
 		ctx.waitTicks(10);
 		server.runCommand("execute as @p at @s run summon item ~ ~ ~ {Item:{id:\"minecraft:bone\",count:1},PickupDelay:0s}");
@@ -386,6 +389,22 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		ctx.waitTicks(5);
 		check(ctx.computeOnClient(mc -> routes.library().mine().rooms.get("SCD Test Room")).size() == 4, "share code import failed");
 
+		// Several routes per room: the one starting nearest the entrance plays.
+		enterRoom(ctx, server, c - 14, c + 10);
+		ctx.runOnClient(mc -> mc.player.connection.sendCommand("scd route record"));
+		ctx.waitTicks(3);
+		server.runCommand("tp @p " + (c - 8) + " 91 " + (c + 8));
+		ctx.waitTicks(5);
+		ctx.runOnClient(mc -> mc.player.connection.sendCommand("scd route mark"));
+		ctx.runOnClient(mc -> mc.player.connection.sendCommand("scd route record stop"));
+		ctx.waitTicks(5);
+		check(ctx.computeOnClient(mc -> routes.library().mine().routesFor("SCD Test Room").size()) == 2, "second recording did not add a route");
+		enterRoom(ctx, server, c - 13, c + 9);
+		check("SCD Test Room:2".equals(ctx.computeOnClient(mc -> routes.playingKey())), "wrong route for the second entrance: " + ctx.computeOnClient(mc -> routes.playingKey()));
+		enterRoom(ctx, server, c - 5, c - 5);
+		check("SCD Test Room".equals(ctx.computeOnClient(mc -> routes.playingKey())), "wrong route for the first entrance: " + ctx.computeOnClient(mc -> routes.playingKey()));
+		System.out.println("SCD_TEST_ENTRANCES ok");
+
 		String srPack = System.getenv("SCD_SR_ROUTES");
 		if (srPack != null) {
 			ctx.runOnClient(mc -> {
@@ -410,7 +429,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 			});
 		}
 		ctx.runOnClient(mc -> {
-			routes.library().mine().rooms.remove("SCD Test Room");
+			routes.library().mine().removeRoom("SCD Test Room");
 			try {
 				routes.library().saveMine();
 			} catch (java.io.IOException e) {
@@ -418,6 +437,14 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 			}
 			routes.library().reload();
 		});
+	}
+
+	/** Leave the room grid, then walk back in at (x, z) so the room is entered from there. */
+	private static void enterRoom(ClientGameTestContext ctx, TestServerContext server, int x, int z) {
+		server.runCommand("tp @p 40 91 40");
+		ctx.waitTicks(5);
+		server.runCommand("tp @p " + x + " 91 " + z);
+		ctx.waitTicks(15);
 	}
 
 	private static void clickBlock(ClientGameTestContext ctx, net.minecraft.core.BlockPos pos) {
@@ -431,7 +458,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 	/** Lag scanner: 200 named armor stands must show up as a measured cost with the right count. */
 	private static void lagScenario(ClientGameTestContext ctx, TestServerContext server, ScdMod mod) {
 		var scanner = mod.feature(com.scd.client.feature.perf.LagScanner.class);
-		server.runCommand("tp @p 0 -60 0");
+		server.runCommand("tp @p 0 -60 0 0 0");
 		for (int i = 0; i < 200; i++) {
 			server.runCommand("summon armor_stand " + (i % 20 - 10) + " -60 " + (i / 20 + 3) + " {NoGravity:1b,CustomNameVisible:1b,CustomName:\"stand " + i + "\"}");
 		}

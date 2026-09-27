@@ -88,10 +88,10 @@ public final class RouteLibrary {
 	}
 
 	/** Every route for a room: yours first, then enabled packs in file order. */
-	public List<List<RouteStep>> routesFor(String room, Collection<String> disabledPacks) {
-		List<List<RouteStep>> out = new ArrayList<>(mine.routesFor(room));
+	public List<RoutePack.Route> routesFor(String room, Collection<String> disabledPacks) {
+		List<RoutePack.Route> out = new ArrayList<>(mine.routesFor(room));
 		for (Pack p : packs) if (!disabledPacks.contains(p.file())) out.addAll(p.pack().routesFor(room));
-		out.removeIf(List::isEmpty);
+		out.removeIf(r -> r.steps().isEmpty());
 		return out;
 	}
 

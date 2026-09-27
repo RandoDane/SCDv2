@@ -2,6 +2,7 @@ package com.scd.client.feature.dungeon.route;
 
 import com.scd.client.feature.dungeon.MappedRoom;
 import com.scd.client.feature.world.WorldGizmos;
+import com.scd.logic.dungeon.route.RoutePack;
 import com.scd.logic.dungeon.route.RouteStep;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -23,21 +24,46 @@ final class RouteRunner {
 	static final int TNT = 0xFFFB923C;
 	static final int PEARL = 0xFFE879F9;
 	static final int SECRET = 0xFF4ADE80;
+	static final int START = 0xFFFFC857;
+	static final int DONE = 0xFF94A3B8;
 
 	private MappedRoom room;
-	private List<List<RouteStep>> routes = List.of();
+	private List<RoutePack.Route> routes = List.of();
 	private int routeIndex;
 	private int index;
+	private long lastAdvance;
+	private boolean entryPicked;
 
-	void set(MappedRoom room, List<List<RouteStep>> routes) {
+	/**
+	 * @param entry room-relative {x, z} where the player came in (null if unknown): the route that
+	 *              starts closest to it is picked
+	 */
+	void set(MappedRoom room, List<RoutePack.Route> routes, int[] entry) {
 		this.room = room;
 		this.routes = routes;
-		this.routeIndex = 0;
+		this.routeIndex = pick(routes, entry);
+		this.entryPicked = entry != null && routes.size() > 1;
 		this.index = 0;
 	}
 
+	static int pick(List<RoutePack.Route> routes, int[] entry) {
+		if (entry == null) return 0;
+		int best = 0;
+		double bestD = Double.MAX_VALUE;
+		for (int i = 0; i < routes.size(); i++) {
+			int[] e = RoutePack.start(routes.get(i).steps());
+			if (e == null) continue;
+			double d = Math.hypot(e[0] - entry[0], e[1] - entry[1]);
+			if (d < bestD) {
+				bestD = d;
+				best = i;
+			}
+		}
+		return best;
+	}
+
 	void clear() {
-		set(null, List.of());
+		set(null, List.of(), null);
 	}
 
 	MappedRoom room() {
@@ -49,7 +75,16 @@ final class RouteRunner {
 	}
 
 	List<RouteStep> steps() {
-		return routes.isEmpty() ? List.of() : routes.get(routeIndex);
+		return routes.isEmpty() ? List.of() : routes.get(routeIndex).steps();
+	}
+
+	String key() {
+		return routes.isEmpty() ? null : routes.get(routeIndex).key();
+	}
+
+	/** Whether the playing route was chosen because it starts nearest your entrance. */
+	boolean entryMatched() {
+		return entryPicked;
 	}
 
 	int index() {
@@ -71,6 +106,19 @@ final class RouteRunner {
 
 	void next() {
 		if (index < steps().size()) index++;
+		lastAdvance = System.currentTimeMillis();
+	}
+
+	/**
+	 * The room's secret counter (action bar) went up: the current secret is done, whatever it was.
+	 * Ignored right after a precise advance (chest click, item, bat) for the same secret.
+	 */
+	void onSecretCounted() {
+		if (!active() || current() == null) return;
+		if (System.currentTimeMillis() - lastAdvance < 1500) return;
+		RouteStep s = current();
+		if (s.secretType == RouteStep.SecretType.EXIT || s.secretType == RouteStep.SecretType.EXIT_ROUTE) return;
+		next();
 	}
 
 	void previous() {
@@ -127,11 +175,42 @@ final class RouteRunner {
 		if (!active()) return;
 		var mc = Minecraft.getInstance();
 		if (mc.player == null) return;
+		drawStart(throughWalls);
+		drawTaken(throughWalls);
 		RouteStep s = current();
 		if (s == null) return;
 		// Interpolated position: the per-tick one makes the line's start jump behind the smooth camera.
 		draw(s, index, throughWalls, 0xFF, mc.player.getPosition(partialTick));
 		if (showNext && index + 1 < steps().size()) draw(steps().get(index + 1), index + 1, throughWalls, 0x70, null);
+	}
+
+	/** "Start" on the block the route begins on top of, shown until the first secret is done. */
+	private void drawStart(boolean walls) {
+		List<RouteStep> all = steps();
+		if (index > 0 || all.isEmpty() || all.getFirst().locations.isEmpty()) return;
+		markStart(world(all.getFirst().locations.getFirst()), walls);
+	}
+
+	/** Secrets already taken stay marked (muted, with a tick) so you can see what's done. */
+	private void drawTaken(boolean walls) {
+		List<RouteStep> all = steps();
+		for (int i = 0; i < index && i < all.size(); i++) {
+			RouteStep s = all.get(i);
+			if (s.secret == null || s.secretType == RouteStep.SecretType.EXIT || s.secretType == RouteStep.SecretType.EXIT_ROUTE) continue;
+			markSecret(world(s.secret), "✔ " + (i + 1) + " " + s.secretType.key.toLowerCase(Locale.ROOT), DONE, walls);
+		}
+	}
+
+	/** @param feet the block the player stood in; the marked block is the one below it */
+	static void markStart(BlockPos feet, boolean walls) {
+		BlockPos ground = feet.below();
+		WorldGizmos.block(ground, START, walls);
+		WorldGizmos.label(Vec3.atCenterOf(ground).add(0, 1.3, 0), "Start", START, walls);
+	}
+
+	static void markSecret(BlockPos pos, String label, int color, boolean walls) {
+		WorldGizmos.block(pos, color, walls);
+		WorldGizmos.label(Vec3.atCenterOf(pos).add(0, 1.0, 0), label, color, walls);
 	}
 
 	private void draw(RouteStep s, int n, boolean walls, int alpha, Vec3 from) {

@@ -20,6 +20,7 @@ class RoutePackTest {
 		Map<String, String> alias = Map.of("Altar-6", "Altar");
 		RoutePack pack = RoutePack.read(new StringReader(SECRET_ROUTES_SAMPLE), n -> alias.getOrDefault(n, n));
 		assertEquals(2, pack.routesFor("Altar").size());
+		assertEquals("Altar", pack.routesFor("Altar").getFirst().key());
 		var steps = pack.rooms.get("Altar");
 		assertEquals(2, steps.size());
 		assertEquals(RouteStep.SecretType.ITEM, steps.get(0).secretType);
@@ -45,5 +46,22 @@ class RoutePackTest {
 		assertEquals(RouteStep.SecretType.EXIT, decoded.steps().get(1).secretType);
 		assertThrows(IllegalArgumentException.class, () -> ShareCode.decode("SCDR1:!!!"));
 		assertThrows(IllegalArgumentException.class, () -> ShareCode.decode("hello"));
+	}
+
+	@Test
+	void everyRecordingIsItsOwnRoute() {
+		RoutePack pack = new RoutePack();
+		RouteStep a = new RouteStep();
+		a.locations.add(new int[]{2, 70, 15});
+		RouteStep b = new RouteStep();
+		b.locations.add(new int[]{28, 70, 15});
+		assertEquals("Altar", pack.add("Altar", java.util.List.of(a)));
+		assertEquals("Altar:2", pack.add("Altar", java.util.List.of(b)));
+		assertEquals(2, pack.routesFor("Altar").size());
+		assertArrayEquals(new int[]{28, 15}, RoutePack.start(pack.routesFor("Altar").get(1).steps()));
+		RoutePack again = RoutePack.read(new StringReader(pack.write()), n -> n);
+		assertEquals(2, again.routesFor("Altar").size());
+		assertEquals(2, again.removeRoom("Altar"));
+		assertTrue(again.rooms.isEmpty());
 	}
 }

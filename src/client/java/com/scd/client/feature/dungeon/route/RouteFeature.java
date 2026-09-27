@@ -44,6 +44,13 @@ public final class RouteFeature implements Feature {
 	private final RouteRunner runner = new RouteRunner();
 	private final RouteRecorder recorder = new RouteRecorder();
 	private KeyMapping nextKey, backKey;
+	/** Where the player first stepped into the current room (world), to pick routes by door. */
+	private MappedRoom entryRoom;
+	private net.minecraft.world.phys.Vec3 entryWorld;
+	private boolean loadedWithAnchor;
+	/** Room secret counter from the action bar ("3/5 Secrets"); -1 until seen in this room. */
+	private int secretCount = -1;
+	private static final java.util.regex.Pattern SECRETS = java.util.regex.Pattern.compile("(\\d+)/(\\d+) Secrets");
 
 	@Override
 	public void init(ScdMod mod) {
@@ -51,7 +58,23 @@ public final class RouteFeature implements Feature {
 		this.dungeon = mod.feature(DungeonFeature.class);
 		this.library = new RouteLibrary();
 
-		mod.bus.subscribe(DungeonEvents.RoomEntered.class, e -> load(e.room()));
+		mod.bus.subscribe(DungeonEvents.RoomEntered.class, e -> {
+			var p = Minecraft.getInstance().player;
+			entryRoom = e.room();
+			entryWorld = p != null ? p.position() : null;
+			secretCount = -1;
+			load(e.room());
+		});
+		mod.bus.subscribe(Events.ChatReceived.class, e -> onChat(e));
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents.ENTITY_UNLOAD.register((entity, level) -> {
+			// Hypixel removes secret items without a pickup packet: an item vanishing at your feet was picked up.
+			var p = Minecraft.getInstance().player;
+			if (p == null || !(entity instanceof net.minecraft.world.entity.item.ItemEntity) || entity.distanceToSqr(p) > 3.5 * 3.5) return;
+			ScdLog.guard("route item", () -> {
+				runner.onItemPickup(entity.position());
+				recorder.onItemPickup(entity.position(), p.position());
+			});
+		});
 		mod.bus.subscribe(Events.Tick.class, e -> tick());
 		mod.bus.subscribe(Events.WorldChanged.class, e -> {
 			runner.clear();
@@ -96,7 +119,8 @@ public final class RouteFeature implements Feature {
 		mod.huds.add(new RouteHud(mod::config, this));
 		com.scd.client.feature.world.WorldGizmos.onWorldExtract(partialTick -> {
 			ScdConfig.Dungeon c = mod.config().dungeon;
-			if (c.routes) runner.render(c.routesThroughWalls, c.routesShowNext, partialTick);
+			if (recorder.active()) recorder.render(c.routesThroughWalls, partialTick);
+			else if (c.routes) runner.render(c.routesThroughWalls, c.routesShowNext, partialTick);
 		});
 	}
 
@@ -109,8 +133,54 @@ public final class RouteFeature implements Feature {
 			runner.clear();
 			return;
 		}
-		if (room == runner.room()) return;
-		runner.set(room, library.routesFor(room.name(), config().disabledRoutePacks));
+		if (room == runner.room() && (loadedWithAnchor || room.anchor() == null)) return;
+		loadedWithAnchor = room.anchor() != null;
+		runner.set(room, library.routesFor(room.name(), config().disabledRoutePacks), entryFor(room));
+	}
+
+	/** Room-relative {x, z} where the player came into {@code room}; null if unknown. */
+	private int[] entryFor(MappedRoom room) {
+		if (room != entryRoom || entryWorld == null || room.anchor() == null) return null;
+		var rel = room.toRelative(net.minecraft.core.BlockPos.containing(entryWorld));
+		return new int[]{rel.getX(), rel.getZ()};
+	}
+
+	private void onChat(Events.ChatReceived e) {
+		var p = Minecraft.getInstance().player;
+		if (p == null) return;
+		if (e.channel() == Events.ChatReceived.Channel.ACTION_BAR) {
+			var m = SECRETS.matcher(e.clean());
+			if (!m.find()) return;
+			int count = Integer.parseInt(m.group(1));
+			int before = secretCount;
+			secretCount = count;
+			if (before >= 0 && count > before) {
+				runner.onSecretCounted();
+				net.minecraft.core.BlockPos looked = Minecraft.getInstance().hitResult instanceof net.minecraft.world.phys.BlockHitResult hit
+						&& hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK ? hit.getBlockPos() : null;
+				recorder.onSecretCounted(p.position(), looked);
+			}
+		} else if (e.isSystem() && e.clean().startsWith("You found a Wither Essence!")) {
+			recorder.onEssence(nearestSkull(p.blockPosition()), p.position());
+		}
+	}
+
+	private static net.minecraft.core.BlockPos nearestSkull(net.minecraft.core.BlockPos around) {
+		var level = Minecraft.getInstance().level;
+		if (level == null) return null;
+		net.minecraft.core.BlockPos best = null;
+		double bestD = Double.MAX_VALUE;
+		for (var pos : net.minecraft.core.BlockPos.betweenClosed(around.offset(-5, -3, -5), around.offset(5, 3, 5))) {
+			var b = level.getBlockState(pos).getBlock();
+			if (b != net.minecraft.world.level.block.Blocks.PLAYER_HEAD && b != net.minecraft.world.level.block.Blocks.PLAYER_WALL_HEAD
+					&& b != net.minecraft.world.level.block.Blocks.SKELETON_SKULL && b != net.minecraft.world.level.block.Blocks.SKELETON_WALL_SKULL) continue;
+			double d = pos.distSqr(around);
+			if (d < bestD) {
+				bestD = d;
+				best = pos.immutable();
+			}
+		}
+		return best;
 	}
 
 	private void tick() {
@@ -120,7 +190,7 @@ public final class RouteFeature implements Feature {
 		// Left the room grid (boss, next floor, hub): nothing to play.
 		if (current == null && runner.room() != null) runner.clear();
 		// Entered before the room was identified/anchored: pick the route up once it is.
-		if (current != null && current != runner.room() && current.name() != null) load(current);
+		if (current != null && current.name() != null && (current != runner.room() || (!loadedWithAnchor && current.anchor() != null))) load(current);
 		runner.tick(mc.player.position());
 		recorder.tick(mc.player.position());
 		while (nextKey.consumeClick()) runner.next();
@@ -142,6 +212,11 @@ public final class RouteFeature implements Feature {
 	/** Current playback step index (steps done), -1 when no route plays. */
 	public int playbackIndex() {
 		return runner.active() ? runner.index() : -1;
+	}
+
+	/** Pack key of the route playing now ("Altar", "Altar:2"), or null. */
+	public String playingKey() {
+		return runner.active() ? runner.key() : null;
 	}
 
 	public RouteLibrary library() {
@@ -184,7 +259,8 @@ public final class RouteFeature implements Feature {
 				.then(ClientCommands.literal("import")
 						.then(ClientCommands.argument("code", StringArgumentType.greedyString())
 								.executes(ctx -> importCode(StringArgumentType.getString(ctx, "code")))))
-				.then(ClientCommands.literal("delete").executes(ctx -> deleteMine()))
+				.then(ClientCommands.literal("delete").executes(ctx -> deleteMine(false))
+						.then(ClientCommands.literal("all").executes(ctx -> deleteMine(true))))
 				.then(ClientCommands.literal("reload").executes(ctx -> {
 					library.reload();
 					runner.clear();
@@ -246,14 +322,17 @@ public final class RouteFeature implements Feature {
 		MappedRoom room = recorder.room();
 		List<RouteStep> steps = recorder.stop();
 		if (steps.isEmpty()) return fail("Nothing recorded.");
-		library.mine().rooms.put(room.name(), new ArrayList<>(steps));
+		String key = library.mine().add(room.name(), new ArrayList<>(steps));
 		try {
 			library.saveMine();
 		} catch (Exception e) {
 			return fail("Could not save: " + e.getMessage());
 		}
-		runner.set(room, library.routesFor(room.name(), config().disabledRoutePacks));
-		Chat.success("Saved a " + steps.size() + "-step route for " + room.label() + " to " + RouteLibrary.MINE + ".");
+		runner.set(room, library.routesFor(room.name(), config().disabledRoutePacks), entryFor(room));
+		long count = library.mine().routesFor(room.name()).size();
+		Chat.success("Saved a " + steps.size() + "-step route for " + room.label() + (count > 1 ? " (" + count + " routes; the one starting nearest your entrance plays)" : "")
+				+ " to " + RouteLibrary.MINE + ".");
+		ScdLog.info("[routes] saved " + key + " steps " + steps.stream().map(st -> st.secretType.key).toList());
 		return 1;
 	}
 
@@ -274,7 +353,7 @@ public final class RouteFeature implements Feature {
 			return fail(e.getMessage());
 		}
 		String room = library.canonical(d.room());
-		library.mine().rooms.put(room, new ArrayList<>(d.steps()));
+		library.mine().add(room, new ArrayList<>(d.steps()));
 		try {
 			library.saveMine();
 		} catch (Exception e) {
@@ -285,10 +364,16 @@ public final class RouteFeature implements Feature {
 		return 1;
 	}
 
-	private int deleteMine() {
+	/** Deletes the route playing now (if it's yours), or every route of yours for the room. */
+	private int deleteMine(boolean all) {
 		MappedRoom room = dungeon.rooms().current();
 		if (room == null || room.name() == null) return fail("Stand in the room whose route you want to delete.");
-		if (library.mine().rooms.remove(room.name()) == null) return fail("You have no own route for " + room.label() + ".");
+		if (all) {
+			if (library.mine().removeRoom(room.name()) == 0) return fail("You have no own route for " + room.label() + ".");
+		} else {
+			String key = runner.active() ? runner.key() : null;
+			if (key == null || library.mine().rooms.remove(key) == null) return fail("The route playing here isn't one of yours (or none plays). /scd route delete all removes all of yours for this room.");
+		}
 		try {
 			library.saveMine();
 		} catch (Exception e) {
