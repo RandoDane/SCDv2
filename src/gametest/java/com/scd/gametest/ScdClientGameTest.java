@@ -84,6 +84,38 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		shot(ctx, "07-general", () -> new GeneralScreen(null, mod));
 		shot(ctx, "08-accessories", () -> new AccessoryScreen(null, mod, mod.feature(AccessoryFeature.class)));
 		shot(ctx, "09-hud-editor", () -> new HudEditorScreen(null, mod.huds, mod.configManager));
+		if (System.getenv("SCD_FPS") != null) {
+			ctx.setScreen(() -> null);
+			ctx.waitTicks(100);
+			int base = ctx.computeOnClient(mc -> mc.getFps());
+			ctx.setScreen(() -> new MainScreen(null, mod));
+			ctx.waitTicks(100);
+			int overview = ctx.computeOnClient(mc -> mc.getFps());
+			ctx.setScreen(() -> new SlayerScreen(null, mod, mod.feature(SlayerFeature.class)));
+			ctx.waitTicks(100);
+			int slayerPage = ctx.computeOnClient(mc -> mc.getFps());
+			long slayerNs = com.scd.client.ui.ScdScreen.avgFrameNanos;
+			ctx.setScreen(() -> new MainScreen(null, mod));
+			ctx.waitTicks(60);
+			long overviewNs = com.scd.client.ui.ScdScreen.avgFrameNanos;
+			System.out.println("SCD_FPS base=" + base + " overview=" + overview + " slayer=" + slayerPage
+					+ " | SCD draw cost per frame: overview=" + overviewNs / 1000 + "us slayer=" + slayerNs / 1000 + "us");
+			ctx.setScreen(() -> null);
+		}
+		if (System.getenv("SCD_SCALE_SHOTS") != null) {
+			for (int scale : new int[] {2, 3}) {
+				ctx.runOnClient(mc -> {
+					mc.options.guiScale().set(scale);
+					mc.resizeGui();
+				});
+				shot(ctx, "scale" + scale + "-main", () -> new MainScreen(null, mod));
+				shot(ctx, "scale" + scale + "-slayer", () -> new SlayerScreen(null, mod, mod.feature(SlayerFeature.class)));
+			}
+			ctx.runOnClient(mc -> {
+				mc.options.guiScale().set(0);
+				mc.resizeGui();
+			});
+		}
 		if (System.getenv("SCD_THEME_SHOTS") != null) {
 			for (String theme : List.of("Dusk", "Tidepool", "Ember", "Sakura", "Signal")) {
 				ctx.runOnClient(mc -> com.scd.client.ui.Ui.setTheme(com.scd.client.ui.Theme.byName(theme)));

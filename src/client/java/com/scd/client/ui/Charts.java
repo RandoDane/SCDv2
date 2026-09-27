@@ -23,20 +23,16 @@ public final class Charts {
 		if (max <= 0) max = 1;
 		int rgb = color & 0xFFFFFF;
 		int prevY = -1;
+		// One gradient fill per column plus the line: cheap enough to redraw every frame.
 		for (int px = 0; px < w; px++) {
 			double pos = px / (double) (w - 1) * (values.length - 1);
 			int i = (int) Math.floor(pos);
 			double f = pos - i;
 			double a = values[Math.min(i, values.length - 1)], b = values[Math.min(i + 1, values.length - 1)];
-			// smoothstep between samples for a softer curve than straight segments
-			double s = f * f * (3 - 2 * f);
-			double v = a + (b - a) * s;
+			double sm = f * f * (3 - 2 * f);
+			double v = a + (b - a) * sm;
 			int vy = y + h - (int) Math.round(v / max * (h - 2)) - 1;
-			for (int yy = vy; yy < y + h; yy++) {
-				float k = 1f - (yy - vy) / (float) Math.max(1, (y + h - vy));
-				int alpha = (int) (0x70 * k);
-				if (alpha > 3) g.fill(x + px, yy, x + px + 1, yy + 1, (alpha << 24) | rgb);
-			}
+			if (vy < y + h - 1) g.fillGradient(x + px, vy, x + px + 1, y + h, (0x60 << 24) | rgb, rgb);
 			int from = prevY < 0 ? vy : Math.min(prevY, vy);
 			int to = prevY < 0 ? vy : Math.max(prevY, vy);
 			g.fill(x + px, from, x + px + 1, to + 1, 0xFF000000 | rgb);

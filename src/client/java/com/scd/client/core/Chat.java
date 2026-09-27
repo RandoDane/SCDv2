@@ -73,8 +73,8 @@ public final class Chat {
 		ScdLog.debug("[scd-title] " + title.getString() + (subtitle != null ? " / " + subtitle.getString() : ""));
 		var mc = Minecraft.getInstance();
 		mc.gui.hud.resetTitleTimes();
-		mc.gui.hud.setTitle(title.copy().withStyle(s -> s.withFont(com.scd.client.ui.Ui.BOLD)));
-		if (subtitle != null) mc.gui.hud.setSubtitle(subtitle.copy().withStyle(s -> s.withFont(com.scd.client.ui.Ui.REGULAR)));
+		mc.gui.hud.setTitle(title.copy().withStyle(s -> s.withFont(com.scd.client.ui.Ui.boldAt(4))));
+		if (subtitle != null) mc.gui.hud.setSubtitle(subtitle.copy().withStyle(s -> s.withFont(com.scd.client.ui.Ui.regularAt(2))));
 		if (sound) ping(1.5f);
 	}
 

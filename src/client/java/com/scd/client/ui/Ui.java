@@ -35,9 +35,50 @@ public final class Ui {
 	public static final int RADIUS = 5;
 	public static final int RADIUS_SMALL = 4;
 
-	public static final FontDescription REGULAR = new FontDescription.Resource(Identifier.fromNamespaceAndPath("scd", "ui"));
-	public static final FontDescription BOLD = new FontDescription.Resource(Identifier.fromNamespaceAndPath("scd", "ui_bold"));
-	public static final FontDescription TITLE = new FontDescription.Resource(Identifier.fromNamespaceAndPath("scd", "ui_title"));
+	/**
+	 * One font definition per GUI scale (1-6), rasterized at exactly that scale so every glyph pixel
+	 * lands on one screen pixel - a single oversampled font shrunk with nearest-neighbour sampling
+	 * looked thin and jagged at scales 2-3. Body text is Poppins Medium, headings SemiBold.
+	 */
+	private static final FontDescription[] REGULAR_BY_SCALE = faces("ui_");
+	private static final FontDescription[] BOLD_BY_SCALE = faces("ui_bold_");
+	private static final FontDescription[] TITLE_BY_SCALE = faces("ui_title_");
+	public static final FontDescription REGULAR = REGULAR_BY_SCALE[1];
+	public static final FontDescription BOLD = BOLD_BY_SCALE[1];
+	public static final FontDescription TITLE = TITLE_BY_SCALE[1];
+
+	private static FontDescription[] faces(String prefix) {
+		FontDescription[] out = new FontDescription[7];
+		for (int i = 1; i <= 6; i++) out[i] = new FontDescription.Resource(Identifier.fromNamespaceAndPath("scd", prefix + i));
+		out[0] = out[1];
+		return out;
+	}
+
+	private static int scaleIndex() {
+		int s = Minecraft.getInstance().getWindow().getGuiScale();
+		return Math.max(1, Math.min(6, s));
+	}
+
+	public static FontDescription regular() {
+		return REGULAR_BY_SCALE[scaleIndex()];
+	}
+
+	public static FontDescription bold() {
+		return BOLD_BY_SCALE[scaleIndex()];
+	}
+
+	/** For text drawn with an extra pose scale (vanilla titles are 4x, subtitles 2x). */
+	public static FontDescription boldAt(int extraScale) {
+		return BOLD_BY_SCALE[Math.max(1, Math.min(6, scaleIndex() * extraScale))];
+	}
+
+	public static FontDescription regularAt(int extraScale) {
+		return REGULAR_BY_SCALE[Math.max(1, Math.min(6, scaleIndex() * extraScale))];
+	}
+
+	public static FontDescription titleFace() {
+		return TITLE_BY_SCALE[scaleIndex()];
+	}
 
 	private static final String[] RARITIES = {"COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC", "DIVINE", "SPECIAL", "VERY SPECIAL"};
 	private static final int[] RARITY_COLORS = {0xFFFFFFFF, 0xFF55FF55, 0xFF5555FF, 0xFFAA00AA, 0xFFFFAA00, 0xFFFF55FF, 0xFF55FFFF, 0xFFFF5555, 0xFFFF5555};
@@ -77,7 +118,7 @@ public final class Ui {
 	}
 
 	public static void text(GuiGraphicsExtractor g, String text, int x, int y, int color) {
-		g.text(font(), styled(text, REGULAR), x, y, color, false);
+		g.text(font(), styled(text, regular()), x, y, color, false);
 	}
 
 	public static void text(GuiGraphicsExtractor g, Component text, int x, int y, int color) {
@@ -85,12 +126,12 @@ public final class Ui {
 	}
 
 	public static void bold(GuiGraphicsExtractor g, String text, int x, int y, int color) {
-		g.text(font(), styled(text, BOLD), x, y, color, false);
+		g.text(font(), styled(text, bold()), x, y, color, false);
 	}
 
 	/** Large heading (about 1.5x body size). */
 	public static void title(GuiGraphicsExtractor g, String text, int x, int y, int color) {
-		g.text(font(), styled(text, TITLE), x, y, color, false);
+		g.text(font(), styled(text, titleFace()), x, y, color, false);
 	}
 
 	public static void centered(GuiGraphicsExtractor g, String text, int centerX, int y, int color) {
@@ -107,15 +148,15 @@ public final class Ui {
 	}
 
 	public static int width(String text) {
-		return font().width(styled(text, REGULAR));
+		return font().width(styled(text, regular()));
 	}
 
 	public static int widthBold(String text) {
-		return font().width(styled(text, BOLD));
+		return font().width(styled(text, bold()));
 	}
 
 	public static int widthTitle(String text) {
-		return font().width(styled(text, TITLE));
+		return font().width(styled(text, titleFace()));
 	}
 
 	public static int lineHeight() {
@@ -227,36 +268,7 @@ public final class Ui {
 	}
 
 	private static void fillRoundPx(GuiGraphicsExtractor g, int X, int Y, int W, int H, float radius, int color) {
-		if (W <= 0 || H <= 0) return;
-		int R = (int) Math.min(Math.floor(radius), Math.min(W, H) / 2);
-		if (R <= 0) {
-			g.fill(X, Y, X + W, Y + H, color);
-			return;
-		}
-		g.fill(X, Y + R, X + W, Y + H - R, color);
-		int alpha = color >>> 24;
-		int rgb = color & 0xFFFFFF;
-		for (int i = 0; i < R; i++) {
-			double dy = R - (i + 0.5);
-			double inset = R - Math.sqrt(Math.max(0, (double) R * R - dy * dy));
-			int full = (int) Math.ceil(inset);
-			int partial = (int) Math.floor(inset);
-			double coverage = full - inset;
-			int top = Y + i;
-			int bottom = Y + H - 1 - i;
-			if (W - 2 * full > 0) {
-				g.fill(X + full, top, X + W - full, top + 1, color);
-				g.fill(X + full, bottom, X + W - full, bottom + 1, color);
-			}
-			if (partial < full && coverage > 0.03) {
-				int a = (int) Math.round(alpha * coverage);
-				int c = (a << 24) | rgb;
-				g.fill(X + partial, top, X + partial + 1, top + 1, c);
-				g.fill(X + W - 1 - partial, top, X + W - partial, top + 1, c);
-				g.fill(X + partial, bottom, X + partial + 1, bottom + 1, c);
-				g.fill(X + W - 1 - partial, bottom, X + W - partial, bottom + 1, c);
-			}
-		}
+		Corners.fill(g, X, Y, W, H, radius, color);
 	}
 
 	// ---- colors ---------------------------------------------------------------------------------

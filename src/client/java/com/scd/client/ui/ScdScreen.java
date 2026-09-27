@@ -204,8 +204,18 @@ public abstract class ScdScreen extends Screen {
 		return true;
 	}
 
+	/** Average CPU time (ns) SCD spends building one frame of this window - for performance tests. */
+	public static volatile long avgFrameNanos;
+
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+		long start = System.nanoTime();
+		draw(g, mouseX, mouseY, partialTick);
+		long took = System.nanoTime() - start;
+		avgFrameNanos = avgFrameNanos == 0 ? took : (avgFrameNanos * 15 + took) / 16;
+	}
+
+	private void draw(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
 		positionRows();
 		Theme t = Ui.theme();
 		Ui.panel(g, winX, winY, winW, winH);
