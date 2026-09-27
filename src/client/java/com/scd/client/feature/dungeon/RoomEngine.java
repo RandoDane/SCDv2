@@ -243,19 +243,22 @@ public final class RoomEngine {
 				if (!lvl.hasChunkAt(p.set(DungeonGrid.centre(t[0]) + rot.dx, room.highestBlock, DungeonGrid.centre(t[1]) + rot.dz))) return;
 			}
 		}
-		// Every tile corner, rotations in a fixed order (SecretRoutes' order, so its packs line up):
-		// live data showed multi-tile rooms keep their clay at a tile corner, not the room's outer corner.
-		List<int[]> tiles = new ArrayList<>(room.tiles);
-		tiles.sort((a, b) -> a[0] != b[0] ? Integer.compare(a[0], b[0]) : Integer.compare(a[1], b[1]));
-		for (RoomRotation rot : PROBE_ORDER) {
-			for (int[] t : tiles) {
+		// Candidates: blue terracotta at any tile corner, at roof height. Live data: 1x1 rooms have one;
+		// multi-tile rooms have a pair at a tile junction, whose corner labels are always clockwise
+		// neighbours (e.g. SOUTH then WEST). Taking the first of the pair picks the same physical block
+		// in every orientation of the room, so recorded routes line up after rotation.
+		List<RoomPlacement.Anchor> found = new ArrayList<>();
+		for (int[] t : room.tiles) {
+			for (RoomRotation rot : PROBE_ORDER) {
 				int x = DungeonGrid.centre(t[0]) + rot.dx, z = DungeonGrid.centre(t[1]) + rot.dz;
-				if (lvl.getBlockState(p.set(x, room.highestBlock, z)).getBlock() != clay) continue;
-				if (tiles.size() > 1 && !clayNeighbours(lvl, x, room.highestBlock, z, clay)) continue;
-				room.anchor = new RoomPlacement.Anchor(rot, x, z);
-				room.anchorSource = "block";
-				return;
+				if (lvl.getBlockState(p.set(x, room.highestBlock, z)).getBlock() == clay) found.add(new RoomPlacement.Anchor(rot, x, z));
 			}
+		}
+		RoomPlacement.Anchor pick = RoomPlacement.pickClay(found);
+		if (pick != null) {
+			room.anchor = pick;
+			room.anchorSource = found.size() > 1 ? "block pair" : "block";
+			return;
 		}
 		if (room.info != null && !oneByOne) {
 			RoomPlacement.Anchor geo = RoomPlacement.fromGeometry(room.tiles, room.info.shape());
@@ -270,32 +273,25 @@ public final class RoomEngine {
 
 	private static final RoomRotation[] PROBE_ORDER = {RoomRotation.NORTH, RoomRotation.SOUTH, RoomRotation.WEST, RoomRotation.EAST};
 
-	/** A real clay has only terracotta or air beside it; decorative blue terracotta sits in walls. */
-	private static boolean clayNeighbours(Level lvl, int x, int y, int z, Block clay) {
-		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
-		int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-		for (int[] d : dirs) {
-			var state = lvl.getBlockState(p.set(x + d[0], y, z + d[1]));
-			if (!state.isAir() && state.getBlock() != clay) return false;
-		}
-		return true;
-	}
-
-	/** Diagnostic: every blue terracotta within 5 blocks (y) of the roof at any tile corner of the room. */
+	/** Diagnostic: blue terracotta anywhere in the room from 30 below to 5 above the roof (first 8). */
 	private String findClay(Level lvl, MappedRoom room, Block clay) {
 		List<String> found = new ArrayList<>();
-		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		int minX = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
 		for (int[] t : room.tiles) {
-			int cx = DungeonGrid.centre(t[0]), cz = DungeonGrid.centre(t[1]);
-			for (RoomRotation r : RoomRotation.values()) {
-				for (int dy = -5; dy <= 5; dy++) {
-					if (lvl.getBlockState(p.set(cx + r.dx, room.highestBlock + dy, cz + r.dz)).getBlock() == clay) {
-						found.add((cx + r.dx) + "," + (room.highestBlock + dy) + "," + (cz + r.dz) + " (tile " + t[0] + "," + t[1] + " " + r + ")");
-					}
+			minX = Math.min(minX, DungeonGrid.centre(t[0]) - 15);
+			maxX = Math.max(maxX, DungeonGrid.centre(t[0]) + 15);
+			minZ = Math.min(minZ, DungeonGrid.centre(t[1]) - 15);
+			maxZ = Math.max(maxZ, DungeonGrid.centre(t[1]) + 15);
+		}
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		for (int y = room.highestBlock + 5; y >= room.highestBlock - 30 && found.size() < 8; y--) {
+			for (int x = minX; x <= maxX && found.size() < 8; x++) {
+				for (int z = minZ; z <= maxZ && found.size() < 8; z++) {
+					if (lvl.getBlockState(p.set(x, y, z)).getBlock() == clay) found.add(x + "," + y + "," + z);
 				}
 			}
 		}
-		return found.isEmpty() ? "none" : String.join("; ", found);
+		return found.isEmpty() ? "none in the room" : String.join("; ", found);
 	}
 
 	/** Odin's column hash, reading chunk sections directly (unloaded sections are air). */

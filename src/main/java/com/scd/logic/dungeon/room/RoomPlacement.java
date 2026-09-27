@@ -70,6 +70,36 @@ public final class RoomPlacement {
 		return new Anchor(rot, c[0], c[1]);
 	}
 
+	/** Clockwise successor of a clay corner: NW (SOUTH) -> NE (WEST) -> SE (NORTH) -> SW (EAST). */
+	public static RoomRotation clockwise(RoomRotation r) {
+		return switch (r) {
+			case SOUTH -> RoomRotation.WEST;
+			case WEST -> RoomRotation.NORTH;
+			case NORTH -> RoomRotation.EAST;
+			case EAST -> RoomRotation.SOUTH;
+		};
+	}
+
+	/**
+	 * Chooses the clay among blue terracotta found at tile corners. One: that one. A pair: the one
+	 * whose clockwise successor label is the other - invariant under rotating the room, so the same
+	 * physical block is chosen in every orientation. Anything else: the first in probe order.
+	 */
+	public static Anchor pickClay(List<Anchor> found) {
+		if (found.isEmpty()) return null;
+		if (found.size() == 1) return found.getFirst();
+		for (Anchor a : found) {
+			boolean hasSuccessor = false, hasPredecessor = false;
+			for (Anchor b : found) {
+				if (b == a) continue;
+				if (b.rotation() == clockwise(a.rotation())) hasSuccessor = true;
+				if (clockwise(b.rotation()) == a.rotation()) hasPredecessor = true;
+			}
+			if (hasSuccessor && !hasPredecessor) return a;
+		}
+		return found.getFirst();
+	}
+
 	/** Anchor for a 1x1 room from the rotation whose probe found the clay. */
 	public static Anchor oneByOne(int tileX, int tileZ, RoomRotation rot) {
 		return new Anchor(rot, DungeonGrid.centre(tileX) + rot.dx, DungeonGrid.centre(tileZ) + rot.dz);

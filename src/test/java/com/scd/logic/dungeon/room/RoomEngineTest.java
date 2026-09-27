@@ -134,4 +134,22 @@ class RoomEngineTest {
 		for (int x = 0; x < size; x++)
 			for (int z = 0; z < size; z++) map[(sz + tz * gap + z) * 128 + sx + tx * gap + x] = color;
 	}
+
+	@Test
+	void clayPairChoiceSurvivesRotation() {
+		// Hallway (live): WEST at one tile, SOUTH at the next -> SOUTH (its clockwise successor is WEST).
+		var south = new RoomPlacement.Anchor(RoomRotation.SOUTH, -136, -136);
+		var west = new RoomPlacement.Anchor(RoomRotation.WEST, -138, -136);
+		assertEquals(south, RoomPlacement.pickClay(List.of(west, south)));
+		assertEquals(south, RoomPlacement.pickClay(List.of(south, west)));
+		// The same room turned 90 degrees clockwise: labels become WEST and NORTH -> WEST (the same block).
+		var w2 = new RoomPlacement.Anchor(RoomRotation.WEST, 0, 0);
+		var n2 = new RoomPlacement.Anchor(RoomRotation.NORTH, 0, 2);
+		assertEquals(w2, RoomPlacement.pickClay(List.of(n2, w2)));
+		// Wrap-around pair EAST then SOUTH.
+		var e3 = new RoomPlacement.Anchor(RoomRotation.EAST, 1, 1);
+		var s3 = new RoomPlacement.Anchor(RoomRotation.SOUTH, 1, 3);
+		assertEquals(e3, RoomPlacement.pickClay(List.of(s3, e3)));
+		assertNull(RoomPlacement.pickClay(List.of()));
+	}
 }
