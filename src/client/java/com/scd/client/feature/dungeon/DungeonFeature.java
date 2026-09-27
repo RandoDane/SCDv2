@@ -303,7 +303,7 @@ public final class DungeonFeature implements Feature {
 	public void registerCommands(LiteralArgumentBuilder<FabricClientCommandSource> root) {
 		root.then(ClientCommands.literal("dungeon")
 				.executes(ctx -> {
-					ScdScreen.open(new DungeonScreen(null, mod, this));
+					ScdScreen.open(new com.scd.client.ui.clickgui.ClickGuiScreen(mod));
 					return 1;
 				})
 				.then(ClientCommands.literal("score").executes(ctx -> {

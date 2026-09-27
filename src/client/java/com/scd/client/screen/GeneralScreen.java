@@ -40,7 +40,7 @@ public final class GeneralScreen extends ScdScreen {
 	@Override
 	protected void build(Rows rows) {
 		ScdConfig c = mod.config();
-		rows.group("backend", "SCD backend", null, false, g -> {
+		rows.group("backend", "SCD backend", null, true, g -> {
 			g.note("Your own SCD server: mayor perks, attribute-shard ids, accessory profiles and room reports. Prices never come from here.");
 			g.text("Server URL", "http://host:3000", url, TextField.any(), s -> url = s);
 			g.buttons(java.util.List.of("Apply"), java.util.List.of(() -> {
@@ -51,27 +51,31 @@ public final class GeneralScreen extends ScdScreen {
 			g.line(() -> urlError != null ? urlError : "Status: " + mod.backend.status().message(),
 					() -> urlError != null ? Ui.DANGER : mod.backend.status().ok() ? Ui.SUCCESS : Ui.theme().textMuted());
 		});
-		rows.group("carry", "Carry messages", null, false, g -> {
+		rows.group("carry", "Carry messages", null, true, g -> {
 			g.toggle("Post progress in party chat", null, () -> c.carries.partyProgress, v -> c.carries.partyProgress = v);
 			g.text("Progress message", null, c.carries.progressTemplate, TextField.any(), s -> c.carries.progressTemplate = s);
 			g.text("Finish message", null, c.carries.finishTemplate, TextField.any(), s -> c.carries.finishTemplate = s);
 			g.note("Placeholders: {player} {done} {owed} {left} {unit} {target} {price} {total}");
 		});
-		rows.group("perf", "Performance", () -> c.perf.lagScanner ? "scanning" : null, true, g -> {
-			g.toggle("Lag scanner", "Measures frame/tick time and what costs the most (entities, block entities, particles), logs spikes with where they happened",
-					() -> c.perf.lagScanner, v -> {
-						c.perf.lagScanner = v;
-						mod.feature(com.scd.client.feature.perf.LagScanner.class).setEnabled(v);
-					});
-			g.slider("Spike threshold", 20, 200, 10, () -> c.perf.spikeMs, v -> c.perf.spikeMs = (int) Math.round(v), v -> Math.round(v) + "ms");
-			g.note("/scd lag shows the current top costs, /scd lag places the laggiest spots, /scd lag report writes everything to config/scd/lag.");
-		});
-		rows.group("other", "Other", null, true, g -> {
-			g.toggle("Only on SkyBlock", "Keep features idle on other servers/modes", () -> c.general.requireSkyblock, v -> c.general.requireSkyblock = v);
-			g.toggle("Developer mode", "Enables /scd debug and verbose logging", () -> c.general.developerMode, v -> {
-				c.general.developerMode = v;
-				com.scd.client.core.ScdLog.setDebug(v);
+		if (!underClickGui()) {
+			rows.group("perf", "Performance", () -> c.perf.lagScanner ? "scanning" : null, true, g -> {
+				g.toggle("Lag scanner", "Measures frame/tick time and what costs the most (entities, block entities, particles), logs spikes with where they happened",
+						() -> c.perf.lagScanner, v -> {
+							c.perf.lagScanner = v;
+							mod.feature(com.scd.client.feature.perf.LagScanner.class).setEnabled(v);
+						});
+				g.slider("Spike threshold", 20, 200, 10, () -> c.perf.spikeMs, v -> c.perf.spikeMs = (int) Math.round(v), v -> Math.round(v) + "ms");
+				g.note("/scd lag shows the current top costs, /scd lag places the laggiest spots, /scd lag report writes everything to config/scd/lag.");
 			});
-		});
+		}
+		if (!underClickGui()) {
+			rows.group("other", "Other", null, true, g -> {
+				g.toggle("Only on SkyBlock", "Keep features idle on other servers/modes", () -> c.general.requireSkyblock, v -> c.general.requireSkyblock = v);
+				g.toggle("Developer mode", "Enables /scd debug and verbose logging", () -> c.general.developerMode, v -> {
+					c.general.developerMode = v;
+					com.scd.client.core.ScdLog.setDebug(v);
+				});
+			});
+		}
 	}
 }

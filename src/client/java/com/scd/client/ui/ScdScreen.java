@@ -75,7 +75,8 @@ public abstract class ScdScreen extends Screen implements ScdMenu {
 	@Override
 	protected void init() {
 		rows.clear();
-		sidebar = width >= 400;
+		// The click GUI is the menu now; every page is a plain window whose Back returns to it.
+		sidebar = false;
 		winW = Math.min(width - 16, (sidebar ? SIDEBAR_W : 0) + CONTENT_W + 20);
 		winH = Math.min(height - 16, WINDOW_H);
 		winX = (width - winW) / 2;
@@ -142,6 +143,14 @@ public abstract class ScdScreen extends Screen implements ScdMenu {
 	private void closeAll() {
 		onClosing();
 		Minecraft.getInstance().gui.setScreen(null);
+	}
+
+	/** Opened from the click GUI (directly or via other pages): settings shown there are left out. */
+	protected boolean underClickGui() {
+		for (Screen p = parent; p != null; p = p instanceof ScdScreen s ? s.parent : null) {
+			if (p instanceof com.scd.client.ui.clickgui.ClickGuiScreen) return true;
+		}
+		return false;
 	}
 
 	/** Opens a collapsible section (e.g. when jumping to it from elsewhere). */

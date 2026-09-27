@@ -41,29 +41,37 @@ public final class SlayerScreen extends ScdScreen {
 	@Override
 	protected void build(Rows rows) {
 		ScdConfig.Slayer c = mod.config().slayer;
-		rows.group("hud", "HUD", null, true, g -> {
-			g.toggle("Boss tracker", "Fight/hunt timers, HP bar, mechanic cues, RNG meter", () -> c.hud, v -> c.hud = v);
-			g.toggle("Session stats", "Kills/hour, average times, XP and drop value", () -> c.sessionStats, v -> c.sessionStats = v);
-			g.value("Hunt timer", () -> "pauses after " + Math.round(slayer.tracker().huntWindowMs() / 1000.0) + "s without progress");
-			g.note("Spawn times only count time you're actually slaying: your quest XP going up, or you hitting mobs / using items. "
-					+ "The pause point adapts to your own kill pace per slayer, so AFK time (or others fighting nearby) never inflates the average.");
-		});
-		rows.group("alerts", "Alerts", null, true, g -> {
-			g.toggle("Spawn alert", "Chat line when your boss spawns", () -> c.spawnAlert, v -> c.spawnAlert = v);
-			g.toggle("Spawn title + sound", null, () -> c.spawnAlertTitle, v -> c.spawnAlertTitle = v);
-			g.toggle("Kill message", "Fight time, with NEW BEST on a personal record", () -> c.killMessage, v -> c.killMessage = v);
-			g.toggle("Miniboss alert", null, () -> c.minibossAlert, v -> c.minibossAlert = v);
-			g.toggle("Miniboss title + sound", null, () -> c.minibossTitle, v -> c.minibossTitle = v);
-		});
-		rows.group("highlight", "Boss highlight", null, false, g -> {
-			g.toggle("Glow", "Outline your boss through walls", () -> c.highlightGlow, v -> c.highlightGlow = v);
-			g.toggle("Hitbox", null, () -> c.highlightBox, v -> c.highlightBox = v);
-			g.toggle("Tracer line", null, () -> c.highlightLine, v -> c.highlightLine = v);
-		});
-		rows.group("tracking", "Tracking", null, false, g -> {
-			g.toggle("Drop tracking", "Count drops picked up during a quest (inventory + sacks)", () -> c.dropTracking, v -> c.dropTracking = v);
-			g.buttons(List.of("Reset session stats"), List.of(() -> slayer.session().reset()));
-		});
+		if (!underClickGui()) {
+			rows.group("hud", "HUD", null, true, g -> {
+				g.toggle("Boss tracker", "Fight/hunt timers, HP bar, mechanic cues, RNG meter", () -> c.hud, v -> c.hud = v);
+				g.toggle("Session stats", "Kills/hour, average times, XP and drop value", () -> c.sessionStats, v -> c.sessionStats = v);
+				g.value("Hunt timer", () -> "pauses after " + Math.round(slayer.tracker().huntWindowMs() / 1000.0) + "s without progress");
+				g.note("Spawn times only count time you're actually slaying: your quest XP going up, or you hitting mobs / using items. "
+						+ "The pause point adapts to your own kill pace per slayer, so AFK time (or others fighting nearby) never inflates the average.");
+			});
+		}
+		if (!underClickGui()) {
+			rows.group("alerts", "Alerts", null, true, g -> {
+				g.toggle("Spawn alert", "Chat line when your boss spawns", () -> c.spawnAlert, v -> c.spawnAlert = v);
+				g.toggle("Spawn title + sound", null, () -> c.spawnAlertTitle, v -> c.spawnAlertTitle = v);
+				g.toggle("Kill message", "Fight time, with NEW BEST on a personal record", () -> c.killMessage, v -> c.killMessage = v);
+				g.toggle("Miniboss alert", null, () -> c.minibossAlert, v -> c.minibossAlert = v);
+				g.toggle("Miniboss title + sound", null, () -> c.minibossTitle, v -> c.minibossTitle = v);
+			});
+		}
+		if (!underClickGui()) {
+			rows.group("highlight", "Boss highlight", null, false, g -> {
+				g.toggle("Glow", "Outline your boss through walls", () -> c.highlightGlow, v -> c.highlightGlow = v);
+				g.toggle("Hitbox", null, () -> c.highlightBox, v -> c.highlightBox = v);
+				g.toggle("Tracer line", null, () -> c.highlightLine, v -> c.highlightLine = v);
+			});
+		}
+		if (!underClickGui()) {
+			rows.group("tracking", "Tracking", null, false, g -> {
+				g.toggle("Drop tracking", "Count drops picked up during a quest (inventory + sacks)", () -> c.dropTracking, v -> c.dropTracking = v);
+				g.buttons(List.of("Reset session stats"), List.of(() -> slayer.session().reset()));
+			});
+		}
 		rows.header("Bosses");
 		for (SlayerType type : SlayerType.values()) {
 			rows.section("slayer." + type.name(), type.bossName(), () -> slayer.tracker().phase(type), body -> {

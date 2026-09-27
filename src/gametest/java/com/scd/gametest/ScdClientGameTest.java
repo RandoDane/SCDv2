@@ -83,6 +83,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 			com.scd.client.ui.clickgui.ClickGuiScreen.expand("Slayer/Spawn alert");
 		});
 		shot(ctx, "00-clickgui", () -> new com.scd.client.ui.clickgui.ClickGuiScreen(mod));
+		shot(ctx, "00b-subpage", () -> new AccessoryScreen(new com.scd.client.ui.clickgui.ClickGuiScreen(mod), mod, mod.feature(AccessoryFeature.class)));
 		shot(ctx, "01-main", () -> new MainScreen(null, mod));
 		shot(ctx, "02-slayer", () -> new SlayerScreen(null, mod, mod.feature(SlayerFeature.class)));
 		shot(ctx, "03-carries", () -> new CarryScreen(null, mod.feature(CarryService.class)));

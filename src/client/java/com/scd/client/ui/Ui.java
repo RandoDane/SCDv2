@@ -93,7 +93,7 @@ public final class Ui {
 		return out;
 	}
 
-	/** Set while a HUD is measured/drawn: GUI scale x the HUD's own size. 0 resets. */
+	/** Set while a HUD (or the click GUI) is measured/drawn: screen pixels per text unit. 0 resets. */
 	public static void setHudDensity(float density) {
 		hudDensity = density;
 	}
@@ -175,21 +175,45 @@ public final class Ui {
 		return smoothFont ? c.withStyle(s -> s.withFont(face)) : c;
 	}
 
+	/**
+	 * Extra scale for text only (1 = none). The click GUI sets it together with a font rasterized
+	 * for exactly the resulting pixel density, so text size changes without resampling glyphs.
+	 */
+	private static float textScale = 1f;
+
+	public static void setTextScale(float scale) {
+		textScale = scale;
+	}
+
+	private static void draw(GuiGraphicsExtractor g, Component c, int x, int y, int color) {
+		if (textScale == 1f) {
+			g.text(font(), c, x, y, color, false);
+			return;
+		}
+		var pose = g.pose();
+		pose.pushMatrix();
+		// Keep the text vertically centred in the line it would have occupied.
+		pose.translate(x, y + (1f - textScale) * font().lineHeight / 2f);
+		pose.scale(textScale, textScale);
+		g.text(font(), c, 0, 0, color, false);
+		pose.popMatrix();
+	}
+
 	public static void text(GuiGraphicsExtractor g, String text, int x, int y, int color) {
-		g.text(font(), styled(text, regular()), x, y, color, false);
+		draw(g, styled(text, regular()), x, y, color);
 	}
 
 	public static void text(GuiGraphicsExtractor g, Component text, int x, int y, int color) {
-		g.text(font(), text, x, y, color, false);
+		draw(g, text, x, y, color);
 	}
 
 	public static void bold(GuiGraphicsExtractor g, String text, int x, int y, int color) {
-		g.text(font(), styled(text, bold()), x, y, color, false);
+		draw(g, styled(text, bold()), x, y, color);
 	}
 
 	/** Large heading (about 1.5x body size). */
 	public static void title(GuiGraphicsExtractor g, String text, int x, int y, int color) {
-		g.text(font(), styled(text, titleFace()), x, y, color, false);
+		draw(g, styled(text, titleFace()), x, y, color);
 	}
 
 	public static void centered(GuiGraphicsExtractor g, String text, int centerX, int y, int color) {
@@ -206,15 +230,15 @@ public final class Ui {
 	}
 
 	public static int width(String text) {
-		return font().width(styled(text, regular()));
+		return Math.round(font().width(styled(text, regular())) * textScale);
 	}
 
 	public static int widthBold(String text) {
-		return font().width(styled(text, bold()));
+		return Math.round(font().width(styled(text, bold())) * textScale);
 	}
 
 	public static int widthTitle(String text) {
-		return font().width(styled(text, titleFace()));
+		return Math.round(font().width(styled(text, titleFace())) * textScale);
 	}
 
 	public static int lineHeight() {

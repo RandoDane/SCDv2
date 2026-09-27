@@ -69,11 +69,33 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	 */
 	private void updateScale() {
 		var window = net.minecraft.client.Minecraft.getInstance().getWindow();
-		float density = Math.max(1f, window.getHeight() / 540f) * mod.config().general.menuScale / 100f;
+		// Whole steps from the window height (a 1080p screen gives 2 even when windowed and a bit
+		// shorter), then the Menu size setting fine-tunes it.
+		float wanted = Math.max(1, Math.round(window.getHeight() / 540f)) * mod.config().general.menuScale / 100f;
+		// Snap to quarter pixels: fonts exist for exactly those densities, so glyphs map 1:1 to pixels.
+		float density = quarter(wanted);
 		scale = density / window.getGuiScale();
 		vw = Math.round(width / scale);
 		vh = Math.round(height / scale);
-		Ui.setScaleOverride(Math.round(density));
+		// Text size is applied as its own (also snapped) scale with a font made for that density.
+		textDensity = quarter(density * mod.config().general.menuTextSize / 100f);
+	}
+
+	private float textDensity = 2;
+
+	private static float quarter(float v) {
+		return Math.max(0.5f, Math.min(6f, Math.round(v * 4) / 4f));
+	}
+
+	/** Font + text scale for drawing (and measuring) menu text; always paired with {@link #endText()}. */
+	private void beginText() {
+		Ui.setHudDensity(textDensity);
+		Ui.setTextScale(textDensity / (scale * net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScale()));
+	}
+
+	private static void endText() {
+		Ui.setHudDensity(0);
+		Ui.setTextScale(1f);
 	}
 
 	private int panelW() {
@@ -102,11 +124,12 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		var pose = g.pose();
 		pose.pushMatrix();
 		pose.scale(scale, scale);
+		beginText();
 		try {
 			drawMenu(g, Math.round(mouseX / scale), Math.round(mouseY / scale));
 		} finally {
+			endText();
 			pose.popMatrix();
-			Ui.setScaleOverride(0);
 		}
 	}
 
@@ -278,7 +301,6 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		updateScale();
-		Ui.setScaleOverride(0);
 		double mx = event.x() / scale, my = event.y() / scale;
 		for (var e : headerRects.entrySet()) {
 			int[] r = e.getValue();

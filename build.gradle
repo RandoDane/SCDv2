@@ -12,7 +12,7 @@ loom {
 	runs {
 		configureEach {
 			// A typical 1080p window, so gametest screenshots match what players see.
-			programArgs "--width", "1920", "--height", "1080"
+			programArgs "--width", (System.getenv("SCD_WIN_W") ?: "1920"), "--height", (System.getenv("SCD_WIN_H") ?: "1080")
 		}
 	}
 

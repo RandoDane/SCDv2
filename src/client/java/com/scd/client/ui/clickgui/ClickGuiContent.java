@@ -71,7 +71,8 @@ final class ClickGuiContent {
 			slayerMods.add(m);
 		}
 		slayerMods.add(Module.group("Stats & drops", "Personal bests, RNG meter, drop history")
-				.opt(new Opt.Action("Open slayer page...", () -> open(new SlayerScreen(current(), mod, slayer)))));
+				.opt(new Opt.Action("Open slayer page...", () -> open(new SlayerScreen(current(), mod, slayer))))
+				.opt(new Opt.Action("Reset session stats", () -> slayer.session().reset())));
 		out.add(new Category("Slayer", slayerMods));
 
 		// ---- Dungeons ----

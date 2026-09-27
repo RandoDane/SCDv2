@@ -248,7 +248,7 @@ public final class CarryService implements Feature {
 	public void registerCommands(LiteralArgumentBuilder<FabricClientCommandSource> root) {
 		root.then(ClientCommands.literal("carry")
 				.executes(ctx -> {
-					ScdScreen.open(new CarryScreen(null, this));
+					ScdScreen.open(new CarryScreen(new com.scd.client.ui.clickgui.ClickGuiScreen(mod), this));
 					return 1;
 				})
 				.then(ClientCommands.literal("list").executes(ctx -> {

@@ -60,7 +60,7 @@ public final class AccessoryScreen extends ScdScreen {
 	@Override
 	protected void build(Rows rows) {
 		var c = mod.config().accessories;
-		rows.toggle("Bag overlay", "Missing-accessories panel next to the in-game Accessory Bag", () -> c.bagOverlay, v -> c.bagOverlay = v);
+		if (!underClickGui()) rows.toggle("Bag overlay", "Missing-accessories panel next to the in-game Accessory Bag", () -> c.bagOverlay, v -> c.bagOverlay = v);
 		AccessoryService s = feature.service();
 		switch (s.status()) {
 			case IDLE, LOADING -> {
@@ -69,7 +69,7 @@ public final class AccessoryScreen extends ScdScreen {
 			}
 			case ERROR -> {
 				rows.line(() -> "Failed: " + s.error(), () -> Ui.DANGER);
-				rows.note("Needs a reachable SCD backend with a Hypixel API key (Settings → Backend).");
+				rows.note("Needs a reachable SCD backend with a Hypixel API key (menu side panel → Backend & messages).");
 				return;
 			}
 			default -> {

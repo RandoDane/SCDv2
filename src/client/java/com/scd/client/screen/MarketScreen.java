@@ -36,6 +36,7 @@ public final class MarketScreen extends ScdScreen {
 	@Override
 	protected void build(Rows rows) {
 		ScdConfig c = mod.config();
+		if (underClickGui()) expand("api");
 		rows.group("api", "scd.wtf API", null, false, g -> {
 			g.note("All prices come from https://market.scd.wtf. SCD ships with its own key - a personal key is only needed by admins.");
 			g.value("Key", () -> {
@@ -60,18 +61,22 @@ public final class MarketScreen extends ScdScreen {
 			g.line(() -> testResult != null ? testResult : "Status: " + mod.market.status().message(),
 					() -> mod.market.status().ok() ? Ui.SUCCESS : Ui.theme().textMuted());
 		});
-		rows.group("tooltips", "Tooltips", null, true, g -> {
-			g.toggle("Bazaar prices", "Instant buy/sell and spread", () -> c.bazaar.tooltip, v -> c.bazaar.tooltip = v);
-			g.toggle("Auction House prices", "Estimate and lowest BIN for non-Bazaar items", () -> c.market.auctionTooltips, v -> c.market.auctionTooltips = v);
-			g.toggle("Whole-stack value", null, () -> c.bazaar.tooltipStackValue, v -> c.bazaar.tooltipStackValue = v);
-		});
-		rows.group("graph", "Price graph", null, true, g -> {
-			g.toggle("Graph HUD while hovering", null, () -> c.bazaar.graphHud, v -> c.bazaar.graphHud = v);
-			g.cycle("Range", List.of("1d", "7d", "30d"), () -> c.bazaar.graphRange, v -> c.bazaar.graphRange = v, v -> v);
-			g.slider("Bazaar refresh", 15, 300, 15, () -> c.market.bazaarRefreshSeconds, v -> c.market.bazaarRefreshSeconds = (int) Math.round(v),
-					v -> Math.round(v) + "s");
-			g.note("Refresh interval changes apply after restarting the game.");
-		});
+		if (!underClickGui()) {
+			rows.group("tooltips", "Tooltips", null, true, g -> {
+				g.toggle("Bazaar prices", "Instant buy/sell and spread", () -> c.bazaar.tooltip, v -> c.bazaar.tooltip = v);
+				g.toggle("Auction House prices", "Estimate and lowest BIN for non-Bazaar items", () -> c.market.auctionTooltips, v -> c.market.auctionTooltips = v);
+				g.toggle("Whole-stack value", null, () -> c.bazaar.tooltipStackValue, v -> c.bazaar.tooltipStackValue = v);
+			});
+		}
+		if (!underClickGui()) {
+			rows.group("graph", "Price graph", null, true, g -> {
+				g.toggle("Graph HUD while hovering", null, () -> c.bazaar.graphHud, v -> c.bazaar.graphHud = v);
+				g.cycle("Range", List.of("1d", "7d", "30d"), () -> c.bazaar.graphRange, v -> c.bazaar.graphRange = v, v -> v);
+				g.slider("Bazaar refresh", 15, 300, 15, () -> c.market.bazaarRefreshSeconds, v -> c.market.bazaarRefreshSeconds = (int) Math.round(v),
+						v -> Math.round(v) + "s");
+				g.note("Refresh interval changes apply after restarting the game.");
+			});
+		}
 	}
 
 	private void test() {
