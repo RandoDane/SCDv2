@@ -39,6 +39,9 @@ final class PriceGraphHud extends HudElement {
 
 	@Override
 	public HudBox build(boolean preview) {
+		if (!preview && !(net.minecraft.client.Minecraft.getInstance().gui.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>)) {
+			return null; // only ever inside a menu
+		}
 		String id = preview ? PREVIEW_ITEM : hover.currentOrNull();
 		Backend.Product p = prices.get(id);
 		if (p == null) {

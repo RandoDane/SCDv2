@@ -99,7 +99,11 @@ public final class BazaarFeature implements Feature {
 
 	private void onTooltip(ItemStack stack, List<Component> lines) {
 		String id = idOf(stack);
-		hover.record(id, stack.getCount(), Items.rawCustomData(stack), Items.name(stack));
+		// Tooltips are also built outside menus (e.g. the held item when switching hotbar slots);
+		// only a hover inside a container/inventory screen drives the price graph.
+		if (net.minecraft.client.Minecraft.getInstance().gui.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) {
+			hover.record(id, stack.getCount(), Items.rawCustomData(stack), Items.name(stack));
+		}
 		if (id == null || !mod.config().bazaar.tooltip) return;
 		var p = prices.get(id);
 		if (p == null) {
