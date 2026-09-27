@@ -54,8 +54,11 @@ final class ClickGuiContent {
 				.toggle("Session stats", () -> sl.sessionStats, v -> sl.sessionStats = v)
 				.opt(new Opt.Info("Hunt pause", () -> Math.round(slayer.tracker().huntWindowMs() / 1000.0) + "s")));
 		slayerMods.add(new Module("Spawn alert", "Chat line when your boss spawns", () -> sl.spawnAlert, v -> sl.spawnAlert = v)
-				.toggle("Title + sound", () -> sl.spawnAlertTitle, v -> sl.spawnAlertTitle = v));
-		slayerMods.add(new Module("Kill message", "Fight time (0.1s), NEW BEST, server lag", () -> sl.killMessage, v -> sl.killMessage = v));
+				.toggle("Title + sound", () -> sl.spawnAlertTitle, v -> sl.spawnAlertTitle = v)
+				.toggle("Show spawn time", () -> sl.spawnShowTime, v -> sl.spawnShowTime = v));
+		slayerMods.add(new Module("Kill message", "Fight time to 0.1s", () -> sl.killMessage, v -> sl.killMessage = v)
+				.toggle("NEW BEST tag", () -> sl.killShowBest, v -> sl.killShowBest = v)
+				.toggle("Server lag note", () -> sl.killShowLag, v -> sl.killShowLag = v));
 		slayerMods.add(new Module("Miniboss alert", null, () -> sl.minibossAlert, v -> sl.minibossAlert = v)
 				.toggle("Title + sound", () -> sl.minibossTitle, v -> sl.minibossTitle = v));
 		slayerMods.add(new Module("Boss glow", "Outline your boss through walls", () -> sl.highlightGlow, v -> sl.highlightGlow = v));
@@ -66,13 +69,12 @@ final class ClickGuiContent {
 		for (SlayerType type : SlayerType.values()) {
 			List<AbilityCue> cues = AbilityCue.forType(type);
 			if (cues.isEmpty()) continue;
-			Module m = Module.group(type.bossName() + " cues", "Mechanic cues for " + type.bossName());
+			String group = type.name();
+			Module m = new Module(type.bossName() + " cues", "Mechanic cues for " + type.bossName(),
+					() -> sl.cueGroupEnabled(group), v -> sl.cueGroups.put(group, v));
 			for (AbilityCue cue : cues) m.toggle(cue.label() + " (" + cue.minTier() + "+)", () -> sl.cueEnabled(cue.id()), v -> sl.cues.put(cue.id(), v));
 			slayerMods.add(m);
 		}
-		slayerMods.add(Module.group("Stats & drops", "Personal bests, RNG meter, drop history")
-				.opt(new Opt.Action("Open slayer page...", () -> open(new SlayerScreen(current(), mod, slayer))))
-				.opt(new Opt.Action("Reset session stats", () -> slayer.session().reset())));
 		out.add(new Category("Slayer", slayerMods));
 
 		// ---- Dungeons ----
@@ -85,10 +87,17 @@ final class ClickGuiContent {
 				.toggle("Splits", () -> d.scoreSplits, v -> d.scoreSplits = v)
 				.toggle("Spirit pet in party", () -> d.assumeSpiritPet, v -> d.assumeSpiritPet = v)
 				.toggle("S / S+ alerts", () -> d.scoreMilestoneAlerts, v -> d.scoreMilestoneAlerts = v));
-		dun.add(new Module("Dungeon map", "Rooms, doors, checks, secrets per room, players", () -> d.mapHud, v -> d.mapHud = v));
+		dun.add(new Module("Dungeon map", "Rooms, doors, checks, secrets per room, players", () -> d.mapHud, v -> d.mapHud = v)
+				.toggle("Secrets per room", () -> d.mapSecrets, v -> d.mapSecrets = v)
+				.toggle("Check marks", () -> d.mapChecks, v -> d.mapChecks = v)
+				.toggle("Doors", () -> d.mapDoors, v -> d.mapDoors = v)
+				.toggle("Player dots", () -> d.mapPlayers, v -> d.mapPlayers = v));
 		dun.add(new Module("Room HUD", "Name, secrets, crypts, clear-time PB of your room", () -> d.roomHud, v -> d.roomHud = v)
 				.toggle("Route-making details", () -> d.roomDebug, v -> d.roomDebug = v));
-		dun.add(new Module("Chest profit", "Value, cost and profit on reward chests", () -> d.chestProfit, v -> d.chestProfit = v));
+		dun.add(new Module("Chest profit", "Value, cost and profit on reward chests", () -> d.chestProfit, v -> d.chestProfit = v)
+				.toggle("Tooltip lines", () -> d.chestProfitTooltip, v -> d.chestProfitTooltip = v)
+				.toggle("Outline best chest", () -> d.chestProfitHighlight, v -> d.chestProfitHighlight = v)
+				.toggle("\"Best\" label", () -> d.chestProfitLabel, v -> d.chestProfitLabel = v));
 		dun.add(new Module("Puzzle solvers", "Show-only: Quiz, Weirdos, Blaze, Beams, Ice, TP Maze, Tic Tac Toe", () -> d.puzzleSolvers, v -> d.puzzleSolvers = v));
 		dun.add(new Module("Puzzle HUD", "Puzzle names and status", () -> d.puzzleHud, v -> d.puzzleHud = v));
 		dun.add(new Module("Blood camp", "Watcher move timer, mob landing spots", () -> d.bloodCamp, v -> d.bloodCamp = v));
@@ -97,12 +106,35 @@ final class ClickGuiContent {
 		dun.add(new Module("Deaths HUD", "Deaths per player", () -> d.deathHud, v -> d.deathHud = v)
 				.toggle("Teammate death alert", () -> d.deathAlert, v -> d.deathAlert = v)
 				.toggle("Low-health alert", () -> d.lowHealthAlert, v -> d.lowHealthAlert = v));
-		dun.add(new Module("Blessings HUD", null, () -> d.blessingHud, v -> d.blessingHud = v));
-		dun.add(new Module("Invincibility timers", "Bonzo's Mask, Spirit Mask, Phoenix", () -> d.invincibilityHud, v -> d.invincibilityHud = v));
-		dun.add(new Module("Secret chime", "Sound + box when the secret counter goes up", () -> d.secretChime, v -> d.secretChime = v));
-		dun.add(new Module("Room clear times", "Time per room vs PB and average", () -> d.roomTimeMessage, v -> d.roomTimeMessage = v));
-		dun.add(new Module("Run summary", "One chat line per completed run", () -> d.completionSummary, v -> d.completionSummary = v));
-		dun.add(Module.group("Room engine", "Which room you're in").opt(new Opt.Info("State", () -> mod.feature(DungeonFeature.class).rooms().describe())));
+		dun.add(new Module("Blessings HUD", null, () -> d.blessingHud, v -> d.blessingHud = v)
+				.toggle("Power", () -> d.blessPower, v -> d.blessPower = v)
+				.toggle("Time", () -> d.blessTime, v -> d.blessTime = v)
+				.toggle("Stone", () -> d.blessStone, v -> d.blessStone = v)
+				.toggle("Life", () -> d.blessLife, v -> d.blessLife = v)
+				.toggle("Wisdom", () -> d.blessWisdom, v -> d.blessWisdom = v));
+		dun.add(new Module("Invincibility timers", "Invincible time and cooldown", () -> d.invincibilityHud, v -> d.invincibilityHud = v)
+				.toggle("Bonzo's Mask", () -> d.invBonzo, v -> d.invBonzo = v)
+				.toggle("Spirit Mask", () -> d.invSpirit, v -> d.invSpirit = v)
+				.toggle("Phoenix", () -> d.invPhoenix, v -> d.invPhoenix = v));
+		dun.add(new Module("Secret chime", "When the room's secret counter goes up", () -> d.secretChime, v -> d.secretChime = v)
+				.toggle("Sound", () -> d.secretSound, v -> d.secretSound = v)
+				.toggle("Box the clicked block", () -> d.secretBox, v -> d.secretBox = v));
+		dun.add(new Module("Room clear times", "Time from entering a room to its check", () -> d.roomTimeMessage, v -> d.roomTimeMessage = v)
+				.toggle("Personal best", () -> d.roomTimePb, v -> d.roomTimePb = v)
+				.toggle("Average", () -> d.roomTimeAvg, v -> d.roomTimeAvg = v)
+				.toggle("Server lag", () -> d.roomTimeLag, v -> d.roomTimeLag = v)
+				.toggle("Only new PBs", () -> d.roomTimeOnlyPb, v -> d.roomTimeOnlyPb = v));
+		var sum = d.summary;
+		dun.add(new Module("Run summary", "One chat line per completed run", () -> d.completionSummary, v -> d.completionSummary = v)
+				.toggle("Floor + boss", () -> sum.floor, v -> sum.floor = v)
+				.toggle("Clear time", () -> sum.time, v -> sum.time = v)
+				.toggle("Score", () -> sum.score, v -> sum.score = v)
+				.toggle("SCD estimate (if different)", () -> sum.estimate, v -> sum.estimate = v)
+				.toggle("Secrets", () -> sum.secrets, v -> sum.secrets = v)
+				.toggle("Deaths", () -> sum.deaths, v -> sum.deaths = v)
+				.toggle("Damage", () -> sum.damage, v -> sum.damage = v)
+				.toggle("Catacombs XP", () -> sum.xp, v -> sum.xp = v)
+				.toggle("Server lag", () -> sum.lag, v -> sum.lag = v));
 		out.add(new Category("Dungeons", dun));
 
 		// ---- Routes ----
@@ -113,7 +145,9 @@ final class ClickGuiContent {
 				.opt(new Opt.Slider("Smoothing", 0, 4, 0.5, () -> d.routesSmoothing, v -> d.routesSmoothing = v,
 						v -> v == 0 ? "raw" : String.format(Locale.ROOT, "%.1f", v)));
 		List<Module> routeMods = new ArrayList<>(List.of(show));
-		Module packs = Module.group("Route packs", "config/scd/routes").opt(new Opt.Info("Your routes", () -> String.valueOf(routes.library().mine().rooms.size())));
+		Module packs = new Module("Route packs", "Use pack files from config/scd/routes (your own routes always play)",
+				() -> d.routePacks, v -> d.routePacks = v)
+				.opt(new Opt.Info("Your routes", () -> String.valueOf(routes.library().mine().rooms.size())));
 		for (var pack : routes.library().packs()) {
 			String file = pack.file();
 			packs.toggle(pack.pack().name.equals("Routes") ? file : pack.pack().name, () -> !d.disabledRoutePacks.contains(file), v -> {
@@ -129,22 +163,18 @@ final class ClickGuiContent {
 		// ---- Market ----
 		List<Module> market = new ArrayList<>();
 		market.add(new Module("Bazaar tooltips", "Instant buy/sell and spread", () -> c.bazaar.tooltip, v -> c.bazaar.tooltip = v)
-				.toggle("Whole-stack value", () -> c.bazaar.tooltipStackValue, v -> c.bazaar.tooltipStackValue = v));
+				.toggle("Whole-stack value", () -> c.bazaar.tooltipStackValue, v -> c.bazaar.tooltipStackValue = v)
+				.opt(new Opt.Slider("Refresh (restart)", 15, 300, 15, () -> c.market.bazaarRefreshSeconds, v -> c.market.bazaarRefreshSeconds = (int) Math.round(v),
+						v -> Math.round(v) + "s")));
 		market.add(new Module("Auction tooltips", "Estimate and lowest BIN", () -> c.market.auctionTooltips, v -> c.market.auctionTooltips = v));
 		market.add(new Module("Price graph", "Graph HUD while hovering in menus", () -> c.bazaar.graphHud, v -> c.bazaar.graphHud = v)
 				.opt(new Opt.Cycle("Range", List.of("1d", "7d", "30d"), () -> c.bazaar.graphRange, v -> c.bazaar.graphRange = v, v -> v)));
-		market.add(Module.group("Refresh", "Bazaar refresh interval (restart to apply)")
-				.opt(new Opt.Slider("Every", 15, 300, 15, () -> c.market.bazaarRefreshSeconds, v -> c.market.bazaarRefreshSeconds = (int) Math.round(v),
-						v -> Math.round(v) + "s")));
-		market.add(Module.group("API key", "scd.wtf key (admins only)").opt(new Opt.Action("Open market page...", () -> open(new MarketScreen(current(), mod)))));
 		out.add(new Category("Market", market));
 
 		// ---- Accessories ----
 		out.add(new Category("Accessories", List.of(
 				new Module("Bag overlay", "Missing accessories priced by Magical Power", () -> c.accessories.bagOverlay, v -> c.accessories.bagOverlay = v)
-						.opt(new Opt.Cycle("Sort", List.of("MAX", "PRICE", "VALUE"), () -> c.accessories.sort, v -> c.accessories.sort = v, v -> v)),
-				Module.group("Accessory Power", "Exact AP and missing list").opt(new Opt.Action("Open accessories page...",
-						() -> open(new AccessoryScreen(current(), mod, mod.feature(AccessoryFeature.class))))))));
+						.opt(new Opt.Cycle("Sort", List.of("MAX", "PRICE", "VALUE"), () -> c.accessories.sort, v -> c.accessories.sort = v, v -> v)))));
 
 		// ---- Performance ----
 		out.add(new Category("Performance", List.of(
@@ -184,7 +214,13 @@ final class ClickGuiContent {
 						new Opt.Action("HUD layout...", () -> open(new HudEditorScreen(current(), mod.huds, mod.configManager))),
 						new Opt.Action("HUD appearance...", () -> open(new AppearanceScreen(current(), mod))),
 						new Opt.Action("Backend & messages...", () -> open(new GeneralScreen(current(), mod))),
+						new Opt.Action("Market API key...", () -> open(new MarketScreen(current(), mod))),
 						new Opt.Action("Overview...", () -> open(new MainScreen(current(), mod))))),
+				new ClickGuiScreen.PanelSection("Pages", List.of(
+						new Opt.Action("Slayer stats & drops...", () -> open(new SlayerScreen(current(), mod, mod.feature(SlayerFeature.class)))),
+						new Opt.Action("Reset slayer session", () -> mod.feature(SlayerFeature.class).session().reset()),
+						new Opt.Action("Accessories...", () -> open(new AccessoryScreen(current(), mod, mod.feature(AccessoryFeature.class)))),
+						new Opt.Info("Room engine", () -> mod.feature(DungeonFeature.class).rooms().describe()))),
 				new ClickGuiScreen.PanelSection("Carries", List.of(
 						new Opt.Info("Active", () -> String.valueOf(carries.active().size())),
 						new Opt.Toggle("Party chat progress", () -> c.carries.partyProgress, v -> c.carries.partyProgress = v),

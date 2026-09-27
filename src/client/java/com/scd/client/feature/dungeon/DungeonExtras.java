@@ -147,8 +147,8 @@ final class DungeonExtras {
 	private void onSecret() {
 		if (!inDungeon() || !cfg().secretChime) return;
 		var mc = Minecraft.getInstance();
-		if (mc.player != null) mc.player.playSound(SoundEvents.NOTE_BLOCK_CHIME.value(), 0.8f, 1.6f);
-		if (lastClicked != null && System.currentTimeMillis() - lastClickedAt < 3_000) {
+		if (cfg().secretSound && mc.player != null) mc.player.playSound(SoundEvents.NOTE_BLOCK_CHIME.value(), 0.8f, 1.6f);
+		if (cfg().secretBox && lastClicked != null && System.currentTimeMillis() - lastClickedAt < 3_000) {
 			secretBox = lastClicked;
 			secretBoxUntil = System.currentTimeMillis() + 1_500;
 		}
@@ -257,6 +257,15 @@ final class DungeonExtras {
 				while (m.find()) found.put(m.group(1), m.group(2));
 			}
 			if (found.isEmpty()) return null;
+			var c = cfg();
+			found.keySet().removeIf(type -> switch (type) {
+				case "Power" -> !c.blessPower;
+				case "Time" -> !c.blessTime;
+				case "Stone" -> !c.blessStone;
+				case "Life" -> !c.blessLife;
+				default -> !c.blessWisdom;
+			});
+			if (found.isEmpty()) return null;
 			found.forEach((type, roman) -> {
 				Integer n = Numbers.romanToInt(roman);
 				box.text(type + " " + (type.equals("Time") ? roman : n != null ? String.valueOf(n) : roman), HudColor.TEXT);
@@ -281,6 +290,12 @@ final class DungeonExtras {
 			if (preview) return box.colored("Bonzo's Mask  INVINCIBLE 2.1s", Ui.SUCCESS).text("Spirit Mask  0:21", HudColor.LABEL);
 			long now = System.currentTimeMillis();
 			for (Saver s : Saver.values()) {
+				boolean shown = switch (s) {
+					case BONZO -> cfg().invBonzo;
+					case SPIRIT -> cfg().invSpirit;
+					case PHOENIX -> cfg().invPhoenix;
+				};
+				if (!shown) continue;
 				Long at = procAt.get(s);
 				if (at == null) continue;
 				long since = now - at;

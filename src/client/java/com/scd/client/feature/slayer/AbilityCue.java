@@ -17,8 +17,6 @@ import java.util.function.Function;
 public record AbilityCue(String id, SlayerType type, String label, String minTier, Function<SlayerTracker, String> text) {
 
 	public static final List<AbilityCue> ALL = List.of(
-			new AbilityCue("zombie.enrage", SlayerType.ZOMBIE, "Enrage timer", "III",
-					t -> countdown("Enrage", t.fightElapsedMs(), 40_000)),
 			new AbilityCue("vampire.twinclaw", SlayerType.VAMPIRE, "Twinclaw timer", "II",
 					t -> countdown("Twinclaw", t.fightElapsedMs(), 7_000)),
 			new AbilityCue("vampire.mania", SlayerType.VAMPIRE, "Mania warning", "I", t -> {
@@ -28,8 +26,6 @@ public record AbilityCue(String id, SlayerType type, String label, String minTie
 			}),
 			new AbilityCue("spider.egg_sacs", SlayerType.SPIDER, "Egg sac warning", "III",
 					t -> t.isAlertActive("spider_egg_66") || t.isAlertActive("spider_egg_33") ? "Egg sacs spawning - destroy them" : null),
-			new AbilityCue("spider.conjoined_brood", SlayerType.SPIDER, "Conjoined Brood warning", "V",
-					t -> t.isAlertActive("spider_conjoined_transition") ? "Not dead yet - Conjoined Brood incoming!" : null),
 			new AbilityCue("blaze.fire_pillars", SlayerType.BLAZE, "Fire Pillar warning", "II", t -> {
 				Float f = t.hpFraction();
 				return f != null && f <= 0.5f ? "Fire Pillars active - destroy within 7s" : null;
@@ -42,9 +38,8 @@ public record AbilityCue(String id, SlayerType type, String label, String minTie
 				Nameplate.Shield s = t.shield();
 				if (!s.active()) return null;
 				return "Hitshield" + (s.hitsRemaining() != null ? " (" + s.hitsRemaining() + " hits)" : "") + " - don't waste damage";
-			}),
-			new AbilityCue("wolf.call_the_pups", SlayerType.WOLF, "Call the Pups warning", "III",
-					t -> t.isAlertActive("wolf_pups") ? "Call the Pups! Boss protected ~5s" : null));
+			})
+	);
 
 	public static List<AbilityCue> forType(SlayerType type) {
 		return ALL.stream().filter(c -> c.type() == type).toList();

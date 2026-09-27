@@ -74,16 +74,13 @@ public final class ConfigManager {
 				c.slayer.highlightLine = highlight;
 				c.slayer.sessionStats = bool(slayer, "statsHudEnabled", c.slayer.sessionStats);
 				pos(slayer, "bossTrackerPosition").ifPresent(l -> c.huds.put("slayer", l));
-				cue(c, slayer, "zombie", "enrageEnabled", "zombie.enrage");
 				cue(c, slayer, "vampire", "twinclawEnabled", "vampire.twinclaw");
 				cue(c, slayer, "vampire", "maniaEnabled", "vampire.mania");
 				cue(c, slayer, "spider", "eggSacEnabled", "spider.egg_sacs");
-				cue(c, slayer, "spider", "conjoinedBroodWarningEnabled", "spider.conjoined_brood");
 				cue(c, slayer, "blaze", "firePillarEnabled", "blaze.fire_pillars");
 				cue(c, slayer, "blaze", "demonsplitEnabled", "blaze.demonsplit");
 				cue(c, slayer, "enderman", "beamPhaseEnabled", "enderman.beam_phase");
 				cue(c, slayer, "enderman", "hitshieldEnabled", "enderman.hitshield");
-				cue(c, slayer, "wolf", "callThePupsEnabled", "wolf.call_the_pups");
 				JsonObject ender = obj(slayer, "enderman");
 				if (ender != null) {
 					c.slayer.explosiveArrowCounter = bool(ender, "explosiveArrowCounterEnabled", c.slayer.explosiveArrowCounter);

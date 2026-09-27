@@ -68,7 +68,8 @@ final class DungeonMapHud extends HudElement {
 				g.fill(rx + ROOM, rz + ROOM, rx + CELL, rz + CELL, color);
 			}
 		}
-		for (MapLayout.Door d : layout.doors()) {
+		var c = config.get().dungeon;
+		if (c.mapDoors) for (MapLayout.Door d : layout.doors()) {
 			int cx = x + d.x() * CELL + ROOM / 2, cz = y + d.z() * CELL + ROOM / 2;
 			int dc = switch (d.type()) {
 				case WITHER -> 0xFF111111;
@@ -86,19 +87,20 @@ final class DungeonMapHud extends HudElement {
 			MappedRoom room = dungeon.rooms().roomAtTile(first);
 			String label = null;
 			int textColor = 0xFFFFFFFF;
-			if (room != null && room.info() != null && room.info().secrets() > 0) {
+			if (c.mapSecrets && room != null && room.info() != null && room.info().secrets() > 0) {
 				int found = secrets.found(room);
 				label = (secrets.inferred(room) ? "~" : "") + found + "/" + room.info().secrets();
 				textColor = found >= room.info().secrets() ? 0xFF4ADE80 : 0xFFFFFFFF;
 			}
 			Checkmark mark = mr.checkmark();
-			if (mark == Checkmark.GREEN || mark == Checkmark.WHITE || mark == Checkmark.RED) {
+			if (c.mapChecks && (mark == Checkmark.GREEN || mark == Checkmark.WHITE || mark == Checkmark.RED)) {
 				int mc = mark == Checkmark.GREEN ? 0xFF4ADE80 : mark == Checkmark.RED ? 0xFFEF4444 : 0xFFFFFFFF;
 				g.fill(cx - 2, cz - 7, cx + 2, cz - 3, mc);
 			}
 			if (label != null) Ui.centered(g, label, cx, cz - 1, textColor);
 		}
 		// Teammates (map markers) and you.
+		if (!c.mapPlayers) return;
 		int gap = layout.roomSize() + 4;
 		for (int[] m : dungeon.rooms().teammateMarks()) {
 			float fx = (m[0] - layout.startX()) / (float) gap, fz = (m[1] - layout.startZ()) / (float) gap;

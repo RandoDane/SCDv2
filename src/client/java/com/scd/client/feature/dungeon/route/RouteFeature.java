@@ -135,7 +135,13 @@ public final class RouteFeature implements Feature {
 		}
 		if (room == runner.room() && (loadedWithAnchor || room.anchor() == null)) return;
 		loadedWithAnchor = room.anchor() != null;
-		runner.set(room, library.routesFor(room.name(), config().disabledRoutePacks), entryFor(room));
+		runner.set(room, library.routesFor(room.name(), packsOff()), entryFor(room));
+	}
+
+	/** Pack files that shouldn't play: the disabled ones, or all of them with the master switch off. */
+	private java.util.Collection<String> packsOff() {
+		if (config().routePacks) return config().disabledRoutePacks;
+		return library.packs().stream().map(RouteLibrary.Pack::file).toList();
 	}
 
 	/** Room-relative {x, z} where the player came into {@code room}; null if unknown. */
@@ -329,7 +335,7 @@ public final class RouteFeature implements Feature {
 		} catch (Exception e) {
 			return fail("Could not save: " + e.getMessage());
 		}
-		runner.set(room, library.routesFor(room.name(), config().disabledRoutePacks), entryFor(room));
+		runner.set(room, library.routesFor(room.name(), packsOff()), entryFor(room));
 		long count = library.mine().routesFor(room.name()).size();
 		Chat.success("Saved a " + steps.size() + "-step route for " + room.label() + (count > 1 ? " (" + count + " routes; the one starting nearest your entrance plays)" : "")
 				+ " to " + RouteLibrary.MINE + ".");

@@ -82,9 +82,19 @@ public final class ScdConfig {
 		public boolean explosiveArrowCounter = true;
 		/** Ability cue id -> enabled; ids come from {@code AbilityCue}. Missing = enabled. */
 		public Map<String, Boolean> cues = new LinkedHashMap<>();
+		/** Master switch per slayer type ("SPIDER" -> false turns all of its cues off). */
+		public Map<String, Boolean> cueGroups = new LinkedHashMap<>();
+		/** Kill message extras. */
+		public boolean killShowBest = true, killShowLag = true;
+		/** Spawn alert: include the hunt time. */
+		public boolean spawnShowTime = true;
 
 		public boolean cueEnabled(String id) {
 			return cues.getOrDefault(id, true);
+		}
+
+		public boolean cueGroupEnabled(String type) {
+			return cueGroups.getOrDefault(type, true);
 		}
 	}
 
@@ -105,6 +115,20 @@ public final class ScdConfig {
 		/** Title + ping the moment the live estimate first reaches 270 (S) and 300 (S+). */
 		public boolean scoreMilestoneAlerts = true;
 		public boolean completionSummary = true;
+		/** Which parts the run summary line shows. */
+		public RunSummary summary = new RunSummary();
+		/** Room clear time message parts; onlyPb = only announce new personal bests. */
+		public boolean roomTimePb = true, roomTimeAvg = true, roomTimeLag = true, roomTimeOnlyPb = false;
+		/** Chest profit: tooltip lines, best-chest outline, "Best:" label over the menu. */
+		public boolean chestProfitTooltip = true, chestProfitHighlight = true, chestProfitLabel = true;
+		/** Map HUD layers. */
+		public boolean mapSecrets = true, mapPlayers = true, mapDoors = true, mapChecks = true;
+		/** Which blessings the blessings HUD lists. */
+		public boolean blessPower = true, blessTime = true, blessStone = true, blessLife = true, blessWisdom = true;
+		/** Which life savers the invincibility HUD tracks. */
+		public boolean invBonzo = true, invSpirit = true, invPhoenix = true;
+		/** Secret chime parts. */
+		public boolean secretSound = true, secretBox = true;
 		/** Value, cost and profit on dungeon reward chests (Croesus + run end), best chest highlighted. */
 		public boolean chestProfit = true;
 		public boolean puzzleHud = true;
@@ -146,6 +170,12 @@ public final class ScdConfig {
 		public double routesSmoothing = 1.5;
 		/** Route pack file names (config/scd/routes) that are switched off. */
 		public java.util.List<String> disabledRoutePacks = new java.util.ArrayList<>();
+		/** Master switch for pack files (off: only your own routes play). */
+		public boolean routePacks = true;
+	}
+
+	public static final class RunSummary {
+		public boolean floor = true, time = true, score = true, estimate = true, secrets = true, deaths = true, damage = true, xp = true, lag = true;
 	}
 
 	public static final class Accessories {

@@ -172,34 +172,38 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		headerRects.put(c.name(), new int[]{x, y, COL_W, HEAD_H});
 		int top = y + HEAD_H;
 		double scroll = SCROLL.getOrDefault(c.name(), 0.0);
-		int contentH = contentHeight(c);
+		// +1: a background-coloured line along the bottom, inside the accent outline.
+		int contentH = contentHeight(c) + 1;
 		int visibleH = Math.max(0, Math.min(contentH, maxBottom - top));
 		scroll = Math.max(0, Math.min(scroll, contentH - visibleH));
 		SCROLL.put(c.name(), scroll);
 		g.fill(x, top, x + COL_W, top + visibleH, t.window());
 		g.outline(x, y, COL_W, HEAD_H + visibleH, t.accent());
-		g.enableScissor(x, top, x + COL_W, top + visibleH);
+		// Rows sit inside a 1px background-coloured inner border (sides and bottom) within the outline.
+		g.enableScissor(x + 2, top, x + COL_W - 2, top + visibleH - 1);
 		String hover = null;
 		int ry = top - (int) scroll;
 		for (Module m : c.modules()) {
 			String key = c.name() + "/" + m.name;
 			boolean on = m.on != null && m.on.getAsBoolean();
 			boolean hot = mx >= x && mx < x + COL_W && my >= Math.max(ry, top) && my < Math.min(ry + ROW_H, top + visibleH);
-			int bg = on ? (t.accent() & 0x00FFFFFF) | 0xB0000000 : hot ? t.cardHover() : t.window();
-			g.fill(x + 1, ry, x + COL_W - 1, ry + ROW_H, bg);
+			int bg = on ? (t.accent() & 0x00FFFFFF) | 0x70000000 : hot ? t.cardHover() : t.window();
+			g.fill(x + 2, ry, x + COL_W - 2, ry + ROW_H, bg);
 			Ui.text(g, Ui.ellipsize(m.name, COL_W - 14), x + 6, ry + 3, on ? 0xFFFFFFFF : t.textPrimary());
 			if (hot) hover = m.description;
 			if (visible(ry, ROW_H, top, visibleH)) {
-				hits.add(new Hit(x, Math.max(ry, top), COL_W, ROW_H, m.on != null ? () -> m.set.accept(!m.on.getAsBoolean()) : () -> toggleExpanded(key),
-						() -> toggleExpanded(key), null, m.description));
+				// Rows without options can't be expanded.
+				Runnable expand = m.options.isEmpty() ? null : () -> toggleExpanded(key);
+				hits.add(new Hit(x, Math.max(ry, top), COL_W, ROW_H, m.on != null ? () -> m.set.accept(!m.on.getAsBoolean()) : expand,
+						expand, null, m.description));
 			}
 			ry += ROW_H;
-			if (EXPANDED.contains(key)) {
+			if (EXPANDED.contains(key) && !m.options.isEmpty()) {
 				for (Opt o : m.options) {
-					drawOpt(g, o, x + 1, ry, COL_W - 2, 6, top, visibleH, mx, my);
+					drawOpt(g, o, x + 2, ry, COL_W - 4, 6, top, visibleH, mx, my);
 					ry += OPT_H;
 				}
-				g.fill(x + 1, ry, x + COL_W - 1, ry + 1, t.border());
+				g.fill(x + 2, ry, x + COL_W - 2, ry + 1, t.border());
 				ry += 1;
 			}
 		}
@@ -215,7 +219,7 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		int h = 0;
 		for (Module m : c.modules()) {
 			h += ROW_H;
-			if (EXPANDED.contains(c.name() + "/" + m.name)) h += m.options.size() * OPT_H + 1;
+			if (!m.options.isEmpty() && EXPANDED.contains(c.name() + "/" + m.name)) h += m.options.size() * OPT_H + 1;
 		}
 		return h;
 	}

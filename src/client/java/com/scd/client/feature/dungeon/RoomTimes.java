@@ -66,12 +66,14 @@ final class RoomTimes {
 		hist.add(ms);
 		while (hist.size() > KEPT) hist.removeFirst();
 		dungeon.recordsDirty();
-		if (!mod.config().dungeon.roomTimeMessage) return;
+		var c = mod.config().dungeon;
+		if (!c.roomTimeMessage) return;
 		boolean pb = best != null && ms < best;
+		if (c.roomTimeOnlyPb && !pb) return;
 		StringBuilder sb = new StringBuilder(name + " cleared in " + Numbers.durationTenths(ms));
-		if (lag >= 300) sb.append(" (+").append(Numbers.durationTenths(lag)).append(" lag)");
-		if (best != null) sb.append(" · PB ").append(Numbers.durationTenths(Math.min(best, ms)));
-		if (avg > 0) sb.append(" · avg ").append(Numbers.durationTenths(Math.round(avg)));
+		if (c.roomTimeLag && lag >= 300) sb.append(" (+").append(Numbers.durationTenths(lag)).append(" lag)");
+		if (c.roomTimePb && best != null) sb.append(" · PB ").append(Numbers.durationTenths(Math.min(best, ms)));
+		if (c.roomTimeAvg && avg > 0) sb.append(" · avg ").append(Numbers.durationTenths(Math.round(avg)));
 		Chat.info(Component.literal(sb.toString()).withStyle(pb ? ChatFormatting.GOLD : ChatFormatting.GRAY));
 	}
 

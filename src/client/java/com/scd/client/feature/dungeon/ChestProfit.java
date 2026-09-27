@@ -87,7 +87,7 @@ final class ChestProfit {
 	}
 
 	private void tooltip(ItemStack stack, List<Component> lines) {
-		if (!enabled() || !(Minecraft.getInstance().gui.screen() instanceof AbstractContainerScreen<?> cs)) return;
+		if (!enabled() || !mod.config().dungeon.chestProfitTooltip || !(Minecraft.getInstance().gui.screen() instanceof AbstractContainerScreen<?> cs)) return;
 		if (!relevantTitle(Text.clean(cs.getTitle().getString()))) return;
 		Valued v = valueOfLore(Items.lore(stack));
 		if (v == null) return;
@@ -121,10 +121,12 @@ final class ChestProfit {
 			}
 		}
 		if (best == null) return;
-		if (bestP > 0) frame(g, left + best.x, top + best.y, Ui.SUCCESS);
+		var c = mod.config().dungeon;
+		if (c.chestProfitHighlight && bestP > 0) frame(g, left + best.x, top + best.y, Ui.SUCCESS);
 		// A second chest is only worth a key if it clearly pays for it.
 		Double key = market.buyPrice(KEY_ID);
-		if (second != null && key != null && secondP > key) frame(g, left + second.x, top + second.y, Ui.WARNING);
+		if (c.chestProfitHighlight && second != null && key != null && secondP > key) frame(g, left + second.x, top + second.y, Ui.WARNING);
+		if (!c.chestProfitLabel) return;
 		String label = "Best: " + Items.name(best.getItem()) + "  " + (bestP >= 0 ? "+" : "") + Numbers.compactCoins(bestP);
 		Ui.text(g, label, left, top - 11, bestP >= 0 ? Ui.SUCCESS : Ui.DANGER);
 	}

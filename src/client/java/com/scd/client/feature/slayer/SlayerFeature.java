@@ -155,7 +155,7 @@ public final class SlayerFeature implements Feature {
 		session.recordHunt(e.quest().tier(), e.huntMs() - e.lagMs());
 		if (!config().slayer.spawnAlert) return;
 		Chat.info(Component.literal(e.quest().type().bossName() + " spawned!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
-				.append(Component.literal("  (spawn " + Numbers.durationTenths(e.huntMs()) + lagNote(e.lagMs()) + ")").withStyle(ChatFormatting.GRAY)));
+				.append(Component.literal((config().slayer.spawnShowTime ? "  (spawn " + Numbers.durationTenths(e.huntMs()) + (config().slayer.killShowLag ? lagNote(e.lagMs()) : "") + ")" : "")).withStyle(ChatFormatting.GRAY)));
 		if (config().slayer.spawnAlertTitle) {
 			Chat.title(Component.literal("Boss spawned!").withStyle(ChatFormatting.RED), Component.literal(e.quest().label()), true);
 		}
@@ -202,8 +202,8 @@ public final class SlayerFeature implements Feature {
 		}
 		if (config().slayer.killMessage) {
 			Chat.info(Component.literal(q.label() + " down in " + Numbers.durationTenths(e.fightMs())).withStyle(ChatFormatting.GREEN)
-					.append(Component.literal(lagNote(e.lagMs())).withStyle(ChatFormatting.GRAY))
-					.append(best ? Component.literal("  NEW BEST!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD) : Component.empty()));
+					.append(Component.literal(config().slayer.killShowLag ? lagNote(e.lagMs()) : "").withStyle(ChatFormatting.GRAY))
+					.append(best && config().slayer.killShowBest ? Component.literal("  NEW BEST!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD) : Component.empty()));
 		}
 	}
 

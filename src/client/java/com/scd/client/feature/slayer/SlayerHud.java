@@ -65,7 +65,7 @@ final class SlayerHud extends HudElement {
 			if (pb != null) line.append("   PB ").append(Numbers.duration(pb));
 			box.text(line.toString());
 			for (AbilityCue cue : AbilityCue.forType(q.type())) {
-				if (!config.get().slayer.cueEnabled(cue.id()) || !com.scd.logic.slayer.SlayerTier.atLeast(q.tier(), cue.minTier())) continue;
+				if (!config.get().slayer.cueEnabled(cue.id()) || !config.get().slayer.cueGroupEnabled(cue.type().name()) || !com.scd.logic.slayer.SlayerTier.atLeast(q.tier(), cue.minTier())) continue;
 				String text = cue.text().apply(t);
 				if (text != null) box.colored(text, Ui.WARNING);
 			}

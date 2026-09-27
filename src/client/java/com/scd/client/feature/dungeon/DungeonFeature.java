@@ -215,18 +215,22 @@ public final class DungeonFeature implements Feature {
 		summaryPending = false;
 		if (!mod.config().dungeon.completionSummary) return;
 		CompletionReport r = bestReport;
-		StringBuilder sb = new StringBuilder();
-		sb.append(r.floorKey() != null ? r.floorKey() : "?").append(" ").append(r.boss() != null ? r.boss() : "");
-		if (r.clearTime() != null) sb.append(" in ").append(r.clearTime());
-		if (r.teamScore() != null) {
-			sb.append(" · ").append(r.teamScore()).append(" (").append(r.scoreRank()).append(")");
-			if (estimateAtEnd != null && !estimateAtEnd.equals(r.teamScore())) sb.append(" [est ").append(estimateAtEnd).append("]");
+		var show = mod.config().dungeon.summary;
+		List<String> parts = new ArrayList<>();
+		if (show.floor) parts.add((r.floorKey() != null ? r.floorKey() : "?") + (r.boss() != null ? " " + r.boss() : ""));
+		if (show.time && r.clearTime() != null) parts.add(r.clearTime());
+		if (show.score && r.teamScore() != null) {
+			String score = r.teamScore() + " (" + r.scoreRank() + ")";
+			if (show.estimate && estimateAtEnd != null && !estimateAtEnd.equals(r.teamScore())) score += " [est " + estimateAtEnd + "]";
+			parts.add(score);
 		}
-		if (r.secretsFound() != null) sb.append(" · ").append(r.secretsFound()).append(" secrets");
-		if (r.deaths() != null) sb.append(" · ").append(r.deaths()).append(" deaths");
-		if (lastRunLagMs >= 1_000) sb.append(" · ").append(Numbers.durationTenths(lastRunLagMs)).append(" server lag");
-		if (r.totalDamage() != null) sb.append(" · ").append(Numbers.compactCount(r.totalDamage())).append(" dmg");
-		if (r.cataExp() != null) sb.append(" · +").append(Numbers.compactCount(Math.round(r.cataExp()))).append(" Cata XP");
+		if (show.secrets && r.secretsFound() != null) parts.add(r.secretsFound() + " secrets");
+		if (show.deaths && r.deaths() != null) parts.add(r.deaths() + " deaths");
+		if (show.lag && lastRunLagMs >= 1_000) parts.add(Numbers.durationTenths(lastRunLagMs) + " server lag");
+		if (show.damage && r.totalDamage() != null) parts.add(Numbers.compactCount(r.totalDamage()) + " dmg");
+		if (show.xp && r.cataExp() != null) parts.add("+" + Numbers.compactCount(Math.round(r.cataExp())) + " Cata XP");
+		if (parts.isEmpty()) return;
+		String sb = String.join(" · ", parts);
 		Chat.info(Component.literal("Run complete: ").withStyle(ChatFormatting.AQUA).append(Component.literal(sb.toString()).withStyle(ChatFormatting.WHITE)));
 	}
 
