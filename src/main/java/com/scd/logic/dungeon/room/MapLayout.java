@@ -25,7 +25,35 @@ public final class MapLayout {
 	public record MapRoom(List<Integer> tiles, RoomKind kind, Checkmark checkmark) {
 	}
 
-	public record Layout(int roomSize, int startX, int startZ, Tile[] tiles, List<MapRoom> rooms) {
+	/** Door types by their map colour: wither doors are black (119), blood red (18), fairy pink (82). */
+	public enum DoorType {
+		NORMAL, WITHER, BLOOD, FAIRY;
+
+		static DoorType fromColor(byte c) {
+			return switch (c) {
+				case 119 -> WITHER;
+				case 18 -> BLOOD;
+				case 82 -> FAIRY;
+				default -> NORMAL;
+			};
+		}
+	}
+
+	/**
+	 * A door between tile (x, z) and its east (horizontal) or south neighbour. World centre:
+	 * horizontal x = centre(x) + 16, z = centre(z); vertical x = centre(x), z = centre(z) + 16.
+	 */
+	public record Door(int x, int z, boolean horizontal, DoorType type) {
+		public int worldX() {
+			return DungeonGrid.centre(x) + (horizontal ? 16 : 0);
+		}
+
+		public int worldZ() {
+			return DungeonGrid.centre(z) + (horizontal ? 0 : 16);
+		}
+	}
+
+	public record Layout(int roomSize, int startX, int startZ, Tile[] tiles, List<MapRoom> rooms, List<Door> doors) {
 		public Tile tile(int x, int z) {
 			return tiles[DungeonGrid.index(x, z)];
 		}
@@ -67,6 +95,23 @@ public final class MapLayout {
 			roomColor[i] = corner;
 		}
 
+		// Doors: a filled pixel mid-edge in the gap with an empty pixel 4 to the side (a joined
+		// multi-tile room fills the whole gap instead).
+		List<Door> doors = new ArrayList<>();
+		int half = size / 2;
+		for (int i = 0; i < 36; i++) {
+			int tx = i % 6, tz = i / 6;
+			int ox = sx + tx * gap, oz = sz + tz * gap;
+			if (tx < 5) {
+				byte door = px(colors, ox + join, oz + half);
+				if (door != 0 && px(colors, ox + join, oz + half - 4) == 0) doors.add(new Door(tx, tz, true, DoorType.fromColor(door)));
+			}
+			if (tz < 5) {
+				byte door = px(colors, ox + half, oz + join);
+				if (door != 0 && px(colors, ox + half - 4, oz + join) == 0) doors.add(new Door(tx, tz, false, DoorType.fromColor(door)));
+			}
+		}
+
 		List<MapRoom> rooms = new ArrayList<>();
 		boolean[] seen = new boolean[36];
 		for (int start = 0; start < 36; start++) {
@@ -102,7 +147,7 @@ public final class MapLayout {
 			}
 			rooms.add(new MapRoom(List.copyOf(group), tiles[start].kind, mark));
 		}
-		return new Layout(size, sx, sz, tiles, List.copyOf(rooms));
+		return new Layout(size, sx, sz, tiles, List.copyOf(rooms), List.copyOf(doors));
 	}
 
 	/** [roomSize, startX, startZ] from the entrance tile's pixel run; null if not visible. */

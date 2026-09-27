@@ -12,7 +12,8 @@
 		"ParticleProbeMixin",
 		"LevelExtractorGizmoMixin",
 		"ContainerScreenAccessor",
-		"TabOverlayAccessor"
+		"TabOverlayAccessor",
+		"ServerTimeMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -45,6 +45,8 @@ public final class DungeonFeature implements Feature {
 	private CompletionReport bestReport;
 	private boolean summaryPending;
 	private Integer estimateAtEnd;
+	private long lastRunLagMs;
+	private RoomTimes roomTimes;
 	private JsonStore<DungeonRecords> records;
 
 	@Override
@@ -65,9 +67,11 @@ public final class DungeonFeature implements Feature {
 			if (state.inDungeon()) run.onMessage(e.text());
 		});
 		mod.huds.add(new ScoreHud(mod::config, () -> score, this::splitLines));
-		mod.huds.add(new RoomHud(mod::config, rooms::current));
+		mod.huds.add(new RoomHud(mod::config, rooms::current, this::roomTimeSummary));
 		new ChestProfit(mod);
 		new DungeonExtras(mod, this);
+		new DoorKeys(mod, this);
+		roomTimes = new RoomTimes(mod, this);
 	}
 
 	private void onTick() {
@@ -167,6 +171,8 @@ public final class DungeonFeature implements Feature {
 		r.splits = times;
 		r.deaths = report.deaths() != null ? report.deaths() : 0;
 		r.secrets = report.secretsFound();
+		r.lagMs = run.lagMs();
+		lastRunLagMs = r.lagMs;
 		data.runs.addFirst(r);
 		while (data.runs.size() > 200) data.runs.removeLast();
 		records.markDirty();
@@ -175,7 +181,7 @@ public final class DungeonFeature implements Feature {
 					+ (estimateAtEnd.equals(report.teamScore()) ? " (exact)" : " (off by " + (estimateAtEnd - report.teamScore()) + ")"));
 		}
 		if (!newPbs.isEmpty()) {
-			Chat.info(Component.literal("New " + floor + " split PB: " + String.join(", ", newPbs.stream()
+			Chat.info(Component.literal("New " + floor + " split PB" + (r.lagMs >= 1_000 ? " (despite " + Numbers.durationTenths(r.lagMs) + " server lag)" : "") + ": " + String.join(", ", newPbs.stream()
 					.map(k -> DungeonRun.Split.valueOf(k).label + " " + Numbers.duration(best.get(k))).toList())).withStyle(ChatFormatting.GOLD));
 		}
 	}
@@ -212,6 +218,7 @@ public final class DungeonFeature implements Feature {
 		}
 		if (r.secretsFound() != null) sb.append(" · ").append(r.secretsFound()).append(" secrets");
 		if (r.deaths() != null) sb.append(" · ").append(r.deaths()).append(" deaths");
+		if (lastRunLagMs >= 1_000) sb.append(" · ").append(Numbers.durationTenths(lastRunLagMs)).append(" server lag");
 		if (r.totalDamage() != null) sb.append(" · ").append(Numbers.compactCount(r.totalDamage())).append(" dmg");
 		if (r.cataExp() != null) sb.append(" · +").append(Numbers.compactCount(Math.round(r.cataExp()))).append(" Cata XP");
 		Chat.info(Component.literal("Run complete: ").withStyle(ChatFormatting.AQUA).append(Component.literal(sb.toString()).withStyle(ChatFormatting.WHITE)));
@@ -235,6 +242,14 @@ public final class DungeonFeature implements Feature {
 
 	public DungeonRecords records() {
 		return records.get();
+	}
+
+	void recordsDirty() {
+		records.markDirty();
+	}
+
+	String roomTimeSummary(String room) {
+		return roomTimes != null && room != null ? roomTimes.summary(room) : null;
 	}
 
 	public RoomEngine rooms() {

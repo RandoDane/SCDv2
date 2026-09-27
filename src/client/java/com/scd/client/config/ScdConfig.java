@@ -114,6 +114,11 @@ public final class ScdConfig {
 		public boolean invincibilityHud = true;
 		/** Chime + brief box on the clicked block when the room's secret counter goes up. */
 		public boolean secretChime = true;
+		/** Wither/blood doors outlined (red locked, green openable) and the key boxed. */
+		public boolean doorHighlight = true;
+		public boolean keyAlert = true;
+		/** Chat line with the clear time (and PB/average) when a room you entered gets its check. */
+		public boolean roomTimeMessage = true;
 		/** Split times (blood open, Watcher, boss, clear) with PB deltas on the score HUD. */
 		public boolean scoreSplits = true;
 		/** Assume a Spirit pet in the party: the first death costs 1 point instead of 2 (Odin assumes this always). */

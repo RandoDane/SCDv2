@@ -54,6 +54,7 @@ public final class DungeonRun {
 	private boolean mimic, prince, bat, bloodDone, inBoss;
 	private boolean announced270, announced300;
 	private long startNanos;
+	private long lagStart = -1;
 	private final Map<Split, Long> splits = new EnumMap<>(Split.class);
 
 	void reset() {
@@ -61,6 +62,7 @@ public final class DungeonRun {
 		mimic = prince = bat = bloodDone = inBoss = false;
 		announced270 = announced300 = false;
 		startNanos = 0;
+		lagStart = -1;
 		splits.clear();
 	}
 
@@ -87,6 +89,11 @@ public final class DungeonRun {
 		return Map.copyOf(splits);
 	}
 
+	/** Server lag since the run started, in ms. */
+	long lagMs() {
+		return lagStart < 0 ? 0 : com.scd.client.core.ServerLag.since(lagStart);
+	}
+
 	/** ms since the run started, or -1 before Mort spoke / the sidebar timer was seen. */
 	long elapsedMs() {
 		return startNanos == 0 ? -1 : (System.nanoTime() - startNanos) / 1_000_000;
@@ -102,7 +109,10 @@ public final class DungeonRun {
 		switch (e) {
 			// Mort is the real start; it replaces a clock anchored on the whole-second sidebar timer.
 			case RUN_STARTED -> {
-				if (splits.isEmpty()) startNanos = System.nanoTime();
+				if (splits.isEmpty()) {
+					startNanos = System.nanoTime();
+					lagStart = com.scd.client.core.ServerLag.lostMs();
+				}
 			}
 			case BLOOD_OPENED -> split(Split.BLOOD_OPEN);
 			case DEATH -> chatDeaths++;
@@ -125,6 +135,7 @@ public final class DungeonRun {
 		// Joined mid-run (or missed Mort): anchor the clock to Hypixel's timer.
 		if (startNanos == 0 && state.elapsedSeconds() != null && state.elapsedSeconds() > 0) {
 			startNanos = System.nanoTime() - state.elapsedSeconds() * 1_000_000_000L;
+			lagStart = com.scd.client.core.ServerLag.lostMs();
 		}
 		List<String> tab = game.tabList();
 		int completed = intMatch(tab, ROOMS, 0);

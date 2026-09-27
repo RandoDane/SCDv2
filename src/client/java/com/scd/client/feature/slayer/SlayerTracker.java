@@ -83,6 +83,7 @@ public final class SlayerTracker {
 	}
 
 	private long bossDiedAt;
+	private long huntLagStart, fightLagStart;
 
 	/** The server's death event for an entity: if it's our boss, that's the exact kill moment. */
 	void onEntityDied(LivingEntity entity) {
@@ -155,6 +156,7 @@ public final class SlayerTracker {
 
 		if (previous == null && quest != null) {
 			hunt.start(quest.type().name(), System.currentTimeMillis());
+			huntLagStart = com.scd.client.core.ServerLag.lostMs();
 			lastQuestXp = -1;
 			bus.post(new SlayerEvents.QuestStarted(quest));
 		}
@@ -167,12 +169,13 @@ public final class SlayerTracker {
 			hunt.stop();
 			fightStartMs = System.currentTimeMillis();
 			bossDiedAt = 0;
+			fightLagStart = com.scd.client.core.ServerLag.lostMs();
 			maxHpSeen = 0;
 			lastHpFrac = null;
 			seenConjoinedBrood = false;
 			lastWasConjoined = false;
 			alerts.clear();
-			bus.post(new SlayerEvents.BossSpawned(quest, huntMs));
+			bus.post(new SlayerEvents.BossSpawned(quest, huntMs, Math.min(huntMs, com.scd.client.core.ServerLag.since(huntLagStart))));
 		}
 		if (wasSpawned && !isSpawned) {
 			// The boss's death event is exact; the sidebar can trail it by a few hundred ms.
@@ -182,7 +185,7 @@ public final class SlayerTracker {
 			killedFlashUntilMs = System.currentTimeMillis() + KILLED_FLASH_MS;
 			lootUntilMs = System.currentTimeMillis() + LOOT_WINDOW_MS;
 			boss = null;
-			bus.post(new SlayerEvents.BossKilled(previous, fightMs));
+			bus.post(new SlayerEvents.BossKilled(previous, fightMs, Math.min(fightMs, com.scd.client.core.ServerLag.since(fightLagStart))));
 		}
 
 		if (quest == null || mc.level == null || mc.player == null) {

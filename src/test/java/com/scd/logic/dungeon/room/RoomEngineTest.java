@@ -128,6 +128,12 @@ class RoomEngineTest {
 		assertEquals(Checkmark.GREEN, layout.roomAt(DungeonGrid.index(4, 4)).checkmark());
 		assertEquals(RoomKind.ENTRANCE, layout.roomAt(0).kind());
 		assertNull(MapLayout.read(new byte[10], "F7"));
+		// The door drawn between the entrance and the 1x2 (normal colour) is found, not merged.
+		assertEquals(1, layout.doors().size());
+		var door = layout.doors().getFirst();
+		assertTrue(door.horizontal());
+		assertEquals(DungeonGrid.centre(0) + 16, door.worldX());
+		assertEquals(MapLayout.DoorType.NORMAL, door.type());
 	}
 
 	private static void paintTile(byte[] map, int sx, int sz, int gap, int size, int tx, int tz, byte color) {

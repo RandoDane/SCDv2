@@ -16,11 +16,13 @@ import java.util.function.Supplier;
 final class RoomHud extends HudElement {
 	private final Supplier<ScdConfig> config;
 	private final Supplier<MappedRoom> room;
+	private final java.util.function.Function<String, String> times;
 
-	RoomHud(Supplier<ScdConfig> config, Supplier<MappedRoom> room) {
+	RoomHud(Supplier<ScdConfig> config, Supplier<MappedRoom> room, java.util.function.Function<String, String> times) {
 		super("dungeon_room", "Dungeon room", HudLayout.at(HudLayout.AnchorX.RIGHT, HudLayout.AnchorY.TOP, 8, 8));
 		this.config = config;
 		this.room = room;
+		this.times = times;
 	}
 
 	@Override
@@ -47,6 +49,8 @@ final class RoomHud extends HudElement {
 			if (r.checkmark() == Checkmark.GREEN) sb.append(" · done");
 			else if (r.checkmark() == Checkmark.WHITE) sb.append(" · cleared");
 			box.text(sb.toString(), HudColor.TEXT);
+			String t = times.apply(r.name());
+			if (t != null) box.text(t, HudColor.LABEL);
 		}
 		if (debug) {
 			var a = r.anchor();

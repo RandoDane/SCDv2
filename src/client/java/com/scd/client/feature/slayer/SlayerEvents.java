@@ -11,10 +11,12 @@ public final class SlayerEvents {
 	}
 
 	/** huntMs: quest accepted to boss up, idle stretches excluded. */
-	public record BossSpawned(SlayerQuest quest, long huntMs) {
+	/** lagMs: server lag during the hunt (already inside huntMs). */
+	public record BossSpawned(SlayerQuest quest, long huntMs, long lagMs) {
 	}
 
-	public record BossKilled(SlayerQuest quest, long fightMs) {
+	/** lagMs: server lag during the fight (already inside fightMs). */
+	public record BossKilled(SlayerQuest quest, long fightMs, long lagMs) {
 	}
 
 	public record MinibossSpawned(Minibosses.Entry miniboss, LivingEntity entity) {

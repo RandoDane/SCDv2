@@ -151,10 +151,11 @@ public final class SlayerFeature implements Feature {
 	}
 
 	private void onSpawn(SlayerEvents.BossSpawned e) {
-		session.recordHunt(e.quest().tier(), e.huntMs());
+		// Averages leave out server lag so one laggy lobby doesn't skew them.
+		session.recordHunt(e.quest().tier(), e.huntMs() - e.lagMs());
 		if (!config().slayer.spawnAlert) return;
 		Chat.info(Component.literal(e.quest().type().bossName() + " spawned!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
-				.append(Component.literal("  (spawn " + Numbers.durationTenths(e.huntMs()) + ")").withStyle(ChatFormatting.GRAY)));
+				.append(Component.literal("  (spawn " + Numbers.durationTenths(e.huntMs()) + lagNote(e.lagMs()) + ")").withStyle(ChatFormatting.GRAY)));
 		if (config().slayer.spawnAlertTitle) {
 			Chat.title(Component.literal("Boss spawned!").withStyle(ChatFormatting.RED), Component.literal(e.quest().label()), true);
 		}
@@ -184,10 +185,15 @@ public final class SlayerFeature implements Feature {
 		if (e != null) onKill(e);
 	}
 
+	/** " · 1.2s server lag" when the server lost noticeable time (PBs keep the real time; averages drop the lag). */
+	static String lagNote(long lagMs) {
+		return lagMs >= 300 ? " · " + Numbers.durationTenths(lagMs) + " server lag" : "";
+	}
+
 	private void onKill(SlayerEvents.BossKilled e) {
 		SlayerQuest q = e.quest();
 		boolean best = records.recordKill(q.type(), q.tier(), e.fightMs());
-		session.recordKill(q.tier(), e.fightMs());
+		session.recordKill(q.tier(), e.fightMs() - e.lagMs());
 		Long base = RngMeter.baseXp(q.tier());
 		if (base != null) {
 			long xp = Math.round(base * mayor.slayerXpMultiplier());
@@ -196,6 +202,7 @@ public final class SlayerFeature implements Feature {
 		}
 		if (config().slayer.killMessage) {
 			Chat.info(Component.literal(q.label() + " down in " + Numbers.durationTenths(e.fightMs())).withStyle(ChatFormatting.GREEN)
+					.append(Component.literal(lagNote(e.lagMs())).withStyle(ChatFormatting.GRAY))
 					.append(best ? Component.literal("  NEW BEST!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD) : Component.empty()));
 		}
 	}

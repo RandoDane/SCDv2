@@ -66,6 +66,9 @@ public final class DungeonScreen extends ScdScreen {
 			g.toggle("Teammate low-health alert", "When a teammate's health on the sidebar turns red", () -> c.lowHealthAlert, v -> c.lowHealthAlert = v);
 			g.toggle("Blessings HUD", "Power, Time, Stone, Life and Wisdom levels", () -> c.blessingHud, v -> c.blessingHud = v);
 			g.toggle("Invincibility timers", "Bonzo's Mask, Spirit Mask and Phoenix: invincible time and cooldown", () -> c.invincibilityHud, v -> c.invincibilityHud = v);
+			g.toggle("Door highlight", "Wither and blood doors: red while locked, green once the party has the key", () -> c.doorHighlight, v -> c.doorHighlight = v);
+			g.toggle("Key spawn alert", null, () -> c.keyAlert, v -> c.keyAlert = v);
+			g.toggle("Room clear times", "Chat line with the time from entering a room to its check, vs your PB and average", () -> c.roomTimeMessage, v -> c.roomTimeMessage = v);
 			g.toggle("Secret chime", "Sound and a brief box on the clicked block when a secret counts", () -> c.secretChime, v -> c.secretChime = v);
 		});
 		rows.group("rooms", "Rooms", null, false, g -> {
