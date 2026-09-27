@@ -51,7 +51,11 @@ final class PuzzleSolvers2 {
 	private final DungeonFeature dungeon;
 	private final List<int[]> beamPairs = new ArrayList<>();
 	private final List<List<List<int[]>>> iceIds = new ArrayList<>(), iceEasy = new ArrayList<>();
-	private final List<Vec3[]> beams = new ArrayList<>();
+	/** Lit lantern pairs; {@code pair} is the index in the data, so a pair keeps its colour as others go out. */
+	private record Beam(Vec3 a, Vec3 b, int pair) {
+	}
+
+	private final List<Beam> beams = new ArrayList<>();
 	private final List<Vec3> icePath = new ArrayList<>();
 	private final List<Vec3> slidePath = new ArrayList<>();
 	private List<BlockPos> tpPads = List.of();
@@ -190,10 +194,11 @@ final class PuzzleSolvers2 {
 
 	private void beams(MappedRoom room, Level level) {
 		beams.clear();
-		for (int[] p : beamPairs) {
+		for (int i = 0; i < beamPairs.size(); i++) {
+			int[] p = beamPairs.get(i);
 			BlockPos a = room.toWorld(new BlockPos(p[0], p[1], p[2])), b = room.toWorld(new BlockPos(p[3], p[4], p[5]));
 			if (level.getBlockState(a).getBlock() == Blocks.SEA_LANTERN && level.getBlockState(b).getBlock() == Blocks.SEA_LANTERN) {
-				beams.add(new Vec3[]{Vec3.atCenterOf(a), Vec3.atCenterOf(b)});
+				beams.add(new Beam(Vec3.atCenterOf(a), Vec3.atCenterOf(b), i));
 			}
 		}
 	}
@@ -399,12 +404,11 @@ final class PuzzleSolvers2 {
 	private void draw() {
 		var cfg = mod.config().dungeon;
 		int[] colors = {0xFFFACC15, 0xFF4ADE80, 0xFFE879F9, 0xFF22D3EE, 0xFFFB923C, 0xFFF87171, 0xFFFFFFFF, 0xFFA78BFA};
-		if (cfg.puzzleOn("Creeper Beams")) for (int i = 0; i < beams.size(); i++) {
-			int c = colors[i % colors.length];
-			Vec3[] b = beams.get(i);
-			WorldGizmos.block(BlockPos.containing(b[0]), c, true);
-			WorldGizmos.block(BlockPos.containing(b[1]), c, true);
-			WorldGizmos.line(b[0], b[1], c, true);
+		if (cfg.puzzleOn("Creeper Beams")) for (Beam b : beams) {
+			int c = colors[b.pair() % colors.length];
+			WorldGizmos.block(BlockPos.containing(b.a()), c, true);
+			WorldGizmos.block(BlockPos.containing(b.b()), c, true);
+			WorldGizmos.line(b.a(), b.b(), c, true);
 		}
 		if (cfg.puzzleOn("Ice Fill")) for (int i = 0; i + 1 < icePath.size(); i++) WorldGizmos.line(icePath.get(i), icePath.get(i + 1), 0xFF22D3EE, true);
 		if (cfg.puzzleOn("Ice Path")) for (int i = 0; i + 1 < slidePath.size(); i++) WorldGizmos.line(slidePath.get(i), slidePath.get(i + 1), 0xFFF87171, true);
