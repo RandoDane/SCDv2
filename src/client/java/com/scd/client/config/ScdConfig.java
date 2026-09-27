@@ -123,6 +123,8 @@ public final class ScdConfig {
 		public boolean mapHud = true;
 		/** Quiz, Three Weirdos and Higher/Lower Blaze solvers (show only). */
 		public boolean puzzleSolvers = true;
+		/** Watcher move timer and blood mob landing spots with spawn countdown. */
+		public boolean bloodCamp = true;
 		/** Split times (blood open, Watcher, boss, clear) with PB deltas on the score HUD. */
 		public boolean scoreSplits = true;
 		/** Assume a Spirit pet in the party: the first death costs 1 point instead of 2 (Odin assumes this always). */

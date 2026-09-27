@@ -61,7 +61,8 @@ public final class DungeonScreen extends ScdScreen {
 		});
 		rows.group("helpers", "Helpers", null, true, g -> {
 			g.toggle("Dungeon map", "Rooms, doors, checks, secrets found per room (teammates' too) and player dots", () -> c.mapHud, v -> c.mapHud = v);
-			g.toggle("Puzzle solvers", "Quiz answer, Three Weirdos chest and Higher/Lower blaze order (shown, never clicked)", () -> c.puzzleSolvers, v -> c.puzzleSolvers = v);
+			g.toggle("Puzzle solvers", "Quiz, Three Weirdos, Higher/Lower Blaze, Creeper Beams, Ice Fill, Ice Path, Teleport Maze, Tic Tac Toe (shown, never clicked)", () -> c.puzzleSolvers, v -> c.puzzleSolvers = v);
+			g.toggle("Blood camp helper", "When the Watcher moves, and where / when each blood mob will spawn", () -> c.bloodCamp, v -> c.bloodCamp = v);
 			g.toggle("Puzzle HUD", "Each puzzle's name and status (✔ done, ✖ failed, ✦ open)", () -> c.puzzleHud, v -> c.puzzleHud = v);
 			g.toggle("Deaths HUD", "Deaths per player this run", () -> c.deathHud, v -> c.deathHud = v);
 			g.toggle("Teammate death alert", null, () -> c.deathAlert, v -> c.deathAlert = v);

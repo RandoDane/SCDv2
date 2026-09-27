@@ -76,6 +76,8 @@ public final class DungeonFeature implements Feature {
 		secrets = new SecretTracker(mod, this);
 		mod.huds.add(new DungeonMapHud(mod::config, this, secrets));
 		new PuzzleSolvers(mod, this);
+		new PuzzleSolvers2(mod, this);
+		new BloodCamp(mod, this);
 	}
 
 	private void onTick() {
