@@ -1,1 +1,1 @@
-{"providers": [{"type": "ttf", "file": "scd:inter-medium.ttf", "size": 9.075, "oversample": 5.0, "shift": [0.0, -0.4], "skip": ""}, {"type": "reference", "id": "minecraft:default"}]}
+{"providers": [{"type": "ttf", "file": "scd:montserrat-medium.ttf", "size": 9.075, "oversample": 5.0, "shift": [0.0, -0.4], "skip": ""}, {"type": "reference", "id": "minecraft:default"}]}

@@ -13,7 +13,7 @@ import java.util.Locale;
 /**
  * Drawing primitives for every SCD surface.
  *
- * Text uses the bundled Inter TTF (smooth, anti-aliased) without Minecraft's hard black drop
+ * Text uses the bundled Montserrat TTF (smooth, anti-aliased) without Minecraft's hard black drop
  * shadow - the pixel font plus shadow is what made the old UI feel "sharp". Rounded rectangles are
  * rasterized at the monitor's real pixel resolution (not GUI pixels) with anti-aliased corners, so
  * they stay soft at every GUI scale. No drop shadows anywhere: depth comes from surface lightness
@@ -38,7 +38,7 @@ public final class Ui {
 	/**
 	 * One font definition per GUI scale (1-6), rasterized at exactly that scale so every glyph pixel
 	 * lands on one screen pixel - a single oversampled font shrunk with nearest-neighbour sampling
-	 * looked thin and jagged at scales 2-3. Body text is Inter Medium, headings SemiBold.
+	 * looked thin and jagged at scales 2-3. Body text is Montserrat Medium, headings SemiBold.
 	 */
 	private static final int[] TEXT_SIZES = {70, 80, 90, 100, 110};
 	private static final FontDescription[][] REGULAR_BY_SCALE = faces("ui_");
