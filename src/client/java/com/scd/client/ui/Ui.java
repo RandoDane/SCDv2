@@ -77,16 +77,43 @@ public final class Ui {
 		return Minecraft.getInstance().gui.screen() instanceof ScdScreen ? menuSize : FULL;
 	}
 
+	/**
+	 * HUD faces rasterized at quarter-step pixel densities (0.5-6 px per GUI unit). A HUD drawn at a
+	 * custom size uses the one matching its real on-screen density, so text isn't resampled.
+	 */
+	private static final FontDescription[] HUD_REGULAR = hudFaces("hud_q");
+	private static final FontDescription[] HUD_BOLD = hudFaces("hud_bold_q");
+	private static final FontDescription[] HUD_TITLE = hudFaces("hud_title_q");
+	/** Screen pixels per GUI unit of the HUD being drawn; 0 when not drawing a HUD. */
+	private static float hudDensity;
+
+	private static FontDescription[] hudFaces(String prefix) {
+		FontDescription[] out = new FontDescription[25];
+		for (int q = 2; q <= 24; q++) out[q] = new FontDescription.Resource(Identifier.fromNamespaceAndPath("scd", prefix + q));
+		return out;
+	}
+
+	/** Set while a HUD is measured/drawn: GUI scale x the HUD's own size. 0 resets. */
+	public static void setHudDensity(float density) {
+		hudDensity = density;
+	}
+
+	private static int hudIndex() {
+		return Math.max(2, Math.min(24, Math.round(hudDensity * 4)));
+	}
+
 	private static int scaleIndex() {
 		int s = Minecraft.getInstance().getWindow().getGuiScale();
 		return Math.max(1, Math.min(6, s));
 	}
 
 	public static FontDescription regular() {
+		if (hudDensity > 0) return HUD_REGULAR[hudIndex()];
 		return REGULAR_BY_SCALE[sizeIndex()][scaleIndex()];
 	}
 
 	public static FontDescription bold() {
+		if (hudDensity > 0) return HUD_BOLD[hudIndex()];
 		return BOLD_BY_SCALE[sizeIndex()][scaleIndex()];
 	}
 
@@ -100,6 +127,7 @@ public final class Ui {
 	}
 
 	public static FontDescription titleFace() {
+		if (hudDensity > 0) return HUD_TITLE[hudIndex()];
 		return TITLE_BY_SCALE[sizeIndex()][scaleIndex()];
 	}
 

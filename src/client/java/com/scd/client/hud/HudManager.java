@@ -103,27 +103,39 @@ public final class HudManager {
 
 	/** Builds and positions an element; null if it has nothing to show. */
 	public Placed place(HudElement e, boolean preview, int screenW, int screenH) {
-		HudBox box = e.build(preview);
-		if (box == null || box.isEmpty()) return null;
 		HudLayout layout = layout(e);
 		float scale = Math.max(0.5f, Math.min(2.5f, layout.scale));
-		int w = Math.round(box.width() * scale);
-		int h = Math.round(box.height() * scale);
-		return new Placed(e, box, layout.resolveX(screenW, w), layout.resolveY(screenH, h), w, h, scale);
+		// Measure with the same (density-matched) faces the draw will use.
+		Ui.setHudDensity(guiScale() * scale);
+		try {
+			HudBox box = e.build(preview);
+			if (box == null || box.isEmpty()) return null;
+			int w = Math.round(box.width() * scale);
+			int h = Math.round(box.height() * scale);
+			return new Placed(e, box, layout.resolveX(screenW, w), layout.resolveY(screenH, h), w, h, scale);
+		} finally {
+			Ui.setHudDensity(0);
+		}
 	}
 
 	public void draw(GuiGraphicsExtractor g, Placed p) {
 		HudLayout layout = layout(p.element());
 		var pose = g.pose();
 		pose.pushMatrix();
+		Ui.setHudDensity(guiScale() * p.scale());
 		try {
 			pose.translate(p.x(), p.y());
 			pose.scale(p.scale(), p.scale());
 			if (layout.background) Ui.hudPanel(g, 0, 0, p.box().width(), p.box().height(), color(layout, HudColor.BACKGROUND));
 			p.box().render(g, role -> color(layout, role));
 		} finally {
+			Ui.setHudDensity(0);
 			pose.popMatrix();
 		}
+	}
+
+	private static int guiScale() {
+		return net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScale();
 	}
 
 	public static int color(HudLayout layout, HudColor role) {

@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.IntSupplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -56,7 +55,6 @@ public final class SlayerTracker {
 
 	private final EventBus bus;
 	private final GameState game;
-	private final IntSupplier huntIdleSeconds;
 
 	private SlayerQuest quest;
 	private LivingEntity boss;
@@ -70,15 +68,36 @@ public final class SlayerTracker {
 	private SlayerType lastActiveType;
 	private long killedFlashUntilMs;
 	private long lootUntilMs;
-	private long huntStartMs, huntLastHitMs, huntPauseStartMs, huntPausedTotalMs;
-	private final Map<Integer, Float> huntHealth = new HashMap<>();
+	/** Adaptive hunt timer (see HuntClock): quest XP progress and your own hits/item uses. */
+	private final com.scd.logic.slayer.HuntClock hunt = new com.scd.logic.slayer.HuntClock();
+	private long lastQuestXp = -1;
+	private static final Pattern QUEST_XP = Pattern.compile("\\(([\\d,]+)/([\\d,.kKmM]+)\\) Combat XP");
 	private final Map<String, Long> alerts = new HashMap<>();
 	private final Set<UUID> knownMinibosses = new HashSet<>();
 
-	SlayerTracker(EventBus bus, GameState game, IntSupplier huntIdleSeconds) {
+	SlayerTracker(EventBus bus, GameState game) {
 		this.bus = bus;
 		this.game = game;
-		this.huntIdleSeconds = huntIdleSeconds;
+	}
+
+	/** You hit a mob or used an item: keeps the hunt clock running through long fights. */
+	void onPlayerAction() {
+		hunt.action(System.currentTimeMillis());
+	}
+
+	/** Quest progress from the sidebar ("(1,240/2,400) Combat XP"), or -1. */
+	private long questXp() {
+		for (String line : game.sidebar()) {
+			Matcher m = QUEST_XP.matcher(line);
+			if (m.find()) {
+				try {
+					return Long.parseLong(m.group(1).replace(",", ""));
+				} catch (NumberFormatException e) {
+					return -1;
+				}
+			}
+		}
+		return -1;
 	}
 
 	/** Reads the quest off the current sidebar snapshot, or null. */
@@ -125,26 +144,23 @@ public final class SlayerTracker {
 		if (quest != null) lastActiveType = quest.type();
 
 		if (previous == null && quest != null) {
-			long now = System.currentTimeMillis();
-			huntStartMs = now;
-			huntLastHitMs = now;
-			huntPauseStartMs = 0;
-			huntPausedTotalMs = 0;
-			huntHealth.clear();
+			hunt.start(quest.type().name(), System.currentTimeMillis());
+			lastQuestXp = -1;
 			bus.post(new SlayerEvents.QuestStarted(quest));
 		}
 
 		boolean wasSpawned = previous != null && previous.bossSpawned();
 		boolean isSpawned = quest != null && quest.bossSpawned();
 		if (isSpawned && !wasSpawned) {
-			long huntMs = huntElapsedMs();
+			hunt.tick(System.currentTimeMillis());
+			long huntMs = hunt.activeMs();
+			hunt.stop();
 			fightStartMs = System.currentTimeMillis();
 			maxHpSeen = 0;
 			lastHpFrac = null;
 			seenConjoinedBrood = false;
 			lastWasConjoined = false;
 			alerts.clear();
-			huntHealth.clear();
 			bus.post(new SlayerEvents.BossSpawned(quest, huntMs));
 		}
 		if (wasSpawned && !isSpawned) {
@@ -164,7 +180,7 @@ public final class SlayerTracker {
 		scanMinibosses(mc);
 		if (!isSpawned) {
 			boss = null;
-			updateHuntIdle(mc);
+			updateHunt();
 			return;
 		}
 		trackBoss(mc);
@@ -219,28 +235,15 @@ public final class SlayerTracker {
 		knownMinibosses.addAll(alive);
 	}
 
-	/** Any nearby mob losing health counts as activity; none for N seconds pauses the hunt clock. */
-	private void updateHuntIdle(Minecraft mc) {
-		boolean hit = false;
-		Set<Integer> present = new HashSet<>();
-		for (Entity e : mc.level.entitiesForRendering()) {
-			if (!(e instanceof LivingEntity l) || e instanceof ArmorStand || e == mc.player || !l.isAlive()) continue;
-			if (l.distanceTo(mc.player) > BossLocator.SCAN_RADIUS) continue;
-			present.add(l.getId());
-			Float before = huntHealth.put(l.getId(), l.getHealth());
-			if (before != null && l.getHealth() < before) hit = true;
-		}
-		huntHealth.keySet().retainAll(present);
+	/** Quest XP going up is your kill; the clock counts active time only (see HuntClock). */
+	private void updateHunt() {
 		long now = System.currentTimeMillis();
-		if (hit) {
-			if (huntPauseStartMs != 0) {
-				huntPausedTotalMs += now - huntPauseStartMs;
-				huntPauseStartMs = 0;
-			}
-			huntLastHitMs = now;
-		} else if (huntPauseStartMs == 0 && now - huntLastHitMs > huntIdleSeconds.getAsInt() * 1000L) {
-			huntPauseStartMs = now;
+		long xp = questXp();
+		if (xp >= 0) {
+			if (lastQuestXp >= 0 && xp > lastQuestXp) hunt.progress(now);
+			lastQuestXp = xp;
 		}
+		hunt.tick(now);
 	}
 
 	private void alert(String id) {
@@ -282,14 +285,16 @@ public final class SlayerTracker {
 	}
 
 	public long huntElapsedMs() {
-		if (quest == null) return 0;
-		long now = System.currentTimeMillis();
-		long paused = huntPausedTotalMs + (huntPauseStartMs != 0 ? now - huntPauseStartMs : 0);
-		return Math.max(0, now - huntStartMs - paused);
+		return quest == null ? 0 : hunt.activeMs();
 	}
 
 	public boolean isHuntPaused() {
-		return huntPauseStartMs != 0;
+		return quest != null && !quest.bossSpawned() && hunt.paused(System.currentTimeMillis());
+	}
+
+	/** Current idle cut-off learned from your pace, for display. */
+	public long huntWindowMs() {
+		return hunt.window();
 	}
 
 	public Nameplate.Health health() {

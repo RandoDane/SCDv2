@@ -71,7 +71,16 @@ public final class SlayerFeature implements Feature {
 		}
 		mayor = mod.feature(MayorService.class);
 		BazaarFeature bazaar = mod.feature(BazaarFeature.class);
-		tracker = new SlayerTracker(mod.bus, mod.game, () -> config().slayer.huntIdleSeconds);
+		tracker = new SlayerTracker(mod.bus, mod.game);
+		// Your own hits and item uses (bows, wands, abilities) count as hunting; others' fights don't.
+		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
+			if (level.isClientSide() && player == Minecraft.getInstance().player) tracker.onPlayerAction();
+			return net.minecraft.world.InteractionResult.PASS;
+		});
+		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register((player, level, hand) -> {
+			if (level.isClientSide() && player == Minecraft.getInstance().player) tracker.onPlayerAction();
+			return net.minecraft.world.InteractionResult.PASS;
+		});
 		rng = new RngMeter(store);
 		menuReader = new RngMenuReader(rng);
 		records = new SlayerRecords(store);

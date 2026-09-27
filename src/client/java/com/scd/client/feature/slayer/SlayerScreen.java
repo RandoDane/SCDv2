@@ -44,8 +44,9 @@ public final class SlayerScreen extends ScdScreen {
 		rows.group("hud", "HUD", null, true, g -> {
 			g.toggle("Boss tracker", "Fight/hunt timers, HP bar, mechanic cues, RNG meter", () -> c.hud, v -> c.hud = v);
 			g.toggle("Session stats", "Kills/hour, average times, XP and drop value", () -> c.sessionStats, v -> c.sessionStats = v);
-			g.slider("Hunt timer pauses after", 2, 30, 1, () -> c.huntIdleSeconds, v -> c.huntIdleSeconds = (int) Math.round(v),
-					v -> Math.round(v) + "s idle");
+			g.value("Hunt timer", () -> "pauses after " + Math.round(slayer.tracker().huntWindowMs() / 1000.0) + "s without progress");
+			g.note("Spawn times only count time you're actually slaying: your quest XP going up, or you hitting mobs / using items. "
+					+ "The pause point adapts to your own kill pace per slayer, so AFK time (or others fighting nearby) never inflates the average.");
 		});
 		rows.group("alerts", "Alerts", null, true, g -> {
 			g.toggle("Spawn alert", "Chat line when your boss spawns", () -> c.spawnAlert, v -> c.spawnAlert = v);

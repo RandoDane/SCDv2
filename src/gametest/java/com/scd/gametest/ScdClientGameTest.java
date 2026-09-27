@@ -200,6 +200,11 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		ctx.waitTicks(10);
 		check(ctx.computeOnClient(mc -> slayer.records().kills(SlayerType.ZOMBIE, "IV")) == before + 1, "completed kill not recorded");
 		ctx.takeScreenshot("11-slayer-after-kill");
+		// HUD at 80% size must stay crisp (density-matched font, not a resampled one).
+		ctx.runOnClient(mc -> mod.huds.elements().forEach(el -> mod.huds.layout(el).scale = 0.8f));
+		ctx.waitTicks(3);
+		ctx.takeScreenshot("11b-slayer-hud-80");
+		ctx.runOnClient(mc -> mod.huds.elements().forEach(el -> mod.huds.layout(el).scale = 1f));
 		server.runCommand("kill @e[type=!player]");
 	}
 

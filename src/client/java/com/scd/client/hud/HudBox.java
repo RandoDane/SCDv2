@@ -73,7 +73,7 @@ public final class HudBox {
 
 	private record Hero(String label, String value) implements Row {
 		public int height() {
-			return LINE + 16;
+			return LINE + 19;
 		}
 
 		public int width() {
@@ -225,7 +225,7 @@ public final class HudBox {
 				}
 				case Hero h -> {
 					Ui.section(g, h.label(), x, y + 1);
-					Ui.title(g, h.value(), x, y + LINE + 2, palette.color(HudColor.VALUE));
+					Ui.title(g, h.value(), x, y + LINE + 4, palette.color(HudColor.VALUE));
 				}
 				case Grid gr -> {
 					int colW = (w - 12) / 2;
