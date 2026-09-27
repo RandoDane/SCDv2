@@ -6,17 +6,20 @@ import java.util.Locale;
 /**
  * The six Slayer bosses and everything SCD knows about each: every nameplate form (renamed forms at
  * higher tiers included, cross-checked against Skyblocker's and SkyHanni's tables), and - for the
- * three whose mobs only exist in specific places - the sidebar sub-areas where a quest can progress.
- * Outside those areas the quest is treated as dormant, so HUDs, cues and drop tracking stay quiet.
+ * sidebar sub-areas where each quest can progress. Outside them the quest is dormant: it keeps
+ * running (timers, kill booking), but HUDs, cues and drop tracking stay quiet.
  */
 public enum SlayerType {
-	ZOMBIE("Zombie", "Revenant Horror", List.of("Revenant Horror", "Atoned Horror"), List.of()),
+	// Areas are sidebar area names where the quest can progress (SkyHanni's table, which matches
+	// Hypixel's sidebar). Outside them the quest keeps running but SCD shows nothing for it.
+	ZOMBIE("Zombie", "Revenant Horror", List.of("Revenant Horror", "Atoned Horror"),
+			List.of("Graveyard", "Revenant Cave", "Crypts")),
 	SPIDER("Spider", "Tarantula Broodfather", List.of("Tarantula Broodfather", "Conjoined Brood"),
-			List.of("Spider's Den", "Burning Desert", "Dragontail", "Arachne's Sanctuary", "Spider Mound", "Grandma's House", "Archaeologist's Camp")),
-	WOLF("Wolf", "Sven Packmaster", List.of("Sven Packmaster"), List.of()),
+			List.of("Spider's Den", "Spider Mound", "Arachne's Burrow", "Arachne's Sanctuary", "Burning Desert")),
+	WOLF("Wolf", "Sven Packmaster", List.of("Sven Packmaster"), List.of("Ruins", "Howling Cave", "Soul Cave", "Spirit Cave")),
 	ENDERMAN("Enderman", "Voidgloom Seraph", List.of("Voidgloom Seraph"), List.of("The End", "Void Sepulture", "Dragon's Nest", "Zealot Bruiser Hideout")),
-	BLAZE("Blaze", "Inferno Demonlord", List.of("Inferno Demonlord"), List.of("Crimson Isle", "Stronghold", "Smoldering Tomb", "Burning Desert", "Dragontail")),
-	VAMPIRE("Vampire", "Riftstalker Bloodfiend", List.of("Riftstalker Bloodfiend", "Bloodfiend"), List.of());
+	BLAZE("Blaze", "Inferno Demonlord", List.of("Inferno Demonlord"), List.of("Stronghold", "The Wasteland", "Smoldering Tomb")),
+	VAMPIRE("Vampire", "Riftstalker Bloodfiend", List.of("Riftstalker Bloodfiend", "Bloodfiend"), List.of("Stillgore Château", "Oubliette"));
 
 	private final String displayName;
 	private final String bossName;

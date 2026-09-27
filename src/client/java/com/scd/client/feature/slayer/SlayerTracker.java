@@ -57,6 +57,7 @@ public final class SlayerTracker {
 	private final GameState game;
 
 	private SlayerQuest quest;
+	private boolean inArea;
 	private LivingEntity boss;
 	private long fightStartMs;
 	private double maxHpSeen;
@@ -71,7 +72,8 @@ public final class SlayerTracker {
 	/** Adaptive hunt timer (see HuntClock): quest XP progress and your own hits/item uses. */
 	private final com.scd.logic.slayer.HuntClock hunt = new com.scd.logic.slayer.HuntClock();
 	private long lastQuestXp = -1;
-	private static final Pattern QUEST_XP = Pattern.compile("\\(([\\d,]+)/([\\d,.kKmM]+)\\) Combat XP");
+	/** Both live forms: "(1,240/2,400) Combat XP" and "22/32 Kills" (recorded 2026-09-27). */
+	private static final Pattern QUEST_XP = Pattern.compile("^\\(?([\\d,]+)/([\\d,.kKmM]+)\\)? (?:Combat XP|Kills)$");
 	private final Map<String, Long> alerts = new HashMap<>();
 	private final Set<UUID> knownMinibosses = new HashSet<>();
 
@@ -85,10 +87,10 @@ public final class SlayerTracker {
 		hunt.action(System.currentTimeMillis());
 	}
 
-	/** Quest progress from the sidebar ("(1,240/2,400) Combat XP"), or -1. */
+	/** Quest progress from the sidebar ("(1,240/2,400) Combat XP" or "22/32 Kills"), or -1. */
 	private long questXp() {
 		for (String line : game.sidebar()) {
-			Matcher m = QUEST_XP.matcher(line);
+			Matcher m = QUEST_XP.matcher(line.trim());
 			if (m.find()) {
 				try {
 					return Long.parseLong(m.group(1).replace(",", ""));
@@ -134,7 +136,8 @@ public final class SlayerTracker {
 		var mc = Minecraft.getInstance();
 		SlayerQuest previous = quest;
 		quest = active && mc.player != null ? readQuest() : null;
-		if (quest != null && !inAllowedArea(quest.type())) quest = null;
+		// Leaving the area doesn't end the quest (that restarted timers on return); it only hides it.
+		inArea = quest != null && inAllowedArea(quest.type());
 
 		boolean broodExpected = previous != null && previous.type() == SlayerType.SPIDER && "V".equals(previous.tier())
 				&& previous.bossSpawned() && !seenConjoinedBrood;
@@ -240,7 +243,8 @@ public final class SlayerTracker {
 		long now = System.currentTimeMillis();
 		long xp = questXp();
 		if (xp >= 0) {
-			if (lastQuestXp >= 0 && xp > lastQuestXp) hunt.progress(now);
+			// Any change is progress (the Kills counter can also re-base, e.g. 28/32 -> 21/23).
+			if (lastQuestXp >= 0 && xp != lastQuestXp) hunt.progress(now);
 			lastQuestXp = xp;
 		}
 		hunt.tick(now);
@@ -263,7 +267,13 @@ public final class SlayerTracker {
 
 	// ---- queries -------------------------------------------------------------------------------
 
+	/** The active quest while you're in one of its areas; null otherwise (dormant, see SlayerType). */
 	public SlayerQuest quest() {
+		return inArea ? quest : null;
+	}
+
+	/** The active quest regardless of area. */
+	public SlayerQuest questAnywhere() {
 		return quest;
 	}
 

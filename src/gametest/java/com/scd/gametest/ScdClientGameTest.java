@@ -174,6 +174,13 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 
 		sidebar(server, List.of("Dec 12th", "⏣ Graveyard", "", "Slayer Quest", "Revenant Horror IV", "(0/2,400) Combat XP"));
 		ctx.waitTicks(10);
+		// Outside the slayer's areas the quest is dormant: no HUD.
+		sidebar(server, List.of("Dec 12th", "⏣ Village", "", "Slayer Quest", "Revenant Horror IV", "(0/2,400) Combat XP"));
+		ctx.waitTicks(5);
+		check(ctx.computeOnClient(mc -> mod.feature(SlayerFeature.class).tracker().quest() == null), "Revenant quest should be hidden in Village");
+		check(ctx.computeOnClient(mc -> mod.feature(SlayerFeature.class).tracker().questAnywhere() != null), "quest itself should keep running outside its area");
+		sidebar(server, List.of("Dec 12th", "⏣ Graveyard", "", "Slayer Quest", "Revenant Horror IV", "(0/2,400) Combat XP"));
+		ctx.waitTicks(5);
 		check(ctx.computeOnClient(mc -> slayer.tracker().quest()) != null, "quest not detected from sidebar");
 		check(!ctx.computeOnClient(mc -> slayer.tracker().quest().bossSpawned()), "boss wrongly marked spawned");
 		check("IV".equals(ctx.computeOnClient(mc -> slayer.tracker().quest().tier())), "tier not parsed");

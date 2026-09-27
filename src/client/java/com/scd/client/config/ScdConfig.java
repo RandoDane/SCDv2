@@ -76,7 +76,6 @@ public final class ScdConfig {
 		public boolean highlightLine = true;
 		public boolean dropTracking = true;
 		public boolean explosiveArrowCounter = true;
-		/** Seconds without hitting anything before the hunt timer pauses (AFK-proof spawn times). */
 		/** Ability cue id -> enabled; ids come from {@code AbilityCue}. Missing = enabled. */
 		public Map<String, Boolean> cues = new LinkedHashMap<>();
 
