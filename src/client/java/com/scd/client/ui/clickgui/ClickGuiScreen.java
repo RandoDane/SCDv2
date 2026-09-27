@@ -44,6 +44,9 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	private double dragDx, dragDy;
 	private Hit activeSlider;
 	private double panelScroll;
+	/** Menu units -> GUI units, and the menu's virtual size (the menu ignores the game's GUI scale). */
+	private float scale = 1;
+	private int vw, vh;
 
 	public record PanelSection(String title, List<Opt> options) {
 	}
@@ -60,8 +63,21 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		EXPANDED.add(key);
 	}
 
+	/**
+	 * The menu keeps one on-screen size whatever the GUI scale: 2 screen pixels per menu unit at
+	 * 1080p (GUI scale 2 there), proportional to the window height, times the "Menu size" setting.
+	 */
+	private void updateScale() {
+		var window = net.minecraft.client.Minecraft.getInstance().getWindow();
+		float density = Math.max(1f, window.getHeight() / 540f) * mod.config().general.menuScale / 100f;
+		scale = density / window.getGuiScale();
+		vw = Math.round(width / scale);
+		vh = Math.round(height / scale);
+		Ui.setScaleOverride(Math.round(density));
+	}
+
 	private int panelW() {
-		return Math.max(120, width / 5);
+		return Math.max(120, vw / 5);
 	}
 
 	private Map<String, int[]> positions() {
@@ -72,16 +88,29 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	private int[] position(Category c, int index) {
 		int[] saved = positions().get(c.name());
 		if (saved != null) return saved;
-		int perRow = Math.max(1, (width - panelW() - GAP) / (COL_W + GAP));
+		int perRow = Math.max(1, (vw - panelW() - GAP) / (COL_W + GAP));
 		int rows = (categories.size() + perRow - 1) / perRow;
 		int x = GAP + (index % perRow) * (COL_W + GAP);
-		int y = GAP + (index / perRow) * (height / rows);
+		int y = GAP + (index / perRow) * (vh / rows);
 		return new int[]{x, y};
 	}
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
 		super.extractRenderState(g, mouseX, mouseY, partialTick);
+		updateScale();
+		var pose = g.pose();
+		pose.pushMatrix();
+		pose.scale(scale, scale);
+		try {
+			drawMenu(g, Math.round(mouseX / scale), Math.round(mouseY / scale));
+		} finally {
+			pose.popMatrix();
+			Ui.setScaleOverride(0);
+		}
+	}
+
+	private void drawMenu(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		hits.clear();
 		headerRects.clear();
 		String hover = null;
@@ -93,15 +122,15 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		drawPanel(g, mouseX, mouseY);
 		if (hover != null && !hover.isEmpty()) {
 			Theme t = Ui.theme();
-			int w = Math.min(width - panelW() - 16, Ui.width(hover) + 12);
-			Ui.rect(g, GAP, height - 20, w, 16, 4, t.window(), t.border());
-			Ui.text(g, Ui.ellipsize(hover, w - 12), GAP + 6, height - 16, t.textSecondary());
+			int w = Math.min(vw - panelW() - 16, Ui.width(hover) + 12);
+			Ui.rect(g, GAP, vh - 20, w, 16, 4, t.window(), t.border());
+			Ui.text(g, Ui.ellipsize(hover, w - 12), GAP + 6, vh - 16, t.textSecondary());
 		}
 	}
 
 	/** A column stops above any column placed below it (and at the screen bottom), scrolling inside. */
 	private int bottomLimit(int index, int[] pos) {
-		int limit = height - GAP;
+		int limit = vh - GAP;
 		for (int j = 0; j < categories.size(); j++) {
 			if (j == index) continue;
 			int[] o = position(categories.get(j), j);
@@ -223,24 +252,24 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 
 	private void drawPanel(GuiGraphicsExtractor g, int mx, int my) {
 		Theme t = Ui.theme();
-		int pw = panelW(), px = width - pw;
-		g.fill(px, 0, width, height, t.window());
-		g.fill(px, 0, px + 1, height, t.accent());
+		int pw = panelW(), px = vw - pw;
+		g.fill(px, 0, vw, vh, t.window());
+		g.fill(px, 0, px + 1, vh, t.accent());
 		g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, px + 8, 6, 16, 16);
 		int top = 28;
 		int y = top - (int) panelScroll;
-		g.enableScissor(px, top, width, height);
+		g.enableScissor(px, top, vw, vh);
 		for (PanelSection s : panel) {
 			Ui.section(g, s.title(), px + 8, y + 3);
 			y += 14;
 			for (Opt o : s.options()) {
-				drawOpt(g, o, px + 4, y, pw - 8, 5, top, height - top, mx, my);
+				drawOpt(g, o, px + 4, y, pw - 8, 5, top, vh - top, mx, my);
 				y += OPT_H + 1;
 			}
 			y += 6;
 		}
 		int contentH = y + (int) panelScroll - top;
-		panelScroll = Math.max(0, Math.min(panelScroll, Math.max(0, contentH - (height - top))));
+		panelScroll = Math.max(0, Math.min(panelScroll, Math.max(0, contentH - (vh - top))));
 		g.disableScissor();
 	}
 
@@ -248,7 +277,9 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		double mx = event.x(), my = event.y();
+		updateScale();
+		Ui.setScaleOverride(0);
+		double mx = event.x() / scale, my = event.y() / scale;
 		for (var e : headerRects.entrySet()) {
 			int[] r = e.getValue();
 			if (event.button() == 0 && mx >= r[0] && mx < r[0] + r[2] && my >= r[1] && my < r[1] + r[3]) {
@@ -285,13 +316,13 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	@Override
 	public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
 		if (dragging != null) {
-			int x = (int) Math.max(0, Math.min(width - panelW() - COL_W, event.x() - dragDx));
-			int y = (int) Math.max(0, Math.min(height - HEAD_H, event.y() - dragDy));
+			int x = (int) Math.max(0, Math.min(vw - panelW() - COL_W, event.x() / scale - dragDx));
+			int y = (int) Math.max(0, Math.min(vh - HEAD_H, event.y() / scale - dragDy));
 			positions().put(dragging, new int[]{x, y});
 			return true;
 		}
 		if (activeSlider != null) {
-			setSlider(activeSlider, event.x());
+			setSlider(activeSlider, event.x() / scale);
 			return true;
 		}
 		return super.mouseDragged(event, dx, dy);
@@ -308,8 +339,9 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	}
 
 	@Override
-	public boolean mouseScrolled(double mx, double my, double sx, double sy) {
-		if (mx >= width - panelW()) {
+	public boolean mouseScrolled(double rawX, double rawY, double sx, double sy) {
+		double mx = rawX / scale, my = rawY / scale;
+		if (mx >= vw - panelW()) {
 			panelScroll -= sy * 20;
 			return true;
 		}
@@ -321,7 +353,7 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 				return true;
 			}
 		}
-		return super.mouseScrolled(mx, my, sx, sy);
+		return super.mouseScrolled(rawX, rawY, sx, sy);
 	}
 
 	@Override

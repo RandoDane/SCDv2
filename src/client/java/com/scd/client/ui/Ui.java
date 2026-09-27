@@ -102,8 +102,15 @@ public final class Ui {
 		return Math.max(2, Math.min(24, Math.round(hudDensity * 4)));
 	}
 
+	private static volatile int scaleOverride;
+
+	/** Font rasterization scale for a menu drawn at its own pixel density (0 = the GUI scale). */
+	public static void setScaleOverride(int scale) {
+		scaleOverride = scale;
+	}
+
 	private static int scaleIndex() {
-		int s = Minecraft.getInstance().getWindow().getGuiScale();
+		int s = scaleOverride > 0 ? scaleOverride : Minecraft.getInstance().getWindow().getGuiScale();
 		return Math.max(1, Math.min(6, s));
 	}
 

@@ -27,6 +27,8 @@ public final class ScdConfig {
 		public boolean smoothFont = true;
 		/** Text size in SCD menus, percent (70-110); HUDs are sized in the HUD editor. */
 		public int menuTextSize = 80;
+		/** Click GUI size in percent of its base size (the look of GUI scale 2 at 1080p). */
+		public int menuScale = 100;
 		/** Click GUI column positions (category -> {x, y}), set by dragging headers. */
 		public java.util.Map<String, int[]> clickGuiPositions = new java.util.HashMap<>();
 		/** Unlocks /scd debug and verbose logging - for troubleshooting, off for normal play. */

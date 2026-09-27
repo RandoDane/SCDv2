@@ -173,6 +173,8 @@ final class ClickGuiContent {
 							c.general.menuTextSize = (int) Math.round(v);
 							Ui.setMenuTextSize(c.general.menuTextSize);
 						}, v -> Math.round(v) + "%"),
+						new Opt.Slider("Menu size", 80, 130, 5, () -> c.general.menuScale, v -> c.general.menuScale = (int) Math.round(v),
+								v -> Math.round(v) + "%"),
 						new Opt.Toggle("Only on SkyBlock", () -> c.general.requireSkyblock, v -> c.general.requireSkyblock = v),
 						new Opt.Toggle("Developer mode", () -> c.general.developerMode, v -> {
 							c.general.developerMode = v;
