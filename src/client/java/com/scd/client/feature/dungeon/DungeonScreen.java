@@ -9,6 +9,8 @@ import com.scd.client.ui.ScdScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 
+import java.util.List;
+
 /** Dungeon settings. */
 public final class DungeonScreen extends ScdScreen {
 	private final ScdMod mod;
@@ -59,5 +61,28 @@ public final class DungeonScreen extends ScdScreen {
 		rows.toggle("Room HUD", "Name, secrets and crypts of the room you're in", () -> c.roomHud, v -> c.roomHud = v);
 		rows.toggle("Route-making details", "Adds rotation, anchor and your room-relative position to the room HUD", () -> c.roomDebug, v -> c.roomDebug = v);
 		rows.value("Room engine", dungeon::roomEngineState);
+
+		var routes = mod.feature(com.scd.client.feature.dungeon.route.RouteFeature.class);
+		rows.header("Secret routes");
+		rows.toggle("Show routes", "Path, etherwarps, mines and the next secret in identified rooms", () -> c.routes, v -> c.routes = v);
+		rows.toggle("Through walls", null, () -> c.routesThroughWalls, v -> c.routesThroughWalls = v);
+		rows.toggle("Preview the next step", "Draws the following step faded", () -> c.routesShowNext, v -> c.routesShowNext = v);
+		rows.value("Your routes", () -> routes.library().mine().rooms.size() + " rooms in " + com.scd.client.feature.dungeon.route.RouteLibrary.MINE);
+		for (var pack : routes.library().packs()) {
+			String file = pack.file();
+			rows.toggle(pack.pack().name.equals("Routes") ? file : pack.pack().name, pack.pack().rooms.size() + " rooms · " + file,
+					() -> !c.disabledRoutePacks.contains(file), v -> {
+						if (v) c.disabledRoutePacks.remove(file);
+						else if (!c.disabledRoutePacks.contains(file)) c.disabledRoutePacks.add(file);
+					});
+		}
+		rows.note("Record: stand in a room, /scd route record, clear it, /scd route record stop. Share: /scd route share. "
+				+ "Packs (SCD or SecretRoutes routes.json) go in config/scd/routes.");
+		rows.buttons(List.of("Open routes folder", "Reload packs"), List.of(
+				() -> net.minecraft.util.Util.getPlatform().openPath(com.scd.client.feature.dungeon.route.RouteLibrary.folder()),
+				() -> {
+					routes.library().reload();
+					rebuild();
+				}));
 	}
 }

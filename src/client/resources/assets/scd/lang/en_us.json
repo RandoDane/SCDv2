@@ -1,4 +1,7 @@
 {
 	"key.scd.menu": "Open SCD menu",
-	"key.category.scd.main": "SCD"
+	"key.category.scd.main": "SCD",
+	"key.scd.route_next": "Next route step",
+	"key.scd.route_back": "Previous route step",
+	"key.category.scd.routes": "SCD routes"
 }

@@ -18,7 +18,7 @@ final class RoomHud extends HudElement {
 	private final Supplier<MappedRoom> room;
 
 	RoomHud(Supplier<ScdConfig> config, Supplier<MappedRoom> room) {
-		super("dungeon_room", "Dungeon room", HudLayout.at(HudLayout.AnchorX.LEFT, HudLayout.AnchorY.TOP, 8, 90));
+		super("dungeon_room", "Dungeon room", HudLayout.at(HudLayout.AnchorX.RIGHT, HudLayout.AnchorY.TOP, 8, 8));
 		this.config = config;
 		this.room = room;
 	}

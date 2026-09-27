@@ -3,6 +3,8 @@ package com.scd.client.core;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 
 /** Every event type published on the {@link EventBus}. */
 public final class Events {
@@ -44,5 +46,9 @@ public final class Events {
 
 	/** The server reported a living entity's death (entity event 3), before it is removed. */
 	public record EntityDied(LivingEntity entity) {
+	}
+
+	/** The local player picked up an item entity that was at {@code pos}. */
+	public record ItemPickedUp(Vec3 pos, ItemStack stack) {
 	}
 }

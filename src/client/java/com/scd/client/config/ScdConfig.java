@@ -101,6 +101,13 @@ public final class ScdConfig {
 		public boolean roomHud = true;
 		/** Adds rotation, anchor and room-relative position to the room HUD (for making routes). */
 		public boolean roomDebug = false;
+		/** Play secret routes (yours + enabled packs) in identified rooms. */
+		public boolean routes = true;
+		public boolean routesThroughWalls = true;
+		/** Also draw the step after the current one, faded. */
+		public boolean routesShowNext = true;
+		/** Route pack file names (config/scd/routes) that are switched off. */
+		public java.util.List<String> disabledRoutePacks = new java.util.ArrayList<>();
 	}
 
 	public static final class Accessories {

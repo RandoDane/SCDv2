@@ -80,8 +80,8 @@ class ScoreCalculatorTest {
 		// 5 rooms at 17% fits 29 and 30; with 30 rooms already seen on the map only 30 remains.
 		assertEquals(29, ScoreCalculator.totalRooms(5, 17, 0));
 		assertEquals(30, ScoreCalculator.totalRooms(5, 17, 30));
-		assertEquals(0, ScoreCalculator.totalRooms(0, 0, 0));
-		assertEquals(27, ScoreCalculator.totalRooms(0, 0, 27));
+		assertEquals(36, ScoreCalculator.totalRooms(0, 0, 0));
+		assertEquals(36, ScoreCalculator.totalRooms(0, 0, 27));
 	}
 
 	@Test

@@ -5,7 +5,8 @@
 	"client": [
 		"ChatPacketMixin",
 		"EntityRendererMixin",
-		"LivingEntityMixin"
+		"LivingEntityMixin",
+		"ItemPickupMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

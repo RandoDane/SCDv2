@@ -133,7 +133,8 @@ public final class ScoreCalculator {
 	 * nothing fits (e.g. the two counters are momentarily out of sync).
 	 */
 	public static int totalRooms(int completed, double clearPercent, int knownRooms) {
-		if (completed <= 0 || clearPercent <= 0) return Math.max(knownRooms, 0);
+		// Nothing cleared yet: assume the largest dungeon (Odin's default) so early estimates err low.
+		if (completed <= 0 || clearPercent <= 0) return 36;
 		int pct = (int) Math.round(clearPercent);
 		int lower = Math.max(1, Math.max(knownRooms, completed));
 		double direct = completed / (clearPercent / 100.0);

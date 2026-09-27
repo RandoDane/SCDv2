@@ -295,6 +295,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		check(back.equals(ctx.computeOnClient(mc -> mc.player.blockPosition())), "relative frame does not round-trip");
 		System.out.println("SCD_TEST_ROOM " + room.label() + " " + room.anchor() + " player rel " + rel);
 		ctx.takeScreenshot("14-room-hud");
+		routeScenario(ctx, server, mod, c);
 
 		ctx.runOnClient(mc -> {
 			try {
@@ -306,5 +307,117 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 			mod.config().dungeon.roomDebug = false;
 		});
 		sidebar(server, List.of("Dec 12th", "⏣ Hub"));
+	}
+
+	/**
+	 * Record a 4-step route (chest, item, bat, exit) in the test room, then play it back and check each
+	 * secret advances it; round-trip it through a share code; optionally load a real SecretRoutes pack.
+	 */
+	private static void routeScenario(ClientGameTestContext ctx, TestServerContext server, ScdMod mod, int c) {
+		var routes = mod.feature(com.scd.client.feature.dungeon.route.RouteFeature.class);
+		var chest = new net.minecraft.core.BlockPos(c + 3, 91, c + 3);
+		server.runCommand("setblock " + chest.getX() + " 91 " + chest.getZ() + " chest");
+		server.runCommand("tp @p " + (c - 5) + " 91 " + (c - 5));
+		ctx.waitTicks(10);
+		ctx.runOnClient(mc -> mc.player.connection.sendCommand("scd route record"));
+		ctx.waitTicks(5);
+		check(ctx.computeOnClient(mc -> routes.recorderActive()), "recording did not start");
+		server.runCommand("tp @p " + (c + 2) + " 91 " + (c + 2));
+		ctx.waitTicks(10);
+		clickBlock(ctx, chest);
+		server.runCommand("tp @p " + (c + 8) + " 91 " + (c - 2));
+		ctx.waitTicks(10);
+		server.runCommand("execute as @p at @s run summon item ~ ~ ~ {Item:{id:\"minecraft:bone\",count:1},PickupDelay:0s}");
+		ctx.waitTicks(20);
+		server.runCommand("execute as @p at @s run summon bat ~2 ~1 ~ {NoAI:1b}");
+		ctx.waitTicks(5);
+		server.runCommand("kill @e[type=bat]");
+		ctx.waitTicks(10);
+		server.runCommand("tp @p " + (c - 10) + " 91 " + (c + 10));
+		ctx.waitTicks(10);
+		ctx.runOnClient(mc -> mc.player.connection.sendCommand("scd route mark"));
+		ctx.waitTicks(2);
+		ctx.runOnClient(mc -> mc.player.connection.sendCommand("scd route record stop"));
+		ctx.waitTicks(5);
+		var steps = ctx.computeOnClient(mc -> routes.library().mine().rooms.get("SCD Test Room"));
+		check(steps != null && steps.size() == 4, "expected 4 recorded steps, got " + (steps == null ? null : steps.size()));
+		System.out.println("SCD_TEST_ROUTE types " + steps.stream().map(st -> st.secretType.key).toList()
+				+ " warps " + steps.stream().mapToInt(st -> st.etherwarps.size()).sum());
+		check(steps.get(0).secretType == com.scd.logic.dungeon.route.RouteStep.SecretType.INTERACT, "step 1 should be the chest");
+		check(steps.get(1).secretType == com.scd.logic.dungeon.route.RouteStep.SecretType.ITEM, "step 2 should be the item");
+		check(steps.get(2).secretType == com.scd.logic.dungeon.route.RouteStep.SecretType.BAT, "step 3 should be the bat");
+
+		// Playback
+		server.runCommand("tp @p " + (c - 5) + " 91 " + (c - 5));
+		ctx.waitTicks(10);
+		check(ctx.computeOnClient(mc -> routes.playbackIndex()) == 0, "playback should start at step 1");
+		ctx.takeScreenshot("15-route-playback");
+		server.runCommand("tp @p " + (c + 2) + " 91 " + (c + 2));
+		ctx.waitTicks(5);
+		clickBlock(ctx, chest);
+		check(ctx.computeOnClient(mc -> routes.playbackIndex()) == 1, "chest click did not advance");
+		server.runCommand("tp @p " + (c + 8) + " 91 " + (c - 2));
+		ctx.waitTicks(5);
+		server.runCommand("execute as @p at @s run summon item ~ ~ ~ {Item:{id:\"minecraft:bone\",count:1},PickupDelay:0s}");
+		ctx.waitTicks(20);
+		check(ctx.computeOnClient(mc -> routes.playbackIndex()) == 2, "item pickup did not advance");
+		server.runCommand("execute as @p at @s run summon bat ~2 ~1 ~ {NoAI:1b}");
+		ctx.waitTicks(5);
+		server.runCommand("kill @e[type=bat]");
+		ctx.waitTicks(10);
+		check(ctx.computeOnClient(mc -> routes.playbackIndex()) == 3, "bat kill did not advance");
+		server.runCommand("tp @p " + (c - 10) + " 91 " + (c + 10));
+		ctx.waitTicks(10);
+		check(ctx.computeOnClient(mc -> routes.playbackIndex()) == 4, "reaching the exit did not finish the route");
+
+		// Share code round trip
+		String code = ctx.computeOnClient(mc -> com.scd.logic.dungeon.route.ShareCode.encode("SCD Test Room", routes.library().mine().rooms.get("SCD Test Room")));
+		ctx.runOnClient(mc -> {
+			routes.library().mine().rooms.remove("SCD Test Room");
+			mc.player.connection.sendCommand("scd route import " + code);
+		});
+		ctx.waitTicks(5);
+		check(ctx.computeOnClient(mc -> routes.library().mine().rooms.get("SCD Test Room")).size() == 4, "share code import failed");
+
+		String srPack = System.getenv("SCD_SR_ROUTES");
+		if (srPack != null) {
+			ctx.runOnClient(mc -> {
+				try {
+					java.nio.file.Files.copy(java.nio.file.Path.of(srPack), com.scd.client.feature.dungeon.route.RouteLibrary.folder().resolve("secretroutes.json"),
+							java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+				} catch (java.io.IOException e) {
+					throw new RuntimeException(e);
+				}
+				routes.library().reload();
+			});
+			var pack = ctx.computeOnClient(mc -> routes.library().packs().stream().filter(p -> p.file().equals("secretroutes.json")).findFirst().orElse(null));
+			check(pack != null && pack.pack().rooms.size() >= 90, "SecretRoutes pack not loaded");
+			check(ctx.computeOnClient(mc -> !routes.library().routesFor("Altar", java.util.List.of()).isEmpty()), "SecretRoutes 'Altar-6' not mapped onto Altar");
+			System.out.println("SCD_TEST_SR_PACK rooms " + pack.pack().rooms.size());
+			ctx.runOnClient(mc -> {
+				try {
+					java.nio.file.Files.deleteIfExists(com.scd.client.feature.dungeon.route.RouteLibrary.folder().resolve("secretroutes.json"));
+				} catch (java.io.IOException e) {
+					throw new RuntimeException(e);
+				}
+			});
+		}
+		ctx.runOnClient(mc -> {
+			routes.library().mine().rooms.remove("SCD Test Room");
+			try {
+				routes.library().saveMine();
+			} catch (java.io.IOException e) {
+				throw new RuntimeException(e);
+			}
+			routes.library().reload();
+		});
+	}
+
+	private static void clickBlock(ClientGameTestContext ctx, net.minecraft.core.BlockPos pos) {
+		ctx.runOnClient(mc -> mc.gameMode.useItemOn(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND,
+				new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(pos), net.minecraft.core.Direction.UP, pos, false)));
+		ctx.waitTicks(5);
+		ctx.setScreen(() -> null);
+		ctx.waitTicks(2);
 	}
 }

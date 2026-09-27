@@ -36,6 +36,12 @@ public final class WorldGizmos {
 		if (throughWalls) props.setAlwaysOnTop();
 	}
 
+	/** Outlined block with a faint fill. */
+	public static void block(net.minecraft.core.BlockPos pos, int argb, boolean throughWalls) {
+		var props = Gizmos.cuboid(pos, GizmoStyle.strokeAndFill(argb, 2f, (argb & 0x00FFFFFF) | 0x30000000));
+		if (throughWalls) props.setAlwaysOnTop();
+	}
+
 	public static void label(Vec3 pos, String text, int argb, boolean throughWalls) {
 		var props = Gizmos.billboardText(text, pos, TextGizmo.Style.forColorAndCentered(argb));
 		if (throughWalls) props.setAlwaysOnTop();
