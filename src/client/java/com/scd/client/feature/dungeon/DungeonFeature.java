@@ -85,7 +85,7 @@ public final class DungeonFeature implements Feature {
 			if (r != null) {
 				var a = r.anchor();
 				ScdLog.info("[rooms] entered " + r.label() + (a != null ? " " + a.rotation() + " via " + r.anchorSource + " clay " + a.x() + "," + a.z() : " (no anchor)")
-						+ " core " + r.core);
+						+ " core " + r.core + " tiles " + r.tiles().stream().map(t -> t[0] + "," + t[1]).toList());
 			}
 			mod.bus.post(new DungeonEvents.RoomEntered(r));
 		}

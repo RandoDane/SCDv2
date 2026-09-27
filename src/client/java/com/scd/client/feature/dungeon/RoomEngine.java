@@ -145,8 +145,8 @@ public final class RoomEngine {
 			var access = lvl.getChunkSource().getChunk(DungeonGrid.chunkOf(tx), DungeonGrid.chunkOf(tz), ChunkStatus.FULL, false);
 			if (!(access instanceof LevelChunk chunk)) continue;
 			RoomCore.Result res = core(chunk, 7, 7);
-			// Solid right at the scan top: outside the room grid (smaller floors), not a room.
-			if (res.empty() || res.highestBlock() >= RoomCore.TOP) continue;
+			// Note: some real rooms are solid right up to the scan top (y140), so that is not filtered.
+			if (res.empty()) continue;
 			cores[i] = res.core();
 			RoomInfo info = db.byCore(res.core());
 			if (info == null) {
@@ -236,21 +236,24 @@ public final class RoomEngine {
 			return;
 		}
 		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
-		var corners = RoomPlacement.corners(room.tiles);
-		for (var e : corners.entrySet()) {
-			int[] c = e.getValue();
-			// Don't decide while a corner is still unloaded (it would read as air).
-			if (!lvl.hasChunkAt(p.set(c[0], room.highestBlock, c[1]))) return;
+		// Don't decide while part of the room is unloaded (it would read as air).
+		// Tile corners reach into neighbouring chunks, so check every probe spot.
+		for (int[] t : room.tiles) {
+			for (RoomRotation rot : PROBE_ORDER) {
+				if (!lvl.hasChunkAt(p.set(DungeonGrid.centre(t[0]) + rot.dx, room.highestBlock, DungeonGrid.centre(t[1]) + rot.dz))) return;
+			}
 		}
-		for (var e : corners.entrySet()) {
-			int[] c = e.getValue();
-			if (lvl.getBlockState(p.set(c[0], room.highestBlock, c[1])).getBlock() == clay) {
-				room.anchor = new RoomPlacement.Anchor(e.getKey(), c[0], c[1]);
+		// Every tile corner, rotations in a fixed order (SecretRoutes' order, so its packs line up):
+		// live data showed multi-tile rooms keep their clay at a tile corner, not the room's outer corner.
+		List<int[]> tiles = new ArrayList<>(room.tiles);
+		tiles.sort((a, b) -> a[0] != b[0] ? Integer.compare(a[0], b[0]) : Integer.compare(a[1], b[1]));
+		for (RoomRotation rot : PROBE_ORDER) {
+			for (int[] t : tiles) {
+				int x = DungeonGrid.centre(t[0]) + rot.dx, z = DungeonGrid.centre(t[1]) + rot.dz;
+				if (lvl.getBlockState(p.set(x, room.highestBlock, z)).getBlock() != clay) continue;
+				if (tiles.size() > 1 && !clayNeighbours(lvl, x, room.highestBlock, z, clay)) continue;
+				room.anchor = new RoomPlacement.Anchor(rot, x, z);
 				room.anchorSource = "block";
-				RoomPlacement.Anchor geo = room.info != null && !oneByOne ? RoomPlacement.fromGeometry(room.tiles, room.info.shape()) : null;
-				if (geo != null && geo.rotation() != e.getKey()) {
-					ScdLog.info("[rooms] " + room.label() + ": clay says " + e.getKey() + ", footprint says " + geo.rotation());
-				}
 				return;
 			}
 		}
@@ -259,10 +262,23 @@ public final class RoomEngine {
 			if (geo != null) {
 				room.anchor = geo;
 				room.anchorSource = "geometry";
-				ScdLog.info("[rooms] " + room.label() + ": no clay at the corners (roof y" + room.highestBlock + "), footprint " + geo.rotation()
+				ScdLog.info("[rooms] " + room.label() + ": no clay at any tile corner (roof y" + room.highestBlock + "), footprint " + geo.rotation()
 						+ "; blue terracotta nearby: " + findClay(lvl, room, clay));
 			}
 		}
+	}
+
+	private static final RoomRotation[] PROBE_ORDER = {RoomRotation.NORTH, RoomRotation.SOUTH, RoomRotation.WEST, RoomRotation.EAST};
+
+	/** A real clay has only terracotta or air beside it; decorative blue terracotta sits in walls. */
+	private static boolean clayNeighbours(Level lvl, int x, int y, int z, Block clay) {
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+		for (int[] d : dirs) {
+			var state = lvl.getBlockState(p.set(x + d[0], y, z + d[1]));
+			if (!state.isAir() && state.getBlock() != clay) return false;
+		}
+		return true;
 	}
 
 	/** Diagnostic: every blue terracotta within 5 blocks (y) of the roof at any tile corner of the room. */
