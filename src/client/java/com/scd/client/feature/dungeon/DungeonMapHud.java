@@ -118,14 +118,74 @@ final class DungeonMapHud extends HudElement {
 		g.fill(x - 1, y - 1, x + 1, y + 1, color);
 	}
 
-	private static void previewGrid(GuiGraphicsExtractor g, int x, int y) {
-		RoomKind[] kinds = {RoomKind.ENTRANCE, RoomKind.NORMAL, RoomKind.NORMAL, RoomKind.PUZZLE, RoomKind.NORMAL, RoomKind.TRAP, RoomKind.NORMAL,
-				RoomKind.FAIRY, RoomKind.NORMAL, RoomKind.CHAMPION, RoomKind.NORMAL, RoomKind.BLOOD};
-		for (int i = 0; i < kinds.length; i++) {
-			int rx = x + (i % 6) * CELL, rz = y + (i / 6) * CELL;
-			g.fill(rx, rz, rx + ROOM, rz + ROOM, color(kinds[i]));
-			if (kinds[i] == RoomKind.NORMAL) Ui.centered(g, (i % 3) + "/3", rx + ROOM / 2, rz + ROOM / 2 - 1, 0xFFFFFFFF);
+	/**
+	 * An example floor for the HUD editor, drawn like a real run: multi-tile rooms, every room type,
+	 * doors, check marks, secret counts, unexplored rooms and player dots.
+	 */
+	private static final String[] PREVIEW = {
+			"EaabPc",
+			"dffbgc",
+			"dffhgc",
+			"Tijjjj",
+			"kiYlmn",
+			"kFoomB"};
+	/** Doors as tile pairs (index = z * 6 + x) with a type: n normal, w wither, b blood. */
+	private static final String[] PREVIEW_DOORS = {"0-1n", "0-6n", "2-3n", "3-4n", "9-10n", "10-11n", "6-7n", "14-15w", "12-18n",
+			"18-19n", "19-20w", "20-26n", "25-24n", "30-31n", "31-32n", "21-27n", "27-28n", "28-29n", "29-35b", "17-23n"};
+
+	private void previewGrid(GuiGraphicsExtractor g, int x, int y) {
+		for (int i = 0; i < 36; i++) {
+			char id = PREVIEW[i / 6].charAt(i % 6);
+			int tx = i % 6, tz = i / 6, color = color(previewKind(id));
+			int rx = x + tx * CELL, rz = y + tz * CELL;
+			g.fill(rx, rz, rx + ROOM, rz + ROOM, color);
+			boolean right = tx < 5 && PREVIEW[tz].charAt(tx + 1) == id, down = tz < 5 && PREVIEW[tz + 1].charAt(tx) == id;
+			if (right) g.fill(rx + ROOM, rz, rx + CELL, rz + ROOM, color);
+			if (down) g.fill(rx, rz + ROOM, rx + ROOM, rz + CELL, color);
+			if (right && down && PREVIEW[tz + 1].charAt(tx + 1) == id) g.fill(rx + ROOM, rz + ROOM, rx + CELL, rz + CELL, color);
 		}
+		var c = config.get().dungeon;
+		if (c.mapDoors) for (String d : PREVIEW_DOORS) {
+			String[] ab = d.substring(0, d.length() - 1).split("-");
+			int t1 = Math.min(Integer.parseInt(ab[0]), Integer.parseInt(ab[1])), t2 = Math.max(Integer.parseInt(ab[0]), Integer.parseInt(ab[1]));
+			int dc = switch (d.charAt(d.length() - 1)) {
+				case 'w' -> 0xFF111111;
+				case 'b' -> 0xFFDC2626;
+				default -> 0xFF8B6B4A;
+			};
+			int cx = x + (t1 % 6) * CELL + ROOM / 2, cz = y + (t1 / 6) * CELL + ROOM / 2;
+			if (t2 - t1 == 1) g.fill(cx + ROOM / 2, cz - 2, cx + ROOM / 2 + GAP, cz + 2, dc);
+			else g.fill(cx - 2, cz + ROOM / 2, cx + 2, cz + ROOM / 2 + GAP, dc);
+		}
+		// Check marks and secrets on each room's first tile: id -> check (g/w/-), found, total.
+		String[][] rooms = {{"a", "g", "3", "3"}, {"b", "w", "1", "4"}, {"c", "w", "2", "5"}, {"d", "g", "2", "2"}, {"f", "w", "4", "7"},
+				{"g", "-", "0", "3"}, {"h", "g", "1", "1"}, {"i", "w", "1", "2"}, {"j", "-", "0", "6"}, {"k", "-", "0", "2"},
+				{"l", "-", "0", "1"}, {"P", "g", "0", "0"}, {"T", "w", "0", "0"}, {"E", "g", "0", "0"}};
+		for (String[] r : rooms) {
+			int first = -1;
+			for (int i = 0; i < 36 && first < 0; i++) if (PREVIEW[i / 6].charAt(i % 6) == r[0].charAt(0)) first = i;
+			int cx = x + (first % 6) * CELL + ROOM / 2, cz = y + (first / 6) * CELL + ROOM / 2;
+			if (c.mapChecks && !r[1].equals("-")) g.fill(cx - 2, cz - 7, cx + 2, cz - 3, r[1].equals("g") ? 0xFF4ADE80 : 0xFFFFFFFF);
+			int total = Integer.parseInt(r[3]), found = Integer.parseInt(r[2]);
+			if (c.mapSecrets && total > 0) Ui.centered(g, found + "/" + total, cx, cz - 1, found >= total ? 0xFF4ADE80 : 0xFFFFFFFF);
+		}
+		if (!c.mapPlayers) return;
+		dot(g, x + 3 * CELL + CELL / 2, y + 3 * CELL + ROOM / 2, 0xFF4ADE80);
+		dot(g, x + 1 * CELL + 4, y + 1 * CELL + ROOM + 2, 0xFF60A5FA);
+		dot(g, x + 5 * CELL + ROOM / 2, y + 1 * CELL + 6, 0xFF60A5FA);
+	}
+
+	private static RoomKind previewKind(char id) {
+		return switch (id) {
+			case 'E' -> RoomKind.ENTRANCE;
+			case 'P' -> RoomKind.PUZZLE;
+			case 'T' -> RoomKind.TRAP;
+			case 'Y' -> RoomKind.CHAMPION;
+			case 'F' -> RoomKind.FAIRY;
+			case 'B' -> RoomKind.BLOOD;
+			case 'm', 'n', 'o' -> RoomKind.UNKNOWN;
+			default -> RoomKind.NORMAL;
+		};
 	}
 
 	static int color(RoomKind kind) {

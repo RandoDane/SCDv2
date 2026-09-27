@@ -121,11 +121,15 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 
 	/** Category titles: bold and a step larger than row text, with a font made for that density. */
 	private void headerText(GuiGraphicsExtractor g, String text, int centerX, int top) {
+		headerText(g, text, centerX, top, headH);
+	}
+
+	private void headerText(GuiGraphicsExtractor g, String text, int centerX, int top, int boxH) {
 		float density = quarter(textDensity * 1.3f);
 		Ui.setHudDensity(density);
 		Ui.setTextScale(density / pixelDensity);
 		int textH = Math.round(7 * density / pixelDensity);
-		Ui.bold(g, text, centerX - Ui.widthBold(text) / 2, top + Math.max(0, (headH - textH) / 2), 0xFFFFFFFF);
+		Ui.bold(g, text, centerX - Ui.widthBold(text) / 2, top + Math.max(0, (boxH - textH) / 2), 0xFFFFFFFF);
 		beginText();
 	}
 
@@ -204,22 +208,21 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		Theme t = Ui.theme();
 		int x = pos[0], y = pos[1];
 		// Header: the drag handle.
-		Ui.rect(g, x, y, colW, headH, 3, t.accent());
+		g.fill(x, y, x + colW, y + headH, t.accent());
 		headerText(g, c.name().toUpperCase(java.util.Locale.ROOT), x + colW / 2, y);
 		headerRects.put(c.name(), new int[]{x, y, colW, headH});
 		// Right-click on the header folds the category away (left-drag moves it).
 		if (mod.config().general.clickGuiCollapsed.contains(c.name())) return null;
 		int top = y + headH;
 		double scroll = SCROLL.getOrDefault(c.name(), 0.0);
-		// +1: a background-coloured line along the bottom, inside the accent outline.
-		int contentH = contentHeight(c) + 1;
+		// +2: a background-coloured line under the last row, then the accent outline.
+		int contentH = contentHeight(c) + 2;
 		int visibleH = Math.max(0, Math.min(contentH, maxBottom - top));
 		scroll = Math.max(0, Math.min(scroll, contentH - visibleH));
 		SCROLL.put(c.name(), scroll);
 		g.fill(x, top, x + colW, top + visibleH, t.window());
-		g.outline(x, y, colW, headH + visibleH, t.accent());
-		// Rows sit inside a 1px background-coloured inner border (sides and bottom) within the outline.
-		g.enableScissor(x + 2, top, x + colW - 2, top + visibleH - 1);
+		// Rows sit inside a 1-unit background-coloured inner border (sides and bottom) within the outline.
+		g.enableScissor(x + 2, top, x + colW - 2, top + visibleH - 2);
 		String hover = null;
 		int ry = top - (int) scroll;
 		for (Module m : c.modules()) {
@@ -247,6 +250,8 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 			}
 		}
 		g.disableScissor();
+		// Outline last so nothing drawn for the rows can cover it.
+		g.outline(x, y, colW, headH + visibleH, t.accent());
 		return hover;
 	}
 
@@ -408,8 +413,11 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		g.fill(px, 0, px + 1, vh, t.accent());
 		g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, px + 8, 6, 16, 16);
 		int top = 28;
+		// "Move HUDs" sits at the bottom as a big button; the sections scroll above it.
+		int btnH = headH + 4, btnY = vh - gap - btnH, bottom = btnY - gap;
+		drawMoveHuds(g, px + gap, btnY, pw - 2 * gap, btnH, mx, my);
 		int y = top - (int) panelScroll;
-		g.enableScissor(px, top, vw, vh);
+		g.enableScissor(px, top, vw, bottom);
 		// Each section is a card styled like a category column: accent header, outline, and the
 		// options inside a 1-unit background-coloured inner border.
 		int cx = px + gap, cw = pw - 2 * gap;
@@ -417,12 +425,12 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 			List<Opt> opts = s.options().get();
 			// +2: a background-coloured line under the last row, then the outline.
 			int bodyH = opts.size() * optH + 2;
-			Ui.rect(g, cx, y, cw, headH, 3, t.accent());
+			g.fill(cx, y, cx + cw, y + headH, t.accent());
 			headerText(g, s.title().toUpperCase(java.util.Locale.ROOT), cx + cw / 2, y);
 			g.fill(cx, y + headH, cx + cw, y + headH + bodyH, t.window());
 			int ry = y + headH;
 			for (Opt o : opts) {
-				drawOpt(g, o, cx + 2, ry, cw - 4, 6, top, vh - top, mx, my);
+				drawOpt(g, o, cx + 2, ry, cw - 4, 6, top, bottom - top, mx, my);
 				ry += optH;
 			}
 			// Outline last so nothing drawn for the rows can cover it.
@@ -430,8 +438,19 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 			y += headH + bodyH + gap;
 		}
 		int contentH = y + (int) panelScroll - top;
-		panelScroll = Math.max(0, Math.min(panelScroll, Math.max(0, contentH - (vh - top))));
+		panelScroll = Math.max(0, Math.min(panelScroll, Math.max(0, contentH - (bottom - top))));
 		g.disableScissor();
+	}
+
+	private void drawMoveHuds(GuiGraphicsExtractor g, int x, int y, int w, int h, int mx, int my) {
+		Theme t = Ui.theme();
+		boolean hot = mx >= x && mx < x + w && my >= y && my < y + h;
+		int alpha = hot ? 0xC0000000 : 0x70000000;
+		g.fill(x, y, x + w, y + h, (t.accent() & 0x00FFFFFF) | alpha);
+		g.outline(x, y, w, h, t.accent());
+		headerText(g, "MOVE HUDS", x + w / 2, y, h);
+		hits.add(new Hit(x, y, w, h, () -> net.minecraft.client.Minecraft.getInstance().gui.setScreen(
+				new com.scd.client.hud.HudEditorScreen(this, mod.huds, mod.configManager)), null, null, "Drag, resize and anchor every HUD"));
 	}
 
 	// ---- input ----------------------------------------------------------------------------

@@ -153,8 +153,8 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 			int density = Math.max(1, Math.round(w.getHeight() / 540f));
 			int vw = w.getWidth() / density;
 			int pw = Math.max(120, vw / 5), cx = vw - pw + 6, cw = pw - 12;
-			// General card (header 16 + 6 rows of 13 + 2), gap 6, Carries header 16, "Earned" row, then Customer.
-			int y = 28 + 96 + 6 + 16 + 13 + 6;
+			// General card (header 16 + 5 rows of 13 + 2), gap 6, Carries header 16, "Earned" row, then Customer.
+			int y = 28 + 83 + 6 + 16 + 13 + 6;
 			return new double[]{(cx + cw * 3 / 4) * density, y * density};
 		});
 		ctx.getInput().setCursorPos(at[0], at[1]);

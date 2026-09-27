@@ -46,17 +46,11 @@ public final class HudEditorScreen extends Screen {
 		huds.setSuppressed(true);
 		int bw = 110;
 		int y = height - 24;
-		addRenderableWidget(new FlatButton(width / 2 - bw * 3 / 2 - 6, y, bw, 16, "Appearance...", () -> {
-			// Appearance lives in the menu's HUD column; open it with this HUD's row expanded.
-			var mod = com.scd.client.ScdMod.get();
-			if (selected != null) com.scd.client.ui.clickgui.ClickGuiScreen.expand("HUD/" + selected.name());
-			Minecraft.getInstance().gui.setScreen(new com.scd.client.ui.clickgui.ClickGuiScreen(mod));
-		}).tooltip("Colors, size and background (Setup → Appearance)"));
-		addRenderableWidget(new FlatButton(width / 2 - bw / 2, y, bw, 16, "Reset all", () -> {
+		addRenderableWidget(new FlatButton(width / 2 - bw - 3, y, bw, 16, "Reset all", () -> {
 			for (HudElement e : huds.elements()) config.get().huds.put(e.id(), e.defaults().copy());
 			config.save();
 		}).danger());
-		addRenderableWidget(new FlatButton(width / 2 + bw / 2 + 6, y, bw, 16, "Done", this::onClose));
+		addRenderableWidget(new FlatButton(width / 2 + 3, y, bw, 16, "Done", this::onClose));
 	}
 
 	@Override

@@ -15,7 +15,6 @@ import com.scd.client.feature.slayer.AbilityCue;
 import com.scd.client.feature.slayer.SlayerFeature;
 import com.scd.client.feature.slayer.SlayerScreen;
 import com.scd.client.feature.slayer.SlayerType;
-import com.scd.client.hud.HudEditorScreen;
 import com.scd.client.screen.AppearanceScreen;
 import com.scd.client.screen.GeneralScreen;
 import com.scd.client.screen.MainScreen;
@@ -237,8 +236,7 @@ final class ClickGuiContent {
 						}, v -> Math.round(v) + "%"),
 						new Opt.Slider("Menu size", 80, 130, 5, () -> c.general.menuScale, v -> c.general.menuScale = (int) Math.round(v),
 								v -> Math.round(v) + "%"),
-						new Opt.Toggle("Only on SkyBlock", () -> c.general.requireSkyblock, v -> c.general.requireSkyblock = v),
-						new Opt.Action("Move HUDs...", () -> open(new HudEditorScreen(current(), mod.huds, mod.configManager))))),
+						new Opt.Toggle("Only on SkyBlock", () -> c.general.requireSkyblock, v -> c.general.requireSkyblock = v))),
 				new ClickGuiScreen.PanelSection("Carries", () -> {
 					List<Opt> o = new ArrayList<>();
 					for (var carry : carries.active()) {
