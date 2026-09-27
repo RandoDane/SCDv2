@@ -51,9 +51,11 @@ final class RoomTimes {
 			var e = it.next();
 			MappedRoom room = e.getKey();
 			if (!room.checkmark().cleared()) continue;
+			// Read before removing: an IdentityHashMap entry is invalid once removed.
+			long[] started = e.getValue();
 			it.remove();
-			long raw = System.currentTimeMillis() - e.getValue()[0];
-			long lag = Math.min(raw, ServerLag.since(e.getValue()[1]));
+			long raw = System.currentTimeMillis() - started[0];
+			long lag = Math.min(raw, ServerLag.since(started[1]));
 			record(room.name(), raw - lag, lag);
 		}
 	}

@@ -13,7 +13,7 @@ import java.util.Locale;
 /**
  * Drawing primitives for every SCD surface.
  *
- * Text uses the bundled Poppins TTF (smooth, anti-aliased) without Minecraft's hard black drop
+ * Text uses the bundled Inter TTF (smooth, anti-aliased) without Minecraft's hard black drop
  * shadow - the pixel font plus shadow is what made the old UI feel "sharp". Rounded rectangles are
  * rasterized at the monitor's real pixel resolution (not GUI pixels) with anti-aliased corners, so
  * they stay soft at every GUI scale. No drop shadows anywhere: depth comes from surface lightness
@@ -38,7 +38,7 @@ public final class Ui {
 	/**
 	 * One font definition per GUI scale (1-6), rasterized at exactly that scale so every glyph pixel
 	 * lands on one screen pixel - a single oversampled font shrunk with nearest-neighbour sampling
-	 * looked thin and jagged at scales 2-3. Body text is Poppins Medium, headings SemiBold.
+	 * looked thin and jagged at scales 2-3. Body text is Inter Medium, headings SemiBold.
 	 */
 	private static final int[] TEXT_SIZES = {70, 80, 90, 100, 110};
 	private static final FontDescription[][] REGULAR_BY_SCALE = faces("ui_");
@@ -186,6 +186,31 @@ public final class Ui {
 	}
 
 	private static void draw(GuiGraphicsExtractor g, Component c, int x, int y, int color) {
+		if (!smoothFont) {
+			drawScaled(g, c, x, y, color);
+			return;
+		}
+		// Minecraft puts a TTF glyph's top at 7 - bearing text units below the line. The bearing is a
+		// whole number of pixels with our density-matched fonts, but 7 units often isn't (7 * 0.75 * 2
+		// = 10.5px), which shifts every glyph half a pixel and drops its top row (T without a bar).
+		// Nudge the line so that glyph grid lands exactly on screen pixels.
+		var m = g.pose();
+		float gui = Minecraft.getInstance().getWindow().getGuiScale();
+		float dy = textScale == 1f ? 0 : (1f - textScale) * font().lineHeight / 2f;
+		float gridY = y + dy + 7 * textScale;
+		float px = (m.m00() * x + m.m10() * gridY + m.m20()) * gui;
+		float py = (m.m01() * x + m.m11() * gridY + m.m21()) * gui;
+		float sx = m.m00() * gui, sy = m.m11() * gui;
+		float fixX = sx > 0 ? (Math.round(px) - px) / sx : 0;
+		float fixY = sy > 0 ? (Math.round(py) - py) / sy : 0;
+		m.pushMatrix();
+		m.translate(x + fixX, y + dy + fixY);
+		if (textScale != 1f) m.scale(textScale, textScale);
+		g.text(font(), c, 0, 0, color, false);
+		m.popMatrix();
+	}
+
+	private static void drawScaled(GuiGraphicsExtractor g, Component c, int x, int y, int color) {
 		if (textScale == 1f) {
 			g.text(font(), c, x, y, color, false);
 			return;

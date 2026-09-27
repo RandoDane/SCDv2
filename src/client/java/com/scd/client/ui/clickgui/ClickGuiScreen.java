@@ -23,7 +23,8 @@ import java.util.Set;
  * of the screen) holds general and carry settings and links to the detailed pages.
  */
 public final class ClickGuiScreen extends Screen implements ScdMenu {
-	private static final int COL_W = 124, HEAD_H = 16, ROW_H = 14, OPT_H = 13, GAP = 6;
+	/** Layout in menu units at 100% Menu size; the setting scales these, never the pixel grid. */
+	private int colW = 124, headH = 16, rowH = 14, optH = 13, gap = 6;
 	private static final Identifier LOGO = Identifier.fromNamespaceAndPath("scd", "logo");
 	/** Expanded rows, remembered for the session. */
 	private static final Set<String> EXPANDED = new HashSet<>();
@@ -77,21 +78,33 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	}
 
 	/**
-	 * The menu keeps one on-screen size whatever the GUI scale: 2 screen pixels per menu unit at
-	 * 1080p (GUI scale 2 there), proportional to the window height, times the "Menu size" setting.
+	 * The menu keeps one on-screen size whatever the GUI scale: a whole number of screen pixels per
+	 * menu unit (2 at 1080p, proportional to the window height), so every 1-unit line is equally thick
+	 * on all sides. "Menu size" resizes the layout itself instead of stretching the grid.
 	 */
 	private void updateScale() {
 		var window = net.minecraft.client.Minecraft.getInstance().getWindow();
-		// Whole steps from the window height (a 1080p screen gives 2 even when windowed and a bit
-		// shorter), then the Menu size setting fine-tunes it.
-		float wanted = Math.max(1, Math.round(window.getHeight() / 540f)) * mod.config().general.menuScale / 100f;
-		// Snap to quarter pixels: fonts exist for exactly those densities, so glyphs map 1:1 to pixels.
-		float density = quarter(wanted);
-		scale = density / window.getGuiScale();
-		vw = Math.round(width / scale);
-		vh = Math.round(height / scale);
-		// Text size is applied as its own (also snapped) scale with a font made for that density.
-		textDensity = quarter(density * mod.config().general.menuTextSize / 100f);
+		int density = Math.max(1, Math.round(window.getHeight() / 540f));
+		scale = density / (float) window.getGuiScale();
+		vw = (int) (width / scale);
+		vh = (int) (height / scale);
+		float size = mod.config().general.menuScale / 100f;
+		colW = Math.round(124 * size);
+		headH = Math.round(16 * size);
+		rowH = Math.round(14 * size);
+		optH = Math.round(13 * size);
+		gap = Math.max(2, Math.round(6 * size));
+		// Text gets a font made for exactly its pixel density, so glyphs map 1:1 to pixels.
+		pixelDensity = density;
+		textDensity = quarter(density * size * mod.config().general.menuTextSize / 100f);
+	}
+
+	private int pixelDensity = 2;
+
+	/** Top of text vertically centred in a line of height {@code h}. */
+	private int textY(int top, int h) {
+		int textH = Math.round(7 * textDensity / pixelDensity);
+		return top + Math.max(0, (h - textH) / 2);
 	}
 
 	private float textDensity = 2;
@@ -103,7 +116,7 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	/** Font + text scale for drawing (and measuring) menu text; always paired with {@link #endText()}. */
 	private void beginText() {
 		Ui.setHudDensity(textDensity);
-		Ui.setTextScale(textDensity / (scale * net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScale()));
+		Ui.setTextScale(textDensity / pixelDensity);
 	}
 
 	private static void endText() {
@@ -123,10 +136,10 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	private int[] position(Category c, int index) {
 		int[] saved = positions().get(c.name());
 		if (saved != null) return saved;
-		int perRow = Math.max(1, (vw - panelW() - GAP) / (COL_W + GAP));
+		int perRow = Math.max(1, (vw - panelW() - gap) / (colW + gap));
 		int rows = (categories.size() + perRow - 1) / perRow;
-		int x = GAP + (index % perRow) * (COL_W + GAP);
-		int y = GAP + (index / perRow) * (vh / rows);
+		int x = gap + (index % perRow) * (colW + gap);
+		int y = gap + (index / perRow) * (vh / rows);
 		return new int[]{x, y};
 	}
 
@@ -159,20 +172,20 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		if (hover != null && !hover.isEmpty()) {
 			Theme t = Ui.theme();
 			int w = Math.min(vw - panelW() - 16, Ui.width(hover) + 12);
-			Ui.rect(g, GAP, vh - 20, w, 16, 4, t.window(), t.border());
-			Ui.text(g, Ui.ellipsize(hover, w - 12), GAP + 6, vh - 16, t.textSecondary());
+			Ui.rect(g, gap, vh - 20, w, 16, 4, t.window(), t.border());
+			Ui.text(g, Ui.ellipsize(hover, w - 12), gap + 6, vh - 16, t.textSecondary());
 		}
 	}
 
 	/** A column stops above any column placed below it (and at the screen bottom), scrolling inside. */
 	private int bottomLimit(int index, int[] pos) {
-		int limit = vh - GAP;
+		int limit = vh - gap;
 		for (int j = 0; j < categories.size(); j++) {
 			if (j == index) continue;
 			int[] o = position(categories.get(j), j);
-			boolean overlapX = o[0] < pos[0] + COL_W && o[0] + COL_W > pos[0];
+			boolean overlapX = o[0] < pos[0] + colW && o[0] + colW > pos[0];
 			if (o[1] <= pos[1]) continue;
-			if (overlapX && o[1] > pos[1]) limit = Math.min(limit, o[1] - GAP);
+			if (overlapX && o[1] > pos[1]) limit = Math.min(limit, o[1] - gap);
 		}
 		return limit;
 	}
@@ -181,45 +194,45 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		Theme t = Ui.theme();
 		int x = pos[0], y = pos[1];
 		// Header: the drag handle.
-		Ui.rect(g, x, y, COL_W, HEAD_H, 3, t.accent());
-		Ui.centered(g, c.name().toUpperCase(java.util.Locale.ROOT), x + COL_W / 2, y + 4, 0xFFFFFFFF);
-		headerRects.put(c.name(), new int[]{x, y, COL_W, HEAD_H});
+		Ui.rect(g, x, y, colW, headH, 3, t.accent());
+		Ui.centered(g, c.name().toUpperCase(java.util.Locale.ROOT), x + colW / 2, textY(y, headH), 0xFFFFFFFF);
+		headerRects.put(c.name(), new int[]{x, y, colW, headH});
 		// Right-click on the header folds the category away (left-drag moves it).
 		if (mod.config().general.clickGuiCollapsed.contains(c.name())) return null;
-		int top = y + HEAD_H;
+		int top = y + headH;
 		double scroll = SCROLL.getOrDefault(c.name(), 0.0);
 		// +1: a background-coloured line along the bottom, inside the accent outline.
 		int contentH = contentHeight(c) + 1;
 		int visibleH = Math.max(0, Math.min(contentH, maxBottom - top));
 		scroll = Math.max(0, Math.min(scroll, contentH - visibleH));
 		SCROLL.put(c.name(), scroll);
-		g.fill(x, top, x + COL_W, top + visibleH, t.window());
-		g.outline(x, y, COL_W, HEAD_H + visibleH, t.accent());
+		g.fill(x, top, x + colW, top + visibleH, t.window());
+		g.outline(x, y, colW, headH + visibleH, t.accent());
 		// Rows sit inside a 1px background-coloured inner border (sides and bottom) within the outline.
-		g.enableScissor(x + 2, top, x + COL_W - 2, top + visibleH - 1);
+		g.enableScissor(x + 2, top, x + colW - 2, top + visibleH - 1);
 		String hover = null;
 		int ry = top - (int) scroll;
 		for (Module m : c.modules()) {
 			String key = c.name() + "/" + m.name;
 			boolean on = m.on != null && m.on.getAsBoolean();
-			boolean hot = mx >= x && mx < x + COL_W && my >= Math.max(ry, top) && my < Math.min(ry + ROW_H, top + visibleH);
+			boolean hot = mx >= x && mx < x + colW && my >= Math.max(ry, top) && my < Math.min(ry + rowH, top + visibleH);
 			int bg = on ? (t.accent() & 0x00FFFFFF) | 0x70000000 : hot ? t.cardHover() : t.window();
-			g.fill(x + 2, ry, x + COL_W - 2, ry + ROW_H, bg);
-			Ui.text(g, Ui.ellipsize(m.name, COL_W - 14), x + 6, ry + 3, on ? 0xFFFFFFFF : t.textPrimary());
+			g.fill(x + 2, ry, x + colW - 2, ry + rowH, bg);
+			Ui.text(g, Ui.ellipsize(m.name, colW - 14), x + 6, textY(ry, rowH), on ? 0xFFFFFFFF : t.textPrimary());
 			if (hot) hover = m.description;
-			if (visible(ry, ROW_H, top, visibleH)) {
+			if (visible(ry, rowH, top, visibleH)) {
 				// Rows without options can't be expanded.
 				Runnable expand = m.options.isEmpty() ? null : () -> toggleExpanded(key);
-				hits.add(new Hit(x, Math.max(ry, top), COL_W, ROW_H, m.on != null ? () -> m.set.accept(!m.on.getAsBoolean()) : expand,
+				hits.add(new Hit(x, Math.max(ry, top), colW, rowH, m.on != null ? () -> m.set.accept(!m.on.getAsBoolean()) : expand,
 						expand, null, m.description));
 			}
-			ry += ROW_H;
+			ry += rowH;
 			if (EXPANDED.contains(key) && !m.options.isEmpty()) {
 				for (Opt o : m.options) {
-					drawOpt(g, o, x + 2, ry, COL_W - 4, 6, top, visibleH, mx, my);
-					ry += OPT_H;
+					drawOpt(g, o, x + 2, ry, colW - 4, 6, top, visibleH, mx, my);
+					ry += optH;
 				}
-				g.fill(x + 2, ry, x + COL_W - 2, ry + 1, t.border());
+				g.fill(x + 2, ry, x + colW - 2, ry + 1, t.border());
 				ry += 1;
 			}
 		}
@@ -234,8 +247,8 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	private int contentHeight(Category c) {
 		int h = 0;
 		for (Module m : c.modules()) {
-			h += ROW_H;
-			if (!m.options.isEmpty() && EXPANDED.contains(c.name() + "/" + m.name)) h += m.options.size() * OPT_H + 1;
+			h += rowH;
+			if (!m.options.isEmpty() && EXPANDED.contains(c.name() + "/" + m.name)) h += m.options.size() * optH + 1;
 		}
 		return h;
 	}
@@ -247,77 +260,77 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	/** One option line; registers its click target. */
 	private void drawOpt(GuiGraphicsExtractor g, Opt o, int x, int y, int w, int indent, int clipTop, int clipH, int mx, int my) {
 		Theme t = Ui.theme();
-		g.fill(x, y, x + w, y + OPT_H, t.sidebar());
+		g.fill(x, y, x + w, y + optH, t.sidebar());
 		int tx = x + indent;
-		boolean vis = visible(y, OPT_H, clipTop, clipH);
+		boolean vis = visible(y, optH, clipTop, clipH);
 		int hy = Math.max(y, clipTop);
 		switch (o) {
 			case Opt.Toggle tg -> {
 				boolean on = tg.get().getAsBoolean();
-				Ui.text(g, Ui.ellipsize(tg.label(), w - indent - 16), tx, y + 2, t.textSecondary());
+				Ui.text(g, Ui.ellipsize(tg.label(), w - indent - 16), tx, textY(y, optH), t.textSecondary());
 				int bx = x + w - 11;
-				Ui.rect(g, bx, y + 3, 7, 7, 2, on ? t.accent() : t.trackOff());
-				if (vis) hits.add(new Hit(x, hy, w, OPT_H, () -> tg.set().accept(!tg.get().getAsBoolean()), null, null, null));
+				Ui.rect(g, bx, y + (optH - 7) / 2, 7, 7, 2, on ? t.accent() : t.trackOff());
+				if (vis) hits.add(new Hit(x, hy, w, optH, () -> tg.set().accept(!tg.get().getAsBoolean()), null, null, null));
 			}
 			case Opt.Slider sl -> {
 				double v = sl.get().getAsDouble();
 				String val = sl.fmt().apply(v);
-				Ui.text(g, Ui.ellipsize(sl.label(), w / 2), tx, y + 2, t.textSecondary());
-				Ui.rightAligned(g, val, x + w - 4, y + 2, t.textPrimary());
+				Ui.text(g, Ui.ellipsize(sl.label(), w / 2), tx, textY(y, optH), t.textSecondary());
+				Ui.rightAligned(g, val, x + w - 4, textY(y, optH), t.textPrimary());
 				int trackX = tx, trackW = w - indent - 6;
 				float frac = (float) ((v - sl.min()) / (sl.max() - sl.min()));
-				g.fill(trackX, y + OPT_H - 2, trackX + trackW, y + OPT_H - 1, t.trackOff());
-				g.fill(trackX, y + OPT_H - 2, trackX + Math.round(trackW * frac), y + OPT_H - 1, t.accent());
-				if (vis) hits.add(new Hit(trackX, hy, trackW, OPT_H, null, null, sl, null));
+				g.fill(trackX, y + optH - 2, trackX + trackW, y + optH - 1, t.trackOff());
+				g.fill(trackX, y + optH - 2, trackX + Math.round(trackW * frac), y + optH - 1, t.accent());
+				if (vis) hits.add(new Hit(trackX, hy, trackW, optH, null, null, sl, null));
 			}
 			case Opt.Cycle cy -> {
-				Ui.text(g, Ui.ellipsize(cy.label(), w / 2), tx, y + 2, t.textSecondary());
-				Ui.rightAligned(g, cy.fmt().apply(cy.get().get()), x + w - 4, y + 2, t.accent());
-				if (vis) hits.add(new Hit(x, hy, w, OPT_H, () -> step(cy, 1), () -> step(cy, -1), null, null));
+				Ui.text(g, Ui.ellipsize(cy.label(), w / 2), tx, textY(y, optH), t.textSecondary());
+				Ui.rightAligned(g, cy.fmt().apply(cy.get().get()), x + w - 4, textY(y, optH), t.accent());
+				if (vis) hits.add(new Hit(x, hy, w, optH, () -> step(cy, 1), () -> step(cy, -1), null, null));
 			}
 			case Opt.Action a -> {
-				boolean hot = mx >= x && mx < x + w && my >= y && my < y + OPT_H;
-				Ui.text(g, Ui.ellipsize(a.label(), w - indent - 4), tx, y + 2, hot ? t.accent() : t.textPrimary());
-				if (vis) hits.add(new Hit(x, hy, w, OPT_H, a.run(), null, null, null));
+				boolean hot = mx >= x && mx < x + w && my >= y && my < y + optH;
+				Ui.text(g, Ui.ellipsize(a.label(), w - indent - 4), tx, textY(y, optH), hot ? t.accent() : t.textPrimary());
+				if (vis) hits.add(new Hit(x, hy, w, optH, a.run(), null, null, null));
 			}
 			case Opt.Text tx2 -> {
 				boolean editingThis = editing == tx2;
-				Ui.text(g, Ui.ellipsize(tx2.label(), w / 3), tx, y + 2, t.textSecondary());
+				Ui.text(g, Ui.ellipsize(tx2.label(), w / 3), tx, textY(y, optH), t.textSecondary());
 				String v = editingThis ? editBuffer + ((System.currentTimeMillis() / 500) % 2 == 0 ? "_" : " ") : tx2.get().get();
 				int vx = x + w / 3 + 4, vw = w - w / 3 - 8;
-				g.fill(vx - 2, y + 1, x + w - 2, y + OPT_H - 1, editingThis ? t.field() : t.window());
+				g.fill(vx - 2, y + 1, x + w - 2, y + optH - 1, editingThis ? t.field() : t.window());
 				// Show the end of what's being typed.
 				String shown = v;
 				while (Ui.width(shown) > vw && shown.length() > 1) shown = shown.substring(1);
 				if (!editingThis) shown = Ui.ellipsize(v, vw);
-				Ui.text(g, shown, vx, y + 2, editingThis ? t.textPrimary() : t.textSecondary());
-				if (vis) hits.add(new Hit(x, hy, w, OPT_H, () -> startEdit(tx2), null, null, null));
+				Ui.text(g, shown, vx, textY(y, optH), editingThis ? t.textPrimary() : t.textSecondary());
+				if (vis) hits.add(new Hit(x, hy, w, optH, () -> startEdit(tx2), null, null, null));
 			}
 			case Opt.Color col -> {
 				Integer v = col.get().get();
-				Ui.text(g, Ui.ellipsize(col.label(), w - 40), tx, y + 2, t.textSecondary());
+				Ui.text(g, Ui.ellipsize(col.label(), w - 40), tx, textY(y, optH), t.textSecondary());
 				int sx = x + w - 12;
-				if (v == null) Ui.rightAligned(g, "theme", sx - 4, y + 2, t.textMuted());
-				g.fill(sx, y + 3, sx + 7, y + 10, v == null ? t.accent() : v);
-				g.outline(sx, y + 3, 7, 7, t.border());
-				if (vis) hits.add(new Hit(x, hy, w, OPT_H, () -> stepColor(col, 1), () -> stepColor(col, -1), null, null));
+				if (v == null) Ui.rightAligned(g, "theme", sx - 4, textY(y, optH), t.textMuted());
+				g.fill(sx, y + (optH - 7) / 2, sx + 7, y + (optH - 7) / 2 + 7, v == null ? t.accent() : v);
+				g.outline(sx, y + (optH - 7) / 2, 7, 7, t.border());
+				if (vis) hits.add(new Hit(x, hy, w, optH, () -> stepColor(col, 1), () -> stepColor(col, -1), null, null));
 			}
 			case Opt.Buttons bs -> {
 				int n = bs.names().size();
 				int capW = bs.label().isEmpty() ? 0 : Math.min(w / 2, Ui.width(bs.label()) + 8);
-				if (capW > 0) Ui.text(g, Ui.ellipsize(bs.label(), capW - 4), tx, y + 2, t.textSecondary());
+				if (capW > 0) Ui.text(g, Ui.ellipsize(bs.label(), capW - 4), tx, textY(y, optH), t.textSecondary());
 				int bx = x + capW + (capW > 0 ? 0 : 2), bw = (w - capW - 2) / Math.max(1, n);
 				for (int i = 0; i < n; i++) {
 					int zx = bx + i * bw;
-					boolean hot = mx >= zx && mx < zx + bw && my >= y && my < y + OPT_H;
-					g.fill(zx + 1, y + 1, zx + bw - 1, y + OPT_H - 1, hot ? t.cardHover() : t.card());
-					Ui.centered(g, bs.names().get(i), zx + bw / 2, y + 2, t.textPrimary());
-					if (vis) hits.add(new Hit(zx, hy, bw, OPT_H, bs.actions().get(i), null, null, null));
+					boolean hot = mx >= zx && mx < zx + bw && my >= y && my < y + optH;
+					g.fill(zx + 1, y + 1, zx + bw - 1, y + optH - 1, hot ? t.cardHover() : t.card());
+					Ui.centered(g, bs.names().get(i), zx + bw / 2, textY(y, optH), t.textPrimary());
+					if (vis) hits.add(new Hit(zx, hy, bw, optH, bs.actions().get(i), null, null, null));
 				}
 			}
 			case Opt.Info in -> {
-				Ui.text(g, Ui.ellipsize(in.label(), w / 2), tx, y + 2, t.textMuted());
-				Ui.rightAligned(g, Ui.ellipsize(in.value().get(), w / 2 - 4), x + w - 4, y + 2, t.textSecondary());
+				Ui.text(g, Ui.ellipsize(in.label(), w / 2), tx, textY(y, optH), t.textMuted());
+				Ui.rightAligned(g, Ui.ellipsize(in.value().get(), w / 2 - 4), x + w - 4, textY(y, optH), t.textSecondary());
 			}
 		}
 	}
@@ -382,7 +395,7 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 			y += 14;
 			for (Opt o : s.options().get()) {
 				drawOpt(g, o, px + 4, y, pw - 8, 5, top, vh - top, mx, my);
-				y += OPT_H + 1;
+				y += optH + 1;
 			}
 			y += 6;
 		}
@@ -440,8 +453,8 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	@Override
 	public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
 		if (dragging != null) {
-			int x = (int) Math.max(0, Math.min(vw - panelW() - COL_W, event.x() / scale - dragDx));
-			int y = (int) Math.max(0, Math.min(vh - HEAD_H, event.y() / scale - dragDy));
+			int x = (int) Math.max(0, Math.min(vw - panelW() - colW, event.x() / scale - dragDx));
+			int y = (int) Math.max(0, Math.min(vh - headH, event.y() / scale - dragDy));
 			positions().put(dragging, new int[]{x, y});
 			return true;
 		}
@@ -472,7 +485,7 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		for (int i = 0; i < categories.size(); i++) {
 			Category c = categories.get(i);
 			int[] p = position(c, i);
-			if (mx >= p[0] && mx < p[0] + COL_W && my >= p[1]) {
+			if (mx >= p[0] && mx < p[0] + colW && my >= p[1]) {
 				SCROLL.merge(c.name(), -sy * 20, Double::sum);
 				return true;
 			}

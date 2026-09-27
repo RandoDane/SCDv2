@@ -53,6 +53,8 @@ final class BloodCamp {
 	private long bloodOpenedAt;
 	private long moveAt;
 	private boolean firstWave = true;
+	/** Every blood mob has spawned: the helper stays hidden until the next run. */
+	private boolean done;
 
 	BloodCamp(ScdMod mod, DungeonFeature dungeon) {
 		this.mod = mod;
@@ -62,6 +64,8 @@ final class BloodCamp {
 			String t = e.clean().trim();
 			if (RunMessages.classify(t) == RunMessages.Event.BLOOD_OPENED && bloodOpenedAt == 0) bloodOpenedAt = System.currentTimeMillis();
 			if (t.equals("[BOSS] The Watcher: Let's see how you can handle this.")) onFinalWave();
+			// Said the moment the last blood mob spawns ("proven" as a fallback when it's skipped).
+			if (t.equals("[BOSS] The Watcher: That will be enough for now.") || t.equals("[BOSS] The Watcher: You have proven yourself. You may pass.")) finish();
 		});
 		mod.bus.subscribe(Events.WorldChanged.class, e -> reset());
 		mod.bus.subscribe(Events.Tick.class, e -> {
@@ -73,10 +77,10 @@ final class BloodCamp {
 				moveAt = 0;
 				if (cfg().bloodCamp) Chat.title(Component.literal("Kill mobs").withStyle(ChatFormatting.RED), Component.empty(), true);
 			}
-			if (cfg().bloodCamp) track();
+			if (cfg().bloodCamp && !done) track();
 		});
 		WorldGizmos.onWorldExtract(pt -> {
-			if (cfg().bloodCamp && dungeon.state().inDungeon()) draw();
+			if (cfg().bloodCamp && !done && dungeon.state().inDungeon()) draw();
 		});
 		mod.huds.add(new CampHud());
 	}
@@ -91,6 +95,14 @@ final class BloodCamp {
 		bloodOpenedAt = 0;
 		moveAt = 0;
 		firstWave = true;
+		done = false;
+	}
+
+	private void finish() {
+		done = true;
+		flights.clear();
+		seenAt.clear();
+		moveAt = 0;
 	}
 
 	/** Odin's table: the Watcher moves a fixed time after the last line, depending on how long blood took. */

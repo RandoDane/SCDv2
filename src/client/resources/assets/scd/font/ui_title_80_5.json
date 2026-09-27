@@ -1,1 +1,1 @@
-{"providers": [{"type": "ttf", "file": "scd:poppins-semibold.ttf", "size": 10.4, "oversample": 5.0, "shift": [0.0, 1.3], "skip": ""}, {"type": "reference", "id": "minecraft:default"}]}
+{"providers": [{"type": "ttf", "file": "scd:inter-semibold.ttf", "size": 10.0, "oversample": 5.0, "shift": [0.0, 1.2], "skip": ""}, {"type": "reference", "id": "minecraft:default"}]}

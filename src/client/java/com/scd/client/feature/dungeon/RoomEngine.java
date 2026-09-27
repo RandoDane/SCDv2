@@ -145,6 +145,7 @@ public final class RoomEngine {
 			MappedRoom r = byTile[i];
 			if (r != null && r.info != null) continue;
 			int tx = i % 6, tz = i / 6;
+			if (!insideFloorGrid(tx, tz)) continue;
 			var access = lvl.getChunkSource().getChunk(DungeonGrid.chunkOf(tx), DungeonGrid.chunkOf(tz), ChunkStatus.FULL, false);
 			if (!(access instanceof LevelChunk chunk)) continue;
 			RoomCore.Result res = core(chunk, 7, 7);
@@ -302,6 +303,18 @@ public final class RoomEngine {
 			}
 		}
 		return found.isEmpty() ? "none in the room" : String.join("; ", found);
+	}
+
+	/**
+	 * Smaller floors use part of the 6x6 grid (live: E/F1 4 wide, F2/F3 5x5, F4 6 wide x 5 deep);
+	 * the tiles outside hold boss-area builds that aren't rooms.
+	 */
+	private boolean insideFloorGrid(int tx, int tz) {
+		if (floor == null) return true;
+		int n = floor.equals("E") ? 0 : floor.length() == 2 ? floor.charAt(1) - '0' : 7;
+		int w = n <= 1 ? 4 : n <= 3 ? 5 : 6;
+		int h = n == 0 ? 4 : n <= 4 ? 5 : 6;
+		return tx < w && tz < h;
 	}
 
 	/** Odin's column hash, reading chunk sections directly (unloaded sections are air). */
