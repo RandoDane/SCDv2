@@ -1,3 +1,6 @@
+Applies to the following files in this folder, taken from Odin (https://github.com/odtheking/Odin):
+rooms.json, quiz.json, creeper-beams.json, ice-fill.json, boulder.json
+
 BSD 3-Clause License
 
 Copyright (c) 2025, odtheking
