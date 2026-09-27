@@ -40,7 +40,10 @@ import java.util.Set;
  *     slides over the ice around it until it leaves through the gap (no fixed coordinates needed).</li>
  *     <li><b>Teleport Maze</b> - pads are found by scanning; after each teleport, the pads your new
  *     facing points through are kept as candidates (the maze turns you toward the right one).</li>
- *     <li><b>Tic Tac Toe</b> - the board is read from the map item frames on the wall; best move for O.</li>
+ *     <li><b>Tic Tac Toe</b> - the board's nine squares are the map frames (played) plus the buttons
+ *     (empty) on the wall; best move for O.</li>
+ *     <li><b>Boulder</b> - the boulder layout is read on entry and looked up in the solution table
+ *     (Odin, BSD-3); the next boulder to click is boxed and ticked off when clicked.</li>
  * </ul>
  */
 final class PuzzleSolvers2 {
@@ -56,12 +59,25 @@ final class PuzzleSolvers2 {
 	private final Set<BlockPos> tpVisited = new HashSet<>();
 	private Vec3 lastPos;
 	private BlockPos tttMove;
+	private final Map<String, List<int[]>> boulderSolutions = new HashMap<>();
+	/** Remaining boulder clicks: {box, click block}. */
+	private final List<BlockPos[]> boulderMoves = new ArrayList<>();
+	private boolean boulderRead;
 	private MappedRoom solvedFor;
 
 	PuzzleSolvers2(ScdMod mod, DungeonFeature dungeon) {
 		this.mod = mod;
 		this.dungeon = dungeon;
 		load();
+		loadBoulder();
+		// Clicking the boulder a box points at ticks that step off.
+		net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
+			if (level.isClientSide() && !boulderMoves.isEmpty()) {
+				BlockPos clicked = hit.getBlockPos();
+				boulderMoves.removeIf(m -> m[1].equals(clicked));
+			}
+			return net.minecraft.world.InteractionResult.PASS;
+		});
 		mod.bus.subscribe(DungeonEvents.RoomEntered.class, e -> {
 			if (e.room() != solvedFor) resetRoom();
 		});
@@ -97,6 +113,22 @@ final class PuzzleSolvers2 {
 		}
 	}
 
+	private void loadBoulder() {
+		try (var in = PuzzleSolvers2.class.getResourceAsStream("/assets/scd/dungeon/boulder.json")) {
+			if (in == null) return;
+			for (var e : JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject().entrySet()) {
+				List<int[]> moves = new ArrayList<>();
+				for (JsonElement m : e.getValue().getAsJsonArray()) {
+					JsonArray a = m.getAsJsonArray();
+					moves.add(new int[]{a.get(0).getAsInt(), a.get(1).getAsInt(), a.get(2).getAsInt(), a.get(3).getAsInt()});
+				}
+				boulderSolutions.put(e.getKey(), moves);
+			}
+		} catch (Exception e) {
+			ScdLog.warn("Boulder data failed to load", e);
+		}
+	}
+
 	private static void readFloors(JsonArray floors, List<List<List<int[]>>> out) {
 		for (JsonElement floor : floors) {
 			List<List<int[]>> patterns = new ArrayList<>();
@@ -120,6 +152,8 @@ final class PuzzleSolvers2 {
 		tpCandidates = new HashSet<>();
 		tpVisited.clear();
 		tttMove = null;
+		boulderMoves.clear();
+		boulderRead = false;
 		solvedFor = null;
 	}
 
@@ -142,6 +176,9 @@ final class PuzzleSolvers2 {
 			case "Teleport Maze" -> teleportMaze(room, mc.level, mc.player.position(), mc.player.getYRot());
 			case "Tic Tac Toe" -> {
 				if (t % 10 == 0) ticTacToe(room, mc.level);
+			}
+			case "Boulder" -> {
+				if (!boulderRead && t % 10 == 0) boulder(room, mc.level);
 			}
 			default -> {
 			}
@@ -295,31 +332,66 @@ final class PuzzleSolvers2 {
 			if (e instanceof ItemFrame f && dungeon.rooms().roomAt(f.blockPosition()) == room && f.getFramedMapId(f.getItem()) != null) frames.add(f);
 		}
 		if (frames.isEmpty() || frames.size() >= 9 || frames.size() % 2 == 0) return; // your turn: odd count
-		// The wall axis: all frames share one horizontal coordinate.
+		// The board hangs on one wall: every frame shares one horizontal coordinate.
 		boolean wallOnX = frames.stream().map(f -> f.blockPosition().getX()).distinct().count() == 1;
-		int topY = frames.stream().mapToInt(f -> f.blockPosition().getY()).max().orElse(0);
-		int minH = frames.stream().mapToInt(f -> wallOnX ? f.blockPosition().getZ() : f.blockPosition().getX()).min().orElse(0);
-		int maxH = frames.stream().mapToInt(f -> wallOnX ? f.blockPosition().getZ() : f.blockPosition().getX()).max().orElse(0);
-		// Columns: the three consecutive positions containing all frames, centred on the room if unsure.
-		int centre = wallOnX ? DungeonGrid.centre(room.tiles().getFirst()[1]) : DungeonGrid.centre(room.tiles().getFirst()[0]);
-		int first = maxH - minH >= 2 ? minH : Math.max(maxH - 2, Math.min(minH, centre - 1));
-		// Rows: frames sit at three heights; the top row is the highest seen unless fewer rows are known.
-		int rowTop = Math.max(topY, frames.stream().mapToInt(f -> f.blockPosition().getY()).min().orElse(0) + 2);
+		int plane = wallOnX ? frames.getFirst().blockPosition().getX() : frames.getFirst().blockPosition().getZ();
+		// The nine squares are the frames (played) plus the buttons (still empty) on that wall.
+		Set<BlockPos> squares = new HashSet<>();
+		for (ItemFrame f : frames) squares.add(f.blockPosition());
+		int minY = frames.stream().mapToInt(f -> f.blockPosition().getY()).min().orElse(0);
+		int minH = frames.stream().mapToInt(f -> h(f.blockPosition(), wallOnX)).min().orElse(0);
+		for (int y = minY - 2; y <= minY + 4; y++) {
+			for (int hh = minH - 2; hh <= minH + 4; hh++) {
+				BlockPos p = wallOnX ? new BlockPos(plane, y, hh) : new BlockPos(hh, y, plane);
+				if (level.getBlockState(p).getBlock() instanceof net.minecraft.world.level.block.ButtonBlock) squares.add(p);
+			}
+		}
+		List<Integer> rows = squares.stream().map(BlockPos::getY).distinct().sorted().toList();
+		List<Integer> cols = squares.stream().map(p -> h(p, wallOnX)).distinct().sorted().toList();
+		if (rows.size() != 3 || cols.size() != 3 || rows.get(2) - rows.get(0) != 2 || cols.get(2) - cols.get(0) != 2) {
+			ScdLog.debug("ttt: board not found (" + squares.size() + " squares, rows " + rows + " cols " + cols + ")");
+			return;
+		}
+		int rowTop = rows.get(2), first = cols.get(0);
 		char[][] board = new char[3][3];
 		for (ItemFrame f : frames) {
 			MapItemSavedData data = level.getMapData(f.getFramedMapId(f.getItem()));
 			if (data == null) continue;
-			int row = rowTop - f.blockPosition().getY();
-			int col = (wallOnX ? f.blockPosition().getZ() : f.blockPosition().getX()) - first;
-			if (row < 0 || row > 2 || col < 0 || col > 2) continue;
+			int row = rowTop - f.blockPosition().getY(), col = h(f.blockPosition(), wallOnX) - first;
 			int middle = data.colors[64 * 128 + 64] & 0xFF;
 			board[row][col] = middle == 114 ? 'X' : middle == 33 ? 'O' : 0;
 		}
 		int[] move = TicTacToe.bestMove(board);
 		if (move == null) return;
-		BlockPos any = frames.getFirst().blockPosition();
-		int h = first + move[1];
-		tttMove = wallOnX ? new BlockPos(any.getX(), rowTop - move[0], h) : new BlockPos(h, rowTop - move[0], any.getZ());
+		int hh = first + move[1];
+		tttMove = wallOnX ? new BlockPos(plane, rowTop - move[0], hh) : new BlockPos(hh, rowTop - move[0], plane);
+	}
+
+	private static int h(BlockPos p, boolean wallOnX) {
+		return wallOnX ? p.getZ() : p.getX();
+	}
+
+	// ---- Boulder ------------------------------------------------------------------------------
+
+	/** Reads the 7x6 boulder grid (room frame, Odin's layout) and looks the layout up. */
+	private void boulder(MappedRoom room, net.minecraft.client.multiplayer.ClientLevel level) {
+		StringBuilder key = new StringBuilder();
+		for (int z = 24; z >= 9; z -= 3) {
+			for (int x = 24; x >= 6; x -= 3) {
+				BlockPos p = room.toWorld(new BlockPos(x, 66, z));
+				if (p == null || !level.isLoaded(p)) return;
+				key.append(level.getBlockState(p).isAir() ? '0' : '1');
+			}
+		}
+		List<int[]> moves = boulderSolutions.get(key.toString());
+		if (moves == null) {
+			ScdLog.debug("boulder: unknown layout " + key);
+			return; // try again shortly (a boulder may still be moving)
+		}
+		boulderRead = true;
+		boulderMoves.clear();
+		for (int[] m : moves) boulderMoves.add(new BlockPos[]{room.toWorld(new BlockPos(m[0], 65, m[1])), room.toWorld(new BlockPos(m[2], 65, m[3]))});
+		ScdLog.info("[puzzles] boulder layout " + key + ": " + moves.size() + " moves");
 	}
 
 	// ---- drawing ------------------------------------------------------------------------------
@@ -339,6 +411,9 @@ final class PuzzleSolvers2 {
 		if (cfg.puzzleOn("Teleport Maze")) for (BlockPos p : tpPads) {
 			if (tpVisited.contains(p)) WorldGizmos.block(p, 0x80888888, true);
 			else if (tpCandidates.contains(p) && tpCandidates.size() < tpPads.size()) WorldGizmos.block(p, tpCandidates.size() == 1 ? 0xFF4ADE80 : 0xFFFACC15, true);
+		}
+		if (cfg.puzzleOn("Boulder")) for (int i = 0; i < boulderMoves.size(); i++) {
+			WorldGizmos.block(boulderMoves.get(i)[0], i == 0 ? 0xFF4ADE80 : 0x80FACC15, true);
 		}
 		if (tttMove != null && cfg.puzzleOn("Tic Tac Toe")) WorldGizmos.block(tttMove, 0xFF4ADE80, true);
 	}

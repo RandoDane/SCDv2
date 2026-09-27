@@ -45,5 +45,5 @@ Everything is also written locally to `config/scd/recordings/<session>.jsonl` (a
 
 ## Third-party data
 - `assets/scd/dungeon/rooms.json` is the room database from [Odin](https://github.com/odtheking/Odin), BSD 3-Clause, © 2025 odtheking — license in `assets/scd/dungeon/rooms.LICENSE.txt`.
-- `assets/scd/dungeon/quiz.json`, `creeper-beams.json` and `ice-fill.json` (puzzle data) are also from Odin, same BSD 3-Clause license.
+- `assets/scd/dungeon/quiz.json`, `creeper-beams.json`, `ice-fill.json` and `boulder.json` (puzzle data) are also from Odin, same BSD 3-Clause license.
 - Montserrat font (SemiBold/Bold, subset): SIL Open Font License, © The Montserrat Project Authors (`assets/scd/font/montserrat-ofl.txt`).

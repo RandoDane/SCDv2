@@ -99,7 +99,7 @@ final class ClickGuiContent {
 				.toggle("Outline best chest", () -> d.chestProfitHighlight, v -> d.chestProfitHighlight = v)
 				.toggle("\"Best\" label", () -> d.chestProfitLabel, v -> d.chestProfitLabel = v));
 		Module solvers = new Module("Puzzle solvers", "Show-only helpers; expand to switch single solvers off", () -> d.puzzleSolvers, v -> d.puzzleSolvers = v);
-		for (String puzzle : List.of("Quiz", "Three Weirdos", "Higher/Lower Blaze", "Creeper Beams", "Ice Fill", "Ice Path", "Teleport Maze", "Tic Tac Toe")) {
+		for (String puzzle : List.of("Quiz", "Three Weirdos", "Higher/Lower Blaze", "Creeper Beams", "Ice Fill", "Ice Path", "Teleport Maze", "Tic Tac Toe", "Boulder")) {
 			solvers.opt(new Opt.Toggle(puzzle, () -> !d.disabledPuzzles.contains(puzzle), v -> {
 				d.disabledPuzzles.remove(puzzle);
 				if (!v) d.disabledPuzzles.add(puzzle);
