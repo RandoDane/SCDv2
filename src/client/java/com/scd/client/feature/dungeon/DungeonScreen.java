@@ -44,6 +44,8 @@ public final class DungeonScreen extends ScdScreen {
 		rows.toggle("Skill / Explore / Speed / Bonus", null, () -> c.scoreBreakdown, v -> c.scoreBreakdown = v);
 		rows.toggle("Rooms and secrets", null, () -> c.scoreRoomsSecrets, v -> c.scoreRoomsSecrets = v);
 		rows.toggle("Crypts, deaths, puzzles", null, () -> c.scoreCryptsDeathsPuzzles, v -> c.scoreCryptsDeathsPuzzles = v);
+		rows.toggle("Splits", "Blood open, Watcher, boss and clear times with PB deltas", () -> c.scoreSplits, v -> c.scoreSplits = v);
+		rows.toggle("Spirit pet in party", "First death costs 1 point instead of 2", () -> c.assumeSpiritPet, v -> c.assumeSpiritPet = v);
 		rows.toggle("S / S+ alerts", "Title + sound the first time the estimate reaches 270 and 300", () -> c.scoreMilestoneAlerts, v -> c.scoreMilestoneAlerts = v);
 
 		rows.header("Runs");

@@ -9,6 +9,9 @@ import com.scd.client.core.Chat;
 import com.scd.client.core.Events;
 import com.scd.client.core.ScdLog;
 import com.scd.client.feature.mayor.MayorService;
+import com.scd.client.storage.JsonStore;
+import com.scd.client.storage.ScdPaths;
+import com.scd.logic.dungeon.ScoreCalculator;
 import com.scd.client.ui.ScdScreen;
 import com.scd.logic.Numbers;
 import com.scd.logic.dungeon.CompletionParser;
@@ -17,6 +20,11 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Catacombs: live score estimate + HUD, S/S+ milestone alerts, end-of-run summary, the RunCompleted
@@ -36,12 +44,16 @@ public final class DungeonFeature implements Feature {
 	private String lastRunSignature;
 	private CompletionReport bestReport;
 	private boolean summaryPending;
+	private Integer estimateAtEnd;
+	private JsonStore<DungeonRecords> records;
 
 	@Override
 	public void init(ScdMod mod) {
 		this.mod = mod;
 		this.mayor = mod.feature(MayorService.class);
 		this.parser = new CompletionParser(this::onReport);
+		this.records = JsonStore.open(ScdPaths.file("dungeon.json"), DungeonRecords.class, DungeonRecords::new);
+		mod.bus.subscribe(Events.EntityDied.class, e -> onEntityDied(e.entity()));
 		mod.bus.subscribe(Events.Tick.class, e -> onTick());
 		mod.bus.subscribe(Events.ChatReceived.class, e -> {
 			if (!e.isSystem()) {
@@ -52,7 +64,7 @@ public final class DungeonFeature implements Feature {
 			parser.accept(e.text());
 			if (state.inDungeon()) run.onMessage(e.text());
 		});
-		mod.huds.add(new ScoreHud(mod::config, () -> score));
+		mod.huds.add(new ScoreHud(mod::config, () -> score, this::splitLines));
 		mod.huds.add(new RoomHud(mod::config, rooms::current));
 	}
 
@@ -60,7 +72,7 @@ public final class DungeonFeature implements Feature {
 		DungeonState previous = state;
 		state = mod.active() ? DungeonState.read(mod.game) : DungeonState.NONE;
 		if (state.inDungeon() && !previous.inDungeon()) run.reset();
-		score = state.inDungeon() ? run.compute(state, mod.game, mayor.hasPerk("EZPZ")) : null;
+		score = state.inDungeon() ? run.compute(state, mod.game, mayor.hasPerk("EZPZ"), mod.config().dungeon.assumeSpiritPet, roomFacts()) : null;
 		if (score != null && mod.config().dungeon.scoreMilestoneAlerts) {
 			int hit = run.milestone(score.total());
 			if (hit > 0) {
@@ -79,12 +91,101 @@ public final class DungeonFeature implements Feature {
 		}
 	}
 
+	/** The mimic is the only baby zombie in F6/F7 dungeons; its death is its own score event. */
+	private void onEntityDied(net.minecraft.world.entity.LivingEntity entity) {
+		if (!state.inDungeon() || run.inBoss() || run.mimicDead()) return;
+		if (!ScoreCalculator.hasMimic(state.floor())) return;
+		if (entity instanceof net.minecraft.world.entity.monster.zombie.Zombie z && z.isBaby()) {
+			run.mimicKilled();
+			ScdLog.info("[score] mimic died (entity " + entity.getId() + ")");
+		}
+	}
+
+	private DungeonRun.RoomFacts roomFacts() {
+		var list = rooms.rooms();
+		if (list.isEmpty()) return new DungeonRun.RoomFacts(0, 0, false, 0);
+		int identified = 0, secrets = 0;
+		for (MappedRoom r : list) {
+			if (r.info() == null) continue;
+			identified++;
+			secrets += r.info().secrets();
+		}
+		int mapRooms = rooms.layout() != null ? rooms.layout().rooms().size() : 0;
+		return new DungeonRun.RoomFacts(Math.max(identified, mapRooms), identified, identified == list.size(), secrets);
+	}
+
+	private List<String> splitLines() {
+		if (!mod.config().dungeon.scoreSplits || state.floor() == null) return List.of();
+		var got = run.splits();
+		Map<String, Long> best = records.get().bestSplits.getOrDefault(state.floor(), Map.of());
+		List<String> out = new ArrayList<>();
+		for (DungeonRun.Split s : DungeonRun.Split.values()) {
+			Long t = got.get(s);
+			if (t == null) continue;
+			out.add(s.label + " " + Numbers.duration(t) + delta(t, best.get(s.name())));
+		}
+		long now = run.elapsedMs();
+		if (now >= 0 && got.size() < DungeonRun.Split.values().length) {
+			DungeonRun.Split next = DungeonRun.Split.values()[got.size()];
+			Long pb = best.get(next.name());
+			if (pb != null) out.add(next.label + " PB " + Numbers.duration(pb));
+		}
+		return out;
+	}
+
+	private static String delta(long t, Long pb) {
+		if (pb == null) return "";
+		long d = t - pb;
+		return (d <= 0 ? "  -" : "  +") + Numbers.duration(Math.abs(d));
+	}
+
+	private void recordRun(CompletionReport report, long clearMs) {
+		String floor = report.floorKey() != null ? report.floorKey() : state.floor();
+		if (floor == null) return;
+		run.split(DungeonRun.Split.CLEAR);
+		Map<String, Long> times = new HashMap<>();
+		run.splits().forEach((k, v) -> times.put(k.name(), v));
+		// Hypixel's own clear time beats our clock (which may have started late).
+		if (clearMs > 0) times.put(DungeonRun.Split.CLEAR.name(), clearMs);
+		DungeonRecords data = records.get();
+		Map<String, Long> best = data.bestSplits.computeIfAbsent(floor, k -> new HashMap<>());
+		List<String> newPbs = new ArrayList<>();
+		times.forEach((k, v) -> {
+			Long old = best.get(k);
+			if (old == null || v < old) {
+				if (old != null) newPbs.add(k);
+				best.put(k, v);
+			}
+		});
+		DungeonRecords.RunResult r = new DungeonRecords.RunResult();
+		r.floor = floor;
+		r.endedAt = System.currentTimeMillis();
+		r.finalScore = report.teamScore();
+		r.estimate = estimateAtEnd;
+		r.splits = times;
+		r.deaths = report.deaths() != null ? report.deaths() : 0;
+		r.secrets = report.secretsFound();
+		data.runs.addFirst(r);
+		while (data.runs.size() > 200) data.runs.removeLast();
+		records.markDirty();
+		if (report.teamScore() != null && estimateAtEnd != null) {
+			ScdLog.info("[score] " + floor + " estimate " + estimateAtEnd + " vs final " + report.teamScore()
+					+ (estimateAtEnd.equals(report.teamScore()) ? " (exact)" : " (off by " + (estimateAtEnd - report.teamScore()) + ")"));
+		}
+		if (!newPbs.isEmpty()) {
+			Chat.info(Component.literal("New " + floor + " split PB: " + String.join(", ", newPbs.stream()
+					.map(k -> DungeonRun.Split.valueOf(k).label + " " + Numbers.duration(best.get(k))).toList())).withStyle(ChatFormatting.GOLD));
+		}
+	}
+
 	private void onReport(CompletionReport report) {
 		String sig = report.runSignature();
 		if (!sig.equals(lastRunSignature)) {
 			// First block of a new completion: this is the earliest reliable "run done" signal.
 			lastRunSignature = sig;
 			bestReport = report;
+			estimateAtEnd = score != null ? score.total() : null;
+			ScdLog.guard("dungeon run record", () -> recordRun(report, Numbers.parseClearTimeMs(report.clearTime())));
 			run.markCompleted();
 			mod.bus.post(new DungeonEvents.RunCompleted(report, Numbers.parseClearTimeMs(report.clearTime())));
 			summaryPending = true;
@@ -103,7 +204,10 @@ public final class DungeonFeature implements Feature {
 		StringBuilder sb = new StringBuilder();
 		sb.append(r.floorKey() != null ? r.floorKey() : "?").append(" ").append(r.boss() != null ? r.boss() : "");
 		if (r.clearTime() != null) sb.append(" in ").append(r.clearTime());
-		if (r.teamScore() != null) sb.append(" · ").append(r.teamScore()).append(" (").append(r.scoreRank()).append(")");
+		if (r.teamScore() != null) {
+			sb.append(" · ").append(r.teamScore()).append(" (").append(r.scoreRank()).append(")");
+			if (estimateAtEnd != null && !estimateAtEnd.equals(r.teamScore())) sb.append(" [est ").append(estimateAtEnd).append("]");
+		}
 		if (r.secretsFound() != null) sb.append(" · ").append(r.secretsFound()).append(" secrets");
 		if (r.deaths() != null) sb.append(" · ").append(r.deaths()).append(" deaths");
 		if (r.totalDamage() != null) sb.append(" · ").append(Numbers.compactCount(r.totalDamage())).append(" dmg");
@@ -125,6 +229,10 @@ public final class DungeonFeature implements Feature {
 
 	String roomEngineState() {
 		return rooms.describe();
+	}
+
+	public DungeonRecords records() {
+		return records.get();
 	}
 
 	public RoomEngine rooms() {

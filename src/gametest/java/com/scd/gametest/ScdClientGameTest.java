@@ -221,6 +221,20 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		ctx.waitTicks(10);
 		check(ctx.computeOnClient(mc -> mod.feature(DungeonFeature.class).state().inDungeon()), "dungeon not detected");
 		check("F6".equals(ctx.computeOnClient(mc -> mod.feature(DungeonFeature.class).state().floor())), "floor not parsed");
+		// Splits and the mimic: Mort starts the clock, the blood door and Watcher split, a baby zombie's death is the mimic.
+		server.runCommand("tellraw @a \"[NPC] Mort: Here, I found this map when I first entered the dungeon.\"");
+		ctx.waitTicks(20);
+		server.runCommand("tellraw @a \"The BLOOD DOOR has been opened!\"");
+		server.runCommand("execute as @p at @s run summon zombie ~3 ~ ~ {IsBaby:1b,NoAI:1b}");
+		ctx.waitTicks(10);
+		server.runCommand("kill @e[type=zombie]");
+		ctx.waitTicks(10);
+		server.runCommand("tellraw @a \"[BOSS] The Watcher: You have proven yourself. You may pass.\"");
+		server.runCommand("tellraw @a \"[BOSS] Sadan: So you made it all the way here... Now you wish to defy me? Sadan?!\"");
+		ctx.waitTicks(10);
+		DungeonFeature df = mod.feature(DungeonFeature.class);
+		check(ctx.computeOnClient(mc -> df.score() != null && df.score().mimic()), "mimic death (baby zombie, entity event 3) not detected");
+		check(ctx.computeOnClient(mc -> df.score().inBoss()), "boss entry not detected");
 		ctx.takeScreenshot("12-dungeon-score-hud");
 
 		String border = "▬".repeat(64);
@@ -231,6 +245,9 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		ctx.waitTicks(60);
 		check(ctx.computeOnClient(mc -> mod.feature(DungeonFeature.class).lastReport()) != null, "completion report not parsed");
 		check(ctx.computeOnClient(mc -> carries.find(carry.id).unitsDone) == 1, "dungeon carry not credited");
+		var pbs = ctx.computeOnClient(mc -> df.records().bestSplits.get("F6"));
+		check(pbs != null && pbs.containsKey("BLOOD_OPEN") && pbs.containsKey("BOSS") && pbs.get("CLEAR") == 286_000L, "splits/PBs not recorded: " + pbs);
+		System.out.println("SCD_TEST_SPLITS " + pbs);
 		ctx.takeScreenshot("13-after-dungeon-completion");
 		ctx.runOnClient(mc -> carries.remove(carry));
 	}

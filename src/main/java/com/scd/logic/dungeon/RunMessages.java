@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
  * Shapes follow Skyblocker's source; the Watcher line is confirmed from live captures.
  */
 public final class RunMessages {
-	public enum Event { DEATH, MIMIC_KILLED, PRINCE_KILLED, BAT_KILLED, BLOOD_ROOM_COMPLETED, BOSS_ENTERED }
+	public enum Event { RUN_STARTED, BLOOD_OPENED, DEATH, MIMIC_KILLED, PRINCE_KILLED, BAT_KILLED, BLOOD_ROOM_COMPLETED, BOSS_ENTERED }
 
 	/** " ☠ Steve was killed by X and became a ghost." / " ☠ You died ..." - never the "☠ Defeated Boss in ..." report. */
 	private static final Pattern DEATH = Pattern.compile("^☠ (?!Defeated )\\S+ .*");
@@ -18,6 +18,10 @@ public final class RunMessages {
 	private static final Pattern BAT = Pattern.compile(".*?(?:Bat dead!?|Bat Killed!)$|^A Bat has been slain\\. \\+1 Bonus Score$");
 	// Winning the Watcher's trial - NOT "The BLOOD DOOR has been opened!", which only starts it.
 	private static final Pattern BLOOD_DONE = Pattern.compile("^\\[BOSS] The Watcher: You have proven yourself\\. You may pass\\.$");
+	/** Mort's opening line: the run (and Hypixel's timer) starts. Class-dependent second line included. */
+	private static final Pattern RUN_START = Pattern.compile("^\\[NPC] Mort: (?:Here, I found this map when I first entered the dungeon\\.|Right-click the Orb for spells, and Left-click \\(or Drop\\) to use your Ultimate!)$");
+	/** Blood door opened: the door message, or any of the Watcher's greetings (Odin's list). */
+	private static final Pattern BLOOD_OPEN = Pattern.compile("^The BLOOD DOOR has been opened!$|^\\[BOSS] The Watcher: (?:Congratulations, you made it through the Entrance\\.|Ah, you've finally arrived\\.|Ah, we meet again\\.\\.\\.|So you made it this far\\.\\.\\. interesting\\.|You've managed to scratch and claw your way here, eh\\?|I'm starting to get tired of seeing you around here\\.\\.\\.|Oh\\.\\. hello\\?|Things feel a little more roomy now, eh\\?)$");
 	/** The first thing each floor boss says as the party enters its room (same list as Skyblocker's DungeonBoss). */
 	private static final java.util.Set<String> BOSS_ENTRY = java.util.Set.of(
 			"[BOSS] Bonzo: Gratz for making it this far, but I'm basically unbeatable.",
@@ -35,6 +39,8 @@ public final class RunMessages {
 	public static Event classify(String rawMessage) {
 		String text = Text.clean(rawMessage);
 		if (text.isEmpty()) return null;
+		if (RUN_START.matcher(text).matches()) return Event.RUN_STARTED;
+		if (BLOOD_OPEN.matcher(text).matches()) return Event.BLOOD_OPENED;
 		if (DEATH.matcher(text).matches() && !text.contains("reconnected")) return Event.DEATH;
 		if (MIMIC.matcher(text).matches()) return Event.MIMIC_KILLED;
 		if (PRINCE.matcher(text).matches()) return Event.PRINCE_KILLED;

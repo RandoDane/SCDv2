@@ -93,6 +93,10 @@ public final class ScdConfig {
 		/** Title + ping the moment the live estimate first reaches 270 (S) and 300 (S+). */
 		public boolean scoreMilestoneAlerts = true;
 		public boolean completionSummary = true;
+		/** Split times (blood open, Watcher, boss, clear) with PB deltas on the score HUD. */
+		public boolean scoreSplits = true;
+		/** Assume a Spirit pet in the party: the first death costs 1 point instead of 2 (Odin assumes this always). */
+		public boolean assumeSpiritPet = false;
 		/** Current room name / secrets HUD. */
 		public boolean roomHud = true;
 		/** Adds rotation, anchor and room-relative position to the room HUD (for making routes). */

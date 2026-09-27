@@ -30,7 +30,7 @@ class ScoreCalculatorTest {
 	@Test
 	void incompletePuzzlesAndDeathsCostSkill() {
 		assertEquals(100, ScoreCalculator.skill(30, 30, 0, 0));
-		assertEquals(78, ScoreCalculator.skill(30, 30, 2, 1));
+		assertEquals(78, ScoreCalculator.skill(30, 30, 2, 2));
 	}
 
 	@Test
@@ -72,5 +72,38 @@ class ScoreCalculatorTest {
 		assertNull(RunMessages.classify("☠ Defeated Sadan in 04m 46s"));
 		assertNull(RunMessages.classify("[BOSS] The Watcher: Oh, you've made it."));
 		assertEquals(RunMessages.Event.MIMIC_KILLED, RunMessages.classify("Party > [MVP+] Bob: Mimic Killed!"));
+	}
+
+	@Test
+	void totalRoomsSolvedFromClearPercentWithKnownRoomsAsFloor() {
+		assertEquals(25, ScoreCalculator.totalRooms(10, 40, 0));
+		// 5 rooms at 17% fits 29 and 30; with 30 rooms already seen on the map only 30 remains.
+		assertEquals(29, ScoreCalculator.totalRooms(5, 17, 0));
+		assertEquals(30, ScoreCalculator.totalRooms(5, 17, 30));
+		assertEquals(0, ScoreCalculator.totalRooms(0, 0, 0));
+		assertEquals(27, ScoreCalculator.totalRooms(0, 0, 27));
+	}
+
+	@Test
+	void secretsTotalsAndNeeds() {
+		assertEquals(50, ScoreCalculator.estimateTotalSecrets(20, 40.0));
+		assertEquals(0, ScoreCalculator.estimateTotalSecrets(0, 0));
+		// F7 (100% required), 50 secrets, 5 crypts + mimic (bonus 7), no deaths: 300 needs 33 points of 40.
+		assertEquals((int) Math.ceil(50 * 33 / 40.0), ScoreCalculator.secretsNeeded(300, 50, 100, 7, 0));
+		// Enough bonus makes S free.
+		assertEquals(0, ScoreCalculator.secretsNeeded(270, 50, 100, 10, 0));
+		// A death costs 2 points, 1 with a Spirit pet.
+		assertEquals(2, ScoreCalculator.deathPenalty(1, false));
+		assertEquals(1, ScoreCalculator.deathPenalty(1, true));
+		assertEquals(3, ScoreCalculator.deathPenalty(2, true));
+	}
+
+	@Test
+	void exactSecretTotalOverridesTabPercent() {
+		var in = new ScoreCalculator.Inputs("F7", 30, 100, 30, 45, 88.0, 50, 5, 0, 0, false, 600, true, true, true, false, false, false);
+		var b = ScoreCalculator.compute(in);
+		assertTrue(b.exactSecrets());
+		assertEquals(50, b.totalSecrets());
+		assertEquals(36, b.explore() - 60); // 45/50 = 90% of the 100% requirement -> 36 of 40
 	}
 }

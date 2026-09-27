@@ -2,6 +2,7 @@ package com.scd.client.core;
 
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.LivingEntity;
 
 /** Every event type published on the {@link EventBus}. */
 public final class Events {
@@ -39,5 +40,9 @@ public final class Events {
 
 	/** SkyBlock area line on the sidebar changed (e.g. "Void Sepulture" -> "Dragon's Nest"). */
 	public record AreaChanged(String previous, String current) {
+	}
+
+	/** The server reported a living entity's death (entity event 3), before it is removed. */
+	public record EntityDied(LivingEntity entity) {
 	}
 }

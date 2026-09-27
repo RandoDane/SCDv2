@@ -13,7 +13,9 @@ import java.util.Map;
  *   <li>a real tiered Speed decay (Odin just assumes a flat 100);</li>
  *   <li>entrance runs scaled by 0.7 per component.</li>
  * </ul>
- * Not modelled: the Legendary Spirit pet halving the first death penalty (needs a profile lookup).
+ * On top of that: the total room count is solved from the clear percentage with the room engine's
+ * known rooms as a lower bound, total secrets are exact once every room is identified, the Spirit
+ * pet death discount is an input, and it reports how many secrets S / S+ still need.
  */
 public final class ScoreCalculator {
 	/** Required secret percentage and time budget (seconds) per floor - Skyblocker's FloorRequirement table. */
@@ -45,17 +47,28 @@ public final class ScoreCalculator {
 	}
 
 	/**
-	 * Everything the formula reads. clearPercent is the sidebar's "Cleared: X%" and is used to
-	 * estimate the dungeon's total room count from completedRooms.
+	 * Everything the formula reads.
+	 *
+	 * @param completedRooms    tab list "Completed Rooms"
+	 * @param clearPercent      sidebar "Cleared: X%" - with completedRooms, pins down the total room count
+	 * @param knownRooms        rooms the room engine has seen (map + world); a lower bound for the total, 0 if unknown
+	 * @param secretsFound      tab list "Secrets Found: N" (count), -1 if unknown
+	 * @param secretsPercent    tab list "Secrets Found: X%"
+	 * @param exactTotalSecrets sum of every room's secrets when all rooms are identified, else 0
+	 * @param spiritPet         a Spirit pet in the party halves the first death's penalty (2 -> 1)
 	 */
 	public record Inputs(
 			String floorKey,
 			int completedRooms,
 			double clearPercent,
+			int knownRooms,
+			int secretsFound,
 			double secretsPercent,
+			int exactTotalSecrets,
 			int crypts,
 			int incompletePuzzles,
 			int deaths,
+			boolean spiritPet,
 			Integer timeElapsedSeconds,
 			boolean inBossRoom,
 			boolean bloodRoomCompleted,
@@ -63,10 +76,23 @@ public final class ScoreCalculator {
 			boolean princeKilled,
 			boolean batKilled,
 			boolean paulEzpz) {
+		/** Short form for callers without room-engine data. */
+		public Inputs(String floorKey, int completedRooms, double clearPercent, double secretsPercent, int crypts,
+				int incompletePuzzles, int deaths, Integer timeElapsedSeconds, boolean inBossRoom, boolean bloodRoomCompleted,
+				boolean mimicKilled, boolean princeKilled, boolean batKilled, boolean paulEzpz) {
+			this(floorKey, completedRooms, clearPercent, 0, -1, secretsPercent, 0, crypts, incompletePuzzles, deaths, false,
+					timeElapsedSeconds, inBossRoom, bloodRoomCompleted, mimicKilled, princeKilled, batKilled, paulEzpz);
+		}
 	}
 
+	/**
+	 * @param totalSecrets      exact (all rooms identified) or estimated from count + percent; 0 if unknown
+	 * @param secretsForS       total secrets needed for 270 assuming a full clear, all puzzles and full speed; -1 if unknown
+	 * @param secretsForSPlus   same for 300; may exceed totalSecrets when it's out of reach
+	 */
 	public record Breakdown(int total, int skill, int explore, int speed, int bonus, boolean entrance,
-			int paddedCompletedRooms, int totalRoomsEstimate) {
+			int paddedCompletedRooms, int totalRoomsEstimate, int totalSecrets, boolean exactSecrets,
+			int deathPenalty, int secretsForS, int secretsForSPlus) {
 	}
 
 	/** Null if the floor isn't recognized. */
@@ -75,25 +101,77 @@ public final class ScoreCalculator {
 		if (req == null) return null;
 		boolean entrance = Floor.ENTRANCE.equals(in.floorKey());
 
-		double clearFraction = in.clearPercent() / 100.0;
-		int totalRooms = clearFraction > 0 ? (int) Math.round(in.completedRooms() / clearFraction) : 0;
-		// Entrance has no blood-to-boss lag worth padding for (Skyblocker skips it there too).
+		int totalRooms = totalRooms(in.completedRooms(), in.clearPercent(), in.knownRooms());
+		// Hypixel's Completed Rooms lags: the blood room only counts once the Watcher is beaten, and the
+		// last room before boss often isn't ticked. Entrance has no such lag worth padding for.
 		int padded = in.completedRooms() + (in.inBossRoom() || entrance ? 0 : 1) + (in.bloodRoomCompleted() ? 0 : 1);
 
-		int skill = skill(padded, totalRooms, in.incompletePuzzles(), in.deaths());
-		int explore = explore(padded, totalRooms, in.secretsPercent(), req.secretPercent());
+		boolean exact = in.exactTotalSecrets() > 0 && in.secretsFound() >= 0;
+		int totalSecrets = exact ? in.exactTotalSecrets() : estimateTotalSecrets(in.secretsFound(), in.secretsPercent());
+		double secretsPct = exact ? 100.0 * in.secretsFound() / in.exactTotalSecrets() : in.secretsPercent();
+		int deathPenalty = deathPenalty(in.deaths(), in.spiritPet());
+
+		int skill = skill(padded, totalRooms, in.incompletePuzzles(), deathPenalty);
+		int explore = explore(padded, totalRooms, secretsPct, req.secretPercent());
 		int speed = speed(in.timeElapsedSeconds(), req.timeLimitSeconds());
-		int bonus = bonus(in.crypts(), in.secretsPercent(), hasMimic(in.floorKey()), in.mimicKilled(), in.princeKilled(), in.batKilled(), in.paulEzpz());
+		int bonus = bonus(in.crypts(), secretsPct, hasMimic(in.floorKey()), in.mimicKilled(), in.princeKilled(), in.batKilled(), in.paulEzpz());
 
 		int total = entrance
 				? Math.round(speed * 0.7f) + Math.round(explore * 0.7f) + Math.round(skill * 0.7f) + Math.round(bonus * 0.7f)
 				: speed + explore + skill + bonus;
-		return new Breakdown(total, skill, explore, speed, bonus, entrance, padded, totalRooms);
+		int forS = entrance ? -1 : secretsNeeded(270, totalSecrets, req.secretPercent(), bonus, deathPenalty);
+		int forSPlus = entrance ? -1 : secretsNeeded(300, totalSecrets, req.secretPercent(), bonus, deathPenalty);
+		return new Breakdown(total, skill, explore, speed, bonus, entrance, padded, totalRooms, totalSecrets, exact,
+				deathPenalty, forS, forSPlus);
 	}
 
-	static int skill(int completedRooms, int totalRooms, int incompletePuzzles, int deaths) {
+	/**
+	 * Total rooms in the dungeon. Every count N (at least {@code knownRooms}) for which
+	 * completed/N rounds or floors to the sidebar's clear percentage is a candidate - Hypixel's
+	 * rounding isn't confirmed yet, so both are accepted - and the candidate nearest the direct
+	 * estimate completed/pct wins. Falls back to Odin's {@code floor(completed / pct + 0.4)} when
+	 * nothing fits (e.g. the two counters are momentarily out of sync).
+	 */
+	public static int totalRooms(int completed, double clearPercent, int knownRooms) {
+		if (completed <= 0 || clearPercent <= 0) return Math.max(knownRooms, 0);
+		int pct = (int) Math.round(clearPercent);
+		int lower = Math.max(1, Math.max(knownRooms, completed));
+		double direct = completed / (clearPercent / 100.0);
+		int best = -1;
+		for (int n = lower; n <= 36; n++) {
+			double p = completed * 100.0 / n;
+			boolean fits = (int) Math.floor(p + 1e-9) == pct || (int) Math.round(p) == pct;
+			if (fits && (best < 0 || Math.abs(n - direct) < Math.abs(best - direct))) best = n;
+		}
+		return best > 0 ? best : Math.max(lower, (int) Math.floor(direct + 0.4));
+	}
+
+	/** found / pct, rounded - Odin's estimate. */
+	public static int estimateTotalSecrets(int found, double percent) {
+		if (found <= 0 || percent <= 0) return 0;
+		return (int) Math.floor(100.0 / percent * found + 0.5);
+	}
+
+	public static int deathPenalty(int deaths, boolean spiritPet) {
+		if (deaths <= 0) return 0;
+		return deaths * 2 - (spiritPet ? 1 : 0);
+	}
+
+	/**
+	 * Secrets (total, not remaining) needed to reach {@code target} if every room gets cleared, every
+	 * puzzle solved and speed stays at 100: skill 100 - deaths, explore 60 + secret points, speed 100.
+	 */
+	public static int secretsNeeded(int target, int totalSecrets, int requiredPercent, int bonus, int deathPenalty) {
+		if (totalSecrets <= 0) return -1;
+		int points = target - 260 - bonus + deathPenalty;
+		if (points <= 0) return 0;
+		if (points > 40) return totalSecrets + 1;
+		return (int) Math.ceil(totalSecrets * (requiredPercent / 100.0) * points / 40.0 - 1e-9);
+	}
+
+	static int skill(int completedRooms, int totalRooms, int incompletePuzzles, int deathPenalty) {
 		int roomPortion = totalRooms > 0 ? clamp((int) (80.0 * completedRooms / totalRooms), 0, 80) : 0;
-		return 20 + clamp(roomPortion - incompletePuzzles * 10 - deaths * 2, 0, 80);
+		return 20 + clamp(roomPortion - incompletePuzzles * 10 - deathPenalty, 0, 80);
 	}
 
 	static int explore(int completedRooms, int totalRooms, double secretsPercent, int requiredSecretPercent) {

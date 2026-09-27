@@ -4,7 +4,8 @@
 	"package": "com.scd.client.mixin",
 	"client": [
 		"ChatPacketMixin",
-		"EntityRendererMixin"
+		"EntityRendererMixin",
+		"LivingEntityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
