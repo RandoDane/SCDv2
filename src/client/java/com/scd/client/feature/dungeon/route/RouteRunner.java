@@ -32,6 +32,8 @@ final class RouteRunner {
 	private int routeIndex;
 	private int index;
 	private long lastAdvance;
+	private double smoothing = 1.5;
+	private final java.util.Map<RouteStep, List<Vec3>> pathCache = new java.util.IdentityHashMap<>();
 	private boolean entryPicked;
 
 	/**
@@ -42,6 +44,7 @@ final class RouteRunner {
 		this.room = room;
 		this.routes = routes;
 		this.routeIndex = pick(routes, entry);
+		this.pathCache.clear();
 		this.entryPicked = entry != null && routes.size() > 1;
 		this.index = 0;
 	}
@@ -171,7 +174,38 @@ final class RouteRunner {
 
 	// --- drawing ---------------------------------------------------------------------------
 
-	void render(boolean throughWalls, boolean showNext, float partialTick) {
+	/**
+	 * World points of a leg's path, straightened to within {@code tolerance} blocks (see
+	 * PathSimplifier) - the recording keeps every sample, only the drawing is simplified.
+	 */
+	static List<Vec3> path(MappedRoom room, List<int[]> locations, double tolerance) {
+		List<double[]> pts = new java.util.ArrayList<>(locations.size());
+		for (int[] p : locations) {
+			BlockPos w = room.toWorld(new BlockPos(p[0], p[1], p[2]));
+			pts.add(new double[]{w.getX() + 0.5, w.getY() + 0.1, w.getZ() + 0.5});
+		}
+		List<Vec3> out = new java.util.ArrayList<>();
+		for (double[] d : com.scd.logic.dungeon.route.PathSimplifier.simplify(pts, tolerance)) out.add(new Vec3(d[0], d[1], d[2]));
+		return out;
+	}
+
+	private List<Vec3> cachedPath(RouteStep s) {
+		return pathCache.computeIfAbsent(s, k -> path(room, k.locations, smoothing));
+	}
+
+	static void polyline(Vec3 from, List<Vec3> pts, int color, boolean walls) {
+		Vec3 prev = from;
+		for (Vec3 v : pts) {
+			if (prev != null) WorldGizmos.line(prev, v, color, walls);
+			prev = v;
+		}
+	}
+
+	void render(boolean throughWalls, boolean showNext, float partialTick, double smoothing) {
+		if (smoothing != this.smoothing) {
+			this.smoothing = smoothing;
+			pathCache.clear();
+		}
 		if (!active()) return;
 		var mc = Minecraft.getInstance();
 		if (mc.player == null) return;
@@ -194,13 +228,11 @@ final class RouteRunner {
 
 	/** The entire route as a faint line, so the current leg is seen in context. */
 	private void drawWholePath(boolean walls) {
-		Vec3 prev = null;
+		Vec3 last = null;
 		for (RouteStep s : steps()) {
-			for (int[] p : s.locations) {
-				Vec3 v = Vec3.atBottomCenterOf(world(p)).add(0, 0.1, 0);
-				if (prev != null) WorldGizmos.line(prev, v, fade(PATH, 0x55), walls);
-				prev = v;
-			}
+			List<Vec3> pts = cachedPath(s);
+			polyline(last, pts, fade(PATH, 0x55), walls);
+			if (!pts.isEmpty()) last = pts.getLast();
 		}
 	}
 
@@ -227,12 +259,7 @@ final class RouteRunner {
 	}
 
 	private void draw(RouteStep s, int n, boolean walls, int alpha, Vec3 from) {
-		Vec3 prev = from != null ? from.add(0, 0.1, 0) : null;
-		for (int[] p : s.locations) {
-			Vec3 v = Vec3.atBottomCenterOf(world(p)).add(0, 0.1, 0);
-			if (prev != null) WorldGizmos.line(prev, v, fade(PATH, alpha), walls);
-			prev = v;
-		}
+		polyline(from != null ? from.add(0, 0.1, 0) : null, cachedPath(s), fade(PATH, alpha), walls);
 		for (int[] p : s.etherwarps) WorldGizmos.block(world(p), fade(ETHERWARP, alpha), walls);
 		for (int[] p : s.mines) WorldGizmos.block(world(p), fade(MINE, alpha), walls);
 		for (int[] p : s.interacts) WorldGizmos.block(world(p), fade(INTERACT, alpha), walls);

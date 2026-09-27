@@ -119,8 +119,8 @@ public final class RouteFeature implements Feature {
 		mod.huds.add(new RouteHud(mod::config, this));
 		com.scd.client.feature.world.WorldGizmos.onWorldExtract(partialTick -> {
 			ScdConfig.Dungeon c = mod.config().dungeon;
-			if (recorder.active()) recorder.render(c.routesThroughWalls, partialTick);
-			else if (c.routes) runner.render(c.routesThroughWalls, c.routesShowNext, partialTick);
+			if (recorder.active()) recorder.render(c.routesThroughWalls, partialTick, c.routesSmoothing);
+			else if (c.routes) runner.render(c.routesThroughWalls, c.routesShowNext, partialTick, c.routesSmoothing);
 		});
 	}
 

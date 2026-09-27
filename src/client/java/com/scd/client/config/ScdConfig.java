@@ -116,6 +116,8 @@ public final class ScdConfig {
 		public boolean routesThroughWalls = true;
 		/** Also draw the step after the current one, faded. */
 		public boolean routesShowNext = true;
+		/** Paths are straightened to within this many blocks of what was recorded (0 = raw). */
+		public double routesSmoothing = 1.5;
 		/** Route pack file names (config/scd/routes) that are switched off. */
 		public java.util.List<String> disabledRoutePacks = new java.util.ArrayList<>();
 	}

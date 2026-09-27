@@ -67,6 +67,8 @@ public final class DungeonScreen extends ScdScreen {
 			g.toggle("Show routes", "Path, etherwarps, mines and the next secret in identified rooms", () -> c.routes, v -> c.routes = v);
 			g.toggle("Through walls", null, () -> c.routesThroughWalls, v -> c.routesThroughWalls = v);
 			g.toggle("Preview the next step", "Draws the following step faded", () -> c.routesShowNext, v -> c.routesShowNext = v);
+			g.slider("Path smoothing", 0, 4, 0.5, () -> c.routesSmoothing, v -> c.routesSmoothing = v,
+					v -> v == 0 ? "off (raw)" : String.format(java.util.Locale.ROOT, "%.1f blocks", v));
 			g.value("Your routes", () -> routes.library().mine().rooms.size() + " rooms in " + com.scd.client.feature.dungeon.route.RouteLibrary.MINE);
 			for (var pack : routes.library().packs()) {
 				String file = pack.file();

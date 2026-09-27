@@ -238,7 +238,7 @@ final class RouteRecorder {
 	}
 
 	/** Live overlay while recording: the start block, every secret taken so far, and the path in progress. */
-	void render(boolean walls, float partialTick) {
+	void render(boolean walls, float partialTick, double smoothing) {
 		if (!active() || room.anchor() == null) return;
 		RouteStep first = !steps.isEmpty() ? steps.getFirst() : step;
 		if (first != null && !first.locations.isEmpty()) RouteRunner.markStart(world(first.locations.getFirst()), walls);
@@ -249,24 +249,20 @@ final class RouteRecorder {
 			RouteRunner.markSecret(world(s.secret), (i + 1) + " " + (exit ? "waypoint" : s.secretType.key.toLowerCase(java.util.Locale.ROOT)),
 					exit ? RouteRunner.PATH : RouteRunner.SECRET, walls);
 		}
-		// The whole path so far, not just the leg in progress.
-		Vec3 prev = null;
+		// The whole path so far (straightened like playback), not just the leg in progress.
+		Vec3 last = null;
 		for (RouteStep done : steps) {
-			for (int[] p : done.locations) {
-				Vec3 v = Vec3.atBottomCenterOf(world(p)).add(0, 0.1, 0);
-				if (prev != null) com.scd.client.feature.world.WorldGizmos.line(prev, v, RouteRunner.PATH, walls);
-				prev = v;
-			}
+			List<Vec3> pts = RouteRunner.path(room, done.locations, smoothing);
+			RouteRunner.polyline(last, pts, RouteRunner.PATH, walls);
+			if (!pts.isEmpty()) last = pts.getLast();
 		}
 		if (step != null) {
-			for (int[] p : step.locations) {
-				Vec3 v = Vec3.atBottomCenterOf(world(p)).add(0, 0.1, 0);
-				if (prev != null) com.scd.client.feature.world.WorldGizmos.line(prev, v, RouteRunner.PATH, walls);
-				prev = v;
-			}
+			List<Vec3> pts = RouteRunner.path(room, step.locations, smoothing);
+			RouteRunner.polyline(last, pts, RouteRunner.PATH, walls);
+			if (!pts.isEmpty()) last = pts.getLast();
 			var player = net.minecraft.client.Minecraft.getInstance().player;
-			if (prev != null && player != null) {
-				com.scd.client.feature.world.WorldGizmos.line(prev, player.getPosition(partialTick).add(0, 0.1, 0), RouteRunner.PATH, walls);
+			if (last != null && player != null) {
+				com.scd.client.feature.world.WorldGizmos.line(last, player.getPosition(partialTick).add(0, 0.1, 0), RouteRunner.PATH, walls);
 			}
 		}
 	}
