@@ -45,12 +45,32 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 	private double dragDx, dragDy;
 	private Hit activeSlider;
 	private double panelScroll;
+	private PanelPage shownPage;
 	/** Menu units -> GUI units, and the menu's virtual size (the menu ignores the game's GUI scale). */
 	private float scale = 1;
 	private int vw, vh;
 
 	/** Side panel block; options are re-read every frame (carry lists, stats change live). */
 	public record PanelSection(String title, java.util.function.Supplier<List<Opt>> options) {
+	}
+
+	/** A page that replaces the side panel's content (with a Go back button), e.g. Carries. */
+	public record PanelPage(String title, List<PanelSection> sections) {
+	}
+
+	/** The open side panel page; null = the main panel. Remembered for the session. */
+	private static PanelPage page;
+
+	public static void openPage(PanelPage p) {
+		page = p;
+	}
+
+	public static void openCarries(com.scd.client.ScdMod mod) {
+		openPage(ClickGuiContent.carryPage(mod));
+	}
+
+	public static void closePage() {
+		page = null;
 	}
 
 	/** The text option being edited, and its unsaved value. */
@@ -353,6 +373,35 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 					if (vis) hits.add(new Hit(zx, hy, bw, optH, bs.actions().get(i), null, null, null));
 				}
 			}
+			case Opt.Chips ch -> {
+				int n = ch.names().size();
+				int capW = ch.label().isEmpty() ? 0 : Math.min(w / 3, Ui.width(ch.label()) + 8);
+				if (capW > 0) Ui.text(g, Ui.ellipsize(ch.label(), capW - 4), tx, textY(y, optH), t.textSecondary());
+				int bx = x + capW + (capW > 0 ? 0 : 2), bw = (w - capW - 2) / Math.max(1, n);
+				String sel = ch.selected().get();
+				for (int i = 0; i < n; i++) {
+					int zx = bx + i * bw;
+					String name = ch.names().get(i);
+					boolean on = name.equals(sel), hot = mx >= zx && mx < zx + bw && my >= y && my < y + optH;
+					g.fill(zx + 1, y + 1, zx + bw - 1, y + optH - 1, on ? t.accent() : hot ? t.cardHover() : t.card());
+					Ui.centered(g, Ui.ellipsize(name, bw - 4), zx + bw / 2, textY(y, optH), on ? 0xFFFFFFFF : t.textPrimary());
+					if (vis) hits.add(new Hit(zx, hy, bw, optH, () -> ch.pick().accept(name), null, null, null));
+				}
+			}
+			case Opt.Progress pr -> {
+				String val = pr.value().get();
+				int valW = Ui.width(val) + 8;
+				Ui.text(g, Ui.ellipsize(pr.label(), w * 2 / 5 - indent), tx, textY(y, optH), t.textSecondary());
+				Ui.rightAligned(g, val, x + w - 4, textY(y, optH), t.textPrimary());
+				int bx = x + w * 2 / 5 + 2, bw = Math.max(10, x + w - 4 - valW - bx), by = y + optH / 2 - 2;
+				float frac = (float) Math.max(0, Math.min(1, pr.fraction().getAsDouble()));
+				g.fill(bx, by, bx + bw, by + 4, t.trackOff());
+				g.fill(bx, by, bx + Math.round(bw * frac), by + 4, frac >= 1 ? 0xFF4ADE80 : t.accent());
+			}
+			case Opt.Note nt -> {
+				String text = nt.text().get();
+				if (text != null && !text.isEmpty()) Ui.text(g, Ui.ellipsize(text, w - indent - 4), tx, textY(y, optH), nt.color());
+			}
 			case Opt.Info in -> {
 				Ui.text(g, Ui.ellipsize(in.label(), w / 2), tx, textY(y, optH), t.textMuted());
 				Ui.rightAligned(g, Ui.ellipsize(in.value().get(), w / 2 - 4), x + w - 4, textY(y, optH), t.textSecondary());
@@ -386,6 +435,10 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 
 	@Override
 	public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+		if (editing == null && page != null && event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+			closePage();
+			return true;
+		}
 		if (editing == null) return super.keyPressed(event);
 		switch (event.key()) {
 			case org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE -> {
@@ -411,18 +464,34 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		int pw = panelW(), px = vw - pw;
 		g.fill(px, 0, vw, vh, t.window());
 		g.fill(px, 0, px + 1, vh, t.accent());
-		g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, px + 8, 6, 16, 16);
+		g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, px + gap, 6, 16, 16);
 		int top = 28;
-		// "Move HUDs" sits at the bottom as a big button; the sections scroll above it.
-		int btnH = headH + 4, btnY = vh - gap - btnH, bottom = btnY - gap;
-		drawMoveHuds(g, px + gap, btnY, pw - 2 * gap, btnH, mx, my);
+		int bottom;
+		List<PanelSection> sections;
+		if (page == null) {
+			// "Move HUDs" sits at the bottom as a big button; the sections scroll above it.
+			int btnH = headH + 4, btnY = vh - gap - btnH;
+			bottom = btnY - gap;
+			bigButton(g, px + gap, btnY, pw - 2 * gap, btnH, "MOVE HUDS", mx, my, () -> net.minecraft.client.Minecraft.getInstance().gui.setScreen(
+					new com.scd.client.hud.HudEditorScreen(this, mod.huds, mod.configManager)), "Drag, resize and anchor every HUD");
+			sections = panel;
+		} else {
+			// Pages: Go back next to the logo (Esc does the same).
+			int bx = px + gap + 16 + 4;
+			bigButton(g, bx, 6, vw - gap - bx, 16, "GO BACK", mx, my, ClickGuiScreen::closePage, "Back to the main panel (Esc)");
+			bottom = vh - gap;
+			sections = page.sections();
+		}
+		if (page != shownPage) panelScroll = 0;
+		shownPage = page;
 		int y = top - (int) panelScroll;
 		g.enableScissor(px, top, vw, bottom);
 		// Each section is a card styled like a category column: accent header, outline, and the
 		// options inside a 1-unit background-coloured inner border.
 		int cx = px + gap, cw = pw - 2 * gap;
-		for (PanelSection s : panel) {
+		for (PanelSection s : sections) {
 			List<Opt> opts = s.options().get();
+			if (opts.isEmpty()) continue;
 			// +2: a background-coloured line under the last row, then the outline.
 			int bodyH = opts.size() * optH + 2;
 			g.fill(cx, y, cx + cw, y + headH, t.accent());
@@ -442,15 +511,14 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		g.disableScissor();
 	}
 
-	private void drawMoveHuds(GuiGraphicsExtractor g, int x, int y, int w, int h, int mx, int my) {
+	/** A large accent button with bold centred text (Move HUDs, Go back). */
+	private void bigButton(GuiGraphicsExtractor g, int x, int y, int w, int h, String text, int mx, int my, Runnable action, String hover) {
 		Theme t = Ui.theme();
 		boolean hot = mx >= x && mx < x + w && my >= y && my < y + h;
-		int alpha = hot ? 0xC0000000 : 0x70000000;
-		g.fill(x, y, x + w, y + h, (t.accent() & 0x00FFFFFF) | alpha);
+		g.fill(x, y, x + w, y + h, (t.accent() & 0x00FFFFFF) | (hot ? 0xC0000000 : 0x70000000));
 		g.outline(x, y, w, h, t.accent());
-		headerText(g, "MOVE HUDS", x + w / 2, y, h);
-		hits.add(new Hit(x, y, w, h, () -> net.minecraft.client.Minecraft.getInstance().gui.setScreen(
-				new com.scd.client.hud.HudEditorScreen(this, mod.huds, mod.configManager)), null, null, "Drag, resize and anchor every HUD"));
+		headerText(g, text, x + w / 2, y, h);
+		hits.add(new Hit(x, y, w, h, action, null, null, hover));
 	}
 
 	// ---- input ----------------------------------------------------------------------------

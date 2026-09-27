@@ -144,8 +144,9 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		ctx.setScreen(() -> null);
 	}
 
-	/** Click the side panel's Customer field, type, and check both what's shown and what's saved. */
+	/** Open the Carries page, click its Customer field, type, and check both what's shown and what's saved. */
 	private static void textFieldTest(ClientGameTestContext ctx, ScdMod mod) {
+		ctx.runOnClient(mc -> com.scd.client.ui.clickgui.ClickGuiScreen.openCarries(mod));
 		ctx.setScreen(() -> new com.scd.client.ui.clickgui.ClickGuiScreen(mod));
 		ctx.waitTicks(5);
 		double[] at = ctx.computeOnClient(mc -> {
@@ -153,8 +154,8 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 			int density = Math.max(1, Math.round(w.getHeight() / 540f));
 			int vw = w.getWidth() / density;
 			int pw = Math.max(120, vw / 5), cx = vw - pw + 6, cw = pw - 12;
-			// General card (header 16 + 5 rows of 13 + 2), gap 6, Carries header 16, "Earned" row, then Customer.
-			int y = 28 + 83 + 6 + 16 + 13 + 6;
+			// "Active carries" card (header 16 + one row + 2), gap 6, "New carry" header 16, then Customer.
+			int y = 28 + 31 + 6 + 16 + 6;
 			return new double[]{(cx + cw * 3 / 4) * density, y * density};
 		});
 		ctx.getInput().setCursorPos(at[0], at[1]);
@@ -175,6 +176,8 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 			}
 		});
 		if (!"Bob".equals(saved)) throw new AssertionError("text field saved '" + saved + "' instead of 'Bob'");
+		ctx.takeScreenshot("00d-carries-page");
+		ctx.runOnClient(mc -> com.scd.client.ui.clickgui.ClickGuiScreen.closePage());
 	}
 
 	private static void shot(ClientGameTestContext ctx, String name, java.util.function.Supplier<net.minecraft.client.gui.screens.Screen> screen) {

@@ -26,6 +26,7 @@ import net.minecraft.client.gui.screens.Screen;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 
 /** What the click GUI shows: every SCD setting, grouped into columns, plus the side panel. */
@@ -206,19 +207,10 @@ final class ClickGuiContent {
 	private static String newWhat = "F7";
 	private static int newCount = 1;
 
-	private static List<String> carryTargets() {
-		List<String> out = new ArrayList<>(com.scd.logic.dungeon.Floor.CARRYABLE);
-		for (SlayerType t : SlayerType.values()) {
-			for (String tier : com.scd.logic.slayer.SlayerTier.ALL) out.add(t.displayName() + " " + tier);
-		}
-		return out;
-	}
-
 	static List<ClickGuiScreen.PanelSection> panel(ScdMod mod) {
 		ScdConfig c = mod.config();
 		List<String> themes = Theme.PRESETS.stream().map(Theme::name).toList();
 		int[] sizes = Ui.textSizes();
-		CarryService carries = mod.feature(CarryService.class);
 		SlayerFeature slayer = mod.feature(SlayerFeature.class);
 		return List.of(
 				new ClickGuiScreen.PanelSection("General", () -> List.of(
@@ -237,25 +229,6 @@ final class ClickGuiContent {
 						new Opt.Slider("Menu size", 80, 130, 5, () -> c.general.menuScale, v -> c.general.menuScale = (int) Math.round(v),
 								v -> Math.round(v) + "%"),
 						new Opt.Toggle("Only on SkyBlock", () -> c.general.requireSkyblock, v -> c.general.requireSkyblock = v))),
-				new ClickGuiScreen.PanelSection("Carries", () -> {
-					List<Opt> o = new ArrayList<>();
-					for (var carry : carries.active()) {
-						o.add(new Opt.Info(carry.customer + " · " + carry.target(), () -> carry.unitsDone + "/" + carry.unitsOwed));
-						o.add(new Opt.Buttons("", List.of("+1", "-1", "Finish", "Remove"), List.of(
-								() -> carries.adjust(carry, 1), () -> carries.adjust(carry, -1), () -> carries.finish(carry), () -> carries.remove(carry))));
-					}
-					o.add(new Opt.Info("Earned / owed", () -> com.scd.logic.Numbers.compactCoins(carries.earnedTotal()) + " / "
-							+ com.scd.logic.Numbers.compactCoins(carries.outstandingTotal())));
-					o.add(new Opt.Text("Customer", () -> newCustomer, v -> newCustomer = v.trim()));
-					o.add(new Opt.Cycle("What", carryTargets(), () -> newWhat, v -> newWhat = v, v -> v));
-					o.add(new Opt.Slider("Count", 1, 50, 1, () -> newCount, v -> newCount = (int) Math.round(v), v -> String.valueOf(Math.round(v))));
-					o.add(new Opt.Text("Price each", () -> newPrice, v -> newPrice = v.trim()));
-					o.add(new Opt.Action("Add carry", () -> addCarry(carries)));
-					o.add(new Opt.Toggle("Party chat progress", () -> c.carries.partyProgress, v -> c.carries.partyProgress = v));
-					o.add(new Opt.Text("Progress msg", () -> c.carries.progressTemplate, v -> c.carries.progressTemplate = v));
-					o.add(new Opt.Text("Finish msg", () -> c.carries.finishTemplate, v -> c.carries.finishTemplate = v));
-					return o;
-				}),
 				new ClickGuiScreen.PanelSection("Stats", () -> {
 					List<Opt> o = new ArrayList<>();
 					o.add(new Opt.Info("Purse", () -> {
@@ -285,25 +258,120 @@ final class ClickGuiContent {
 						o.add(new Opt.Info("Accessory Power", () -> String.valueOf(acc.accessoryPower())));
 					}
 					return o;
-				}));
+				}),
+				new ClickGuiScreen.PanelSection("Advanced features", () -> List.of(
+						new Opt.Buttons("", List.of("Carries"), List.of(() -> ClickGuiScreen.openPage(carryPage(mod)))))));
+	}
+
+	// ---- Carries page ---------------------------------------------------------------------------
+
+	private static final String DUNGEON = "Dungeon", SLAYER = "Slayer";
+	private static String newKind = DUNGEON;
+	private static SlayerType newSlayer = SlayerType.ZOMBIE;
+	private static String newTier = "IV";
+	/** Form feedback under the Add button, and its colour. */
+	private static String carryStatus = "";
+	private static int carryStatusColor = 0xFFF87171;
+
+	private static final Map<SlayerType, String> SLAYER_SHORT = new java.util.EnumMap<>(Map.of(
+			SlayerType.ZOMBIE, "Rev", SlayerType.SPIDER, "Tara", SlayerType.WOLF, "Sven",
+			SlayerType.ENDERMAN, "Eman", SlayerType.BLAZE, "Blaze", SlayerType.VAMPIRE, "Vamp"));
+
+	private static int maxTier(SlayerType t) {
+		return switch (t) {
+			case WOLF, ENDERMAN, BLAZE -> 4;
+			default -> 5;
+		};
+	}
+
+	static ClickGuiScreen.PanelPage carryPage(ScdMod mod) {
+		ScdConfig c = mod.config();
+		CarryService carries = mod.feature(CarryService.class);
+		var coins = (java.util.function.LongFunction<String>) com.scd.logic.Numbers::compactCoins;
+		return new ClickGuiScreen.PanelPage("Carries", List.of(
+				new ClickGuiScreen.PanelSection("Active carries", () -> {
+					List<Opt> o = new ArrayList<>();
+					var active = carries.active();
+					if (active.isEmpty()) o.add(new Opt.Info("No active carries", () -> ""));
+					for (var carry : active) {
+						o.add(new Opt.Info(carry.customer + " · " + carry.target(), () -> coins.apply(carry.earned()) + " / " + coins.apply(carry.totalPrice())));
+						o.add(new Opt.Progress(carry.unitsDone + " of " + carry.unitsOwed + " " + carry.unit(),
+								() -> carry.unitsOwed == 0 ? 0 : carry.unitsDone / (double) carry.unitsOwed,
+								() -> carry.remaining() == 0 ? "done" : carry.remaining() + " left"));
+						o.add(new Opt.Buttons("", List.of("+1", "-1", "Finish", "Remove"), List.of(
+								() -> carries.adjust(carry, 1), () -> carries.adjust(carry, -1), () -> carries.finish(carry), () -> carries.remove(carry))));
+					}
+					return o;
+				}),
+				new ClickGuiScreen.PanelSection("New carry", () -> {
+					List<Opt> o = new ArrayList<>();
+					o.add(new Opt.Text("Customer", () -> newCustomer, v -> newCustomer = v.trim()));
+					o.add(new Opt.Chips("", List.of(DUNGEON, SLAYER), () -> newKind, v -> newKind = v));
+					if (newKind.equals(DUNGEON)) {
+						var floors = com.scd.logic.dungeon.Floor.CARRYABLE;
+						o.add(new Opt.Chips("", floors.subList(0, 7), () -> newWhat, v -> newWhat = v));
+						o.add(new Opt.Chips("", floors.subList(7, 14), () -> newWhat, v -> newWhat = v));
+					} else {
+						List<String> bosses = new ArrayList<>(SLAYER_SHORT.values());
+						o.add(new Opt.Chips("", bosses, () -> SLAYER_SHORT.get(newSlayer), v -> {
+							for (var e : SLAYER_SHORT.entrySet()) if (e.getValue().equals(v)) newSlayer = e.getKey();
+							if (com.scd.logic.slayer.SlayerTier.ALL.indexOf(newTier) >= maxTier(newSlayer)) newTier = com.scd.logic.slayer.SlayerTier.ALL.get(maxTier(newSlayer) - 1);
+						}));
+						o.add(new Opt.Chips("Tier", com.scd.logic.slayer.SlayerTier.ALL.subList(0, maxTier(newSlayer)), () -> newTier, v -> newTier = v));
+					}
+					String unit = newKind.equals(DUNGEON) ? "Runs" : "Kills";
+					o.add(new Opt.Buttons(unit + "  " + newCount, List.of("-5", "-1", "+1", "+5"), List.of(
+							() -> newCount = Math.max(1, newCount - 5), () -> newCount = Math.max(1, newCount - 1),
+							() -> newCount = Math.min(999, newCount + 1), () -> newCount = Math.min(999, newCount + 5))));
+					o.add(new Opt.Text("Price each", () -> newPrice, v -> newPrice = v.trim()));
+					o.add(new Opt.Info("Total", () -> {
+						var p = com.scd.logic.Numbers.parseCompactLong(newPrice);
+						return p.isPresent() && p.getAsLong() > 0 ? newCount + " × " + coins.apply(p.getAsLong()) + " = " + coins.apply(p.getAsLong() * newCount) : "-";
+					}));
+					o.add(new Opt.Buttons("", List.of("Add carry"), List.of(() -> addCarry(carries))));
+					if (!carryStatus.isEmpty()) o.add(new Opt.Note(() -> carryStatus, carryStatusColor));
+					return o;
+				}),
+				new ClickGuiScreen.PanelSection("History", () -> {
+					List<Opt> o = new ArrayList<>();
+					o.add(new Opt.Info("Earned", () -> coins.apply(carries.earnedTotal())));
+					o.add(new Opt.Info("Still owed", () -> coins.apply(carries.outstandingTotal())));
+					int shown = 0;
+					for (var carry : carries.all()) {
+						if (carry.isActive()) continue;
+						if (shown++ >= 6) break;
+						o.add(new Opt.Info(carry.customer + " · " + carry.target() + " ×" + carry.unitsOwed, () -> coins.apply(carry.earned())));
+					}
+					return o;
+				}),
+				new ClickGuiScreen.PanelSection("Party messages", () -> List.of(
+						new Opt.Toggle("Progress in party chat", () -> c.carries.partyProgress, v -> c.carries.partyProgress = v),
+						new Opt.Text("Progress msg", () -> c.carries.progressTemplate, v -> c.carries.progressTemplate = v),
+						new Opt.Text("Finish msg", () -> c.carries.finishTemplate, v -> c.carries.finishTemplate = v),
+						new Opt.Info("Tags", () -> "{player} {done} {owed} {unit}")))));
 	}
 
 	private static void addCarry(CarryService carries) {
 		var price = com.scd.logic.Numbers.parseCompactLong(newPrice);
-		if (newCustomer.isEmpty() || price.isEmpty() || price.getAsLong() <= 0) {
-			com.scd.client.core.Chat.error("New carry: fill in the customer and a price like 1.5m.");
+		carryStatusColor = 0xFFF87171;
+		if (newCustomer.isEmpty()) {
+			carryStatus = "Enter the customer's name";
 			return;
 		}
-		String floor = com.scd.logic.dungeon.Floor.normalize(newWhat);
-		if (floor != null) {
-			carries.addDungeon(newCustomer, floor, price.getAsLong(), newCount);
-		} else {
-			String[] parts = newWhat.split(" ");
-			SlayerType type = SlayerType.parse(parts[0]);
-			if (type == null) return;
-			carries.addSlayer(newCustomer, type, parts[1], price.getAsLong(), newCount);
+		if (price.isEmpty() || price.getAsLong() <= 0) {
+			carryStatus = "Enter a price, like 1.5m or 800k";
+			return;
 		}
-		com.scd.client.core.Chat.success("Added carry: " + newCustomer + " " + newWhat + " x" + newCount);
+		String what;
+		if (newKind.equals(DUNGEON)) {
+			what = newWhat;
+			carries.addDungeon(newCustomer, newWhat, price.getAsLong(), newCount);
+		} else {
+			what = newSlayer.displayName() + " " + newTier;
+			carries.addSlayer(newCustomer, newSlayer, newTier, price.getAsLong(), newCount);
+		}
+		carryStatus = "Added " + newCustomer + " · " + what + " ×" + newCount;
+		carryStatusColor = 0xFF4ADE80;
 		newCustomer = "";
 		newPrice = "";
 		newCount = 1;

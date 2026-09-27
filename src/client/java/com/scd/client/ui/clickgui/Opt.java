@@ -39,4 +39,20 @@ public sealed interface Opt {
 	/** A row split into equal click zones ("+1", "-1", "Finish"...), with a caption on the left. */
 	record Buttons(String label, List<String> names, List<Runnable> actions) implements Opt {
 	}
+
+	/** Pick one of several: the chosen chip is filled with the accent colour. */
+	record Chips(String label, List<String> names, Supplier<String> selected, Consumer<String> pick) implements Opt {
+	}
+
+	/** A progress bar with a value on the right. */
+	record Progress(String label, DoubleSupplier fraction, Supplier<String> value) implements Opt {
+	}
+
+	/** A coloured one-line message (form feedback); hidden when empty. */
+	record Note(Supplier<String> text, int color) implements Opt {
+		@Override
+		public String label() {
+			return "";
+		}
+	}
 }
