@@ -119,6 +119,8 @@ public final class ScdConfig {
 		public boolean keyAlert = true;
 		/** Chat line with the clear time (and PB/average) when a room you entered gets its check. */
 		public boolean roomTimeMessage = true;
+		/** SCD's dungeon map HUD with per-room secret counts. */
+		public boolean mapHud = true;
 		/** Split times (blood open, Watcher, boss, clear) with PB deltas on the score HUD. */
 		public boolean scoreSplits = true;
 		/** Assume a Spirit pet in the party: the first death costs 1 point instead of 2 (Odin assumes this always). */

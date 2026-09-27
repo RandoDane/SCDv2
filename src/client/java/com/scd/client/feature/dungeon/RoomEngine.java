@@ -65,6 +65,8 @@ public final class RoomEngine {
 	private final Map<RoomInfo, MappedRoom> byInfo = new HashMap<>();
 	private final Set<Integer> reportedUnknown = new HashSet<>();
 	private MapLayout.Layout layout;
+	/** Teammate markers on the dungeon map, in map pixels {x, z}. */
+	private List<int[]> teammateMarks = List.of();
 	private MappedRoom current;
 	private Level level;
 	private int ticks;
@@ -103,6 +105,7 @@ public final class RoomEngine {
 		rooms.clear();
 		byInfo.clear();
 		layout = null;
+		teammateMarks = List.of();
 		current = null;
 		ticks = 0;
 	}
@@ -195,6 +198,13 @@ public final class RoomEngine {
 		MapLayout.Layout read = MapLayout.read(data.colors, floor);
 		if (read == null) return;
 		layout = read;
+		// Teammate markers (Hypixel draws you as the frame-type marker; others as player markers).
+		List<int[]> marks = new ArrayList<>();
+		for (var d : data.getDecorations()) {
+			if (d.type().value() == net.minecraft.world.level.saveddata.maps.MapDecorationTypes.FRAME.value()) continue;
+			marks.add(new int[]{(d.x() + 128) / 2, (d.y() + 128) / 2});
+		}
+		teammateMarks = marks;
 		for (MapLayout.MapRoom mr : read.rooms()) {
 			// Find (or create) the room owning these tiles.
 			MappedRoom room = null;
@@ -322,6 +332,23 @@ public final class RoomEngine {
 
 	public MapLayout.Layout layout() {
 		return layout;
+	}
+
+	public List<int[]> teammateMarks() {
+		return teammateMarks;
+	}
+
+	/** Grid tile index (x + z * 6) under a map pixel, or -1. */
+	public int tileAtMapPixel(int px, int pz) {
+		if (layout == null) return -1;
+		int gap = layout.roomSize() + 4;
+		int tx = Math.floorDiv(px - layout.startX(), gap), tz = Math.floorDiv(pz - layout.startZ(), gap);
+		return DungeonGrid.inGrid(tx, tz) ? DungeonGrid.index(tx, tz) : -1;
+	}
+
+	/** The room covering grid tile {@code index}, or null. */
+	public MappedRoom roomAtTile(int index) {
+		return index >= 0 && index < 36 ? byTile[index] : null;
 	}
 
 	public MappedRoom roomAt(BlockPos pos) {

@@ -13,7 +13,8 @@
 		"LevelExtractorGizmoMixin",
 		"ContainerScreenAccessor",
 		"TabOverlayAccessor",
-		"ServerTimeMixin"
+		"ServerTimeMixin",
+		"BlockUpdateMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

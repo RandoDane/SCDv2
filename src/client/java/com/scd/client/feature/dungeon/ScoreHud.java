@@ -17,13 +17,15 @@ final class ScoreHud extends HudElement {
 	private final Supplier<ScdConfig> config;
 	private final Supplier<DungeonRun.Score> score;
 	private final Supplier<List<String>> splits;
+	private final Supplier<String> pacing;
 
-	ScoreHud(Supplier<ScdConfig> config, Supplier<DungeonRun.Score> score, Supplier<List<String>> splits) {
+	ScoreHud(Supplier<ScdConfig> config, Supplier<DungeonRun.Score> score, Supplier<List<String>> splits, Supplier<String> pacing) {
 		// Shares the Slayer HUD's corner by default - the two never show at the same time.
 		super("dungeon_score", "Dungeon score", HudLayout.at(HudLayout.AnchorX.LEFT, HudLayout.AnchorY.TOP, 8, 8));
 		this.config = config;
 		this.score = score;
 		this.splits = splits;
+		this.pacing = pacing;
 	}
 
 	@Override
@@ -63,6 +65,9 @@ final class ScoreHud extends HudElement {
 			box.text("Rooms " + s.completedRooms() + "/" + b.totalRoomsEstimate() + "   Secrets " + secrets, HudColor.TEXT);
 			String need = secretsNeed(s, b);
 			if (need != null) box.text(need, HudColor.LABEL);
+			// Where to get them, while they're still needed.
+			String where = need != null && need.contains("more") ? pacing.get() : null;
+			if (where != null) box.text("  " + where, HudColor.LABEL);
 		}
 		if (c.scoreCryptsDeathsPuzzles) {
 			String mimic = ScoreCalculator.hasMimic(s.state().floor()) ? (s.mimic() ? "  Mimic ✔" : "  Mimic ✖") : "";

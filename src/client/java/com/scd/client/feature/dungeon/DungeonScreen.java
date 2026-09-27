@@ -60,6 +60,7 @@ public final class DungeonScreen extends ScdScreen {
 					() -> Minecraft.getInstance().gui.setScreen(new CarryScreen(this, carries)));
 		});
 		rows.group("helpers", "Helpers", null, true, g -> {
+			g.toggle("Dungeon map", "Rooms, doors, checks, secrets found per room (teammates' too) and player dots", () -> c.mapHud, v -> c.mapHud = v);
 			g.toggle("Puzzle HUD", "Each puzzle's name and status (✔ done, ✖ failed, ✦ open)", () -> c.puzzleHud, v -> c.puzzleHud = v);
 			g.toggle("Deaths HUD", "Deaths per player this run", () -> c.deathHud, v -> c.deathHud = v);
 			g.toggle("Teammate death alert", null, () -> c.deathAlert, v -> c.deathAlert = v);

@@ -51,4 +51,12 @@ public final class Events {
 	/** The local player picked up an item entity that was at {@code pos}. */
 	public record ItemPickedUp(Vec3 pos, ItemStack stack) {
 	}
+
+	/** Another player picked up an item entity at {@code pos}. */
+	public record ItemTakenByOther(Vec3 pos, int collectorId) {
+	}
+
+	/** A player head block at {@code pos} turned into air (a wither essence / key secret taken). */
+	public record SkullRemoved(net.minecraft.core.BlockPos pos) {
+	}
 }

@@ -21,9 +21,10 @@ public abstract class ItemPickupMixin {
 	private void scd$onTakeItem(ClientboundTakeItemEntityPacket packet, CallbackInfo ci) {
 		Minecraft mc = Minecraft.getInstance();
 		if (!mc.isSameThread() || mc.level == null || mc.player == null) return;
-		if (packet.getPlayerId() != mc.player.getId()) return;
 		if (!(mc.level.getEntity(packet.getItemId()) instanceof ItemEntity item)) return;
 		ScdMod mod = ScdMod.get();
-		if (mod != null) mod.bus.post(new Events.ItemPickedUp(item.position(), item.getItem().copy()));
+		if (mod == null) return;
+		if (packet.getPlayerId() == mc.player.getId()) mod.bus.post(new Events.ItemPickedUp(item.position(), item.getItem().copy()));
+		else mod.bus.post(new Events.ItemTakenByOther(item.position(), packet.getPlayerId()));
 	}
 }

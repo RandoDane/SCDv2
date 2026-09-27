@@ -47,6 +47,7 @@ public final class DungeonFeature implements Feature {
 	private Integer estimateAtEnd;
 	private long lastRunLagMs;
 	private RoomTimes roomTimes;
+	private SecretTracker secrets;
 	private JsonStore<DungeonRecords> records;
 
 	@Override
@@ -66,12 +67,14 @@ public final class DungeonFeature implements Feature {
 			parser.accept(e.text());
 			if (state.inDungeon()) run.onMessage(e.text());
 		});
-		mod.huds.add(new ScoreHud(mod::config, () -> score, this::splitLines));
+		mod.huds.add(new ScoreHud(mod::config, () -> score, this::splitLines, this::secretPacing));
 		mod.huds.add(new RoomHud(mod::config, rooms::current, this::roomTimeSummary));
 		new ChestProfit(mod);
 		new DungeonExtras(mod, this);
 		new DoorKeys(mod, this);
 		roomTimes = new RoomTimes(mod, this);
+		secrets = new SecretTracker(mod, this);
+		mod.huds.add(new DungeonMapHud(mod::config, this, secrets));
 	}
 
 	private void onTick() {
@@ -242,6 +245,43 @@ public final class DungeonFeature implements Feature {
 
 	public DungeonRecords records() {
 		return records.get();
+	}
+
+	/**
+	 * Where the secrets you still need are: "here 2 · Altar 3 · Pit 2" - the room you're in first,
+	 * then the nearest unfinished rooms. Null when there's nothing to say.
+	 */
+	String secretPacing() {
+		if (secrets == null || score == null || score.inBoss()) return null;
+		List<MappedRoom> open = secrets.unfinished();
+		if (open.isEmpty()) return null;
+		MappedRoom here = rooms.current();
+		var p = net.minecraft.client.Minecraft.getInstance().player;
+		int px = p != null ? com.scd.logic.dungeon.room.DungeonGrid.tileOf(p.getBlockX()) : 0;
+		int pz = p != null ? com.scd.logic.dungeon.room.DungeonGrid.tileOf(p.getBlockZ()) : 0;
+		open.sort(java.util.Comparator.comparingInt((MappedRoom r) -> r == here ? -1 : distance(r, px, pz)));
+		StringBuilder sb = new StringBuilder();
+		int shown = 0;
+		for (MappedRoom r : open) {
+			if (shown++ == 3) break;
+			if (!sb.isEmpty()) sb.append(" · ");
+			sb.append(r == here ? "here" : r.name()).append(' ').append(r.info().secrets() - secrets.found(r));
+		}
+		return sb.toString();
+	}
+
+	private static int distance(MappedRoom r, int px, int pz) {
+		int best = Integer.MAX_VALUE;
+		for (int[] t : r.tiles()) best = Math.min(best, Math.abs(t[0] - px) + Math.abs(t[1] - pz));
+		return best;
+	}
+
+	boolean scoreInBoss() {
+		return run.inBoss();
+	}
+
+	SecretTracker secrets() {
+		return secrets;
 	}
 
 	void recordsDirty() {
