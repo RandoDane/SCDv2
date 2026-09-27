@@ -121,6 +121,8 @@ public final class ScdConfig {
 		public boolean roomTimeMessage = true;
 		/** SCD's dungeon map HUD with per-room secret counts. */
 		public boolean mapHud = true;
+		/** Quiz, Three Weirdos and Higher/Lower Blaze solvers (show only). */
+		public boolean puzzleSolvers = true;
 		/** Split times (blood open, Watcher, boss, clear) with PB deltas on the score HUD. */
 		public boolean scoreSplits = true;
 		/** Assume a Spirit pet in the party: the first death costs 1 point instead of 2 (Odin assumes this always). */

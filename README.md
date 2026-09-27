@@ -44,4 +44,5 @@ Everything is also written locally to `config/scd/recordings/<session>.jsonl` (a
 
 ## Third-party data
 - `assets/scd/dungeon/rooms.json` is the room database from [Odin](https://github.com/odtheking/Odin), BSD 3-Clause, © 2025 odtheking — license in `assets/scd/dungeon/rooms.LICENSE.txt`.
+- `assets/scd/dungeon/quiz.json` (Quiz puzzle answers) is also from Odin, same BSD 3-Clause license.
 - Poppins font: SIL Open Font License (`assets/scd/font/OFL.txt`).

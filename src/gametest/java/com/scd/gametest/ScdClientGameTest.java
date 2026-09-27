@@ -251,6 +251,9 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		server.runCommand("tellraw @a \"[BOSS] The Watcher: You have proven yourself. You may pass.\"");
 		server.runCommand("tellraw @a \"[BOSS] Sadan: So you made it all the way here... Now you wish to defy me? Sadan?!\"");
 		ctx.waitTicks(10);
+		server.runCommand("tellraw @a \"         What is the status of Bonzo?\"");
+		server.runCommand("tellraw @a \"     ⓐ Apprentice Necromancer\"");
+		server.runCommand("tellraw @a \"     ⓑ New Necromancer\"");
 		server.runCommand("tellraw @a \" ☠ Steve was killed by Crypt Lurker and became a ghost.\"");
 		server.runCommand("tellraw @a \"Your ⚚ Bonzo's Mask saved your life!\"");
 		ctx.waitTicks(5);

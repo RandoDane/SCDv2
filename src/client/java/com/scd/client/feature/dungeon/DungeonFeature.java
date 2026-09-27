@@ -75,6 +75,7 @@ public final class DungeonFeature implements Feature {
 		roomTimes = new RoomTimes(mod, this);
 		secrets = new SecretTracker(mod, this);
 		mod.huds.add(new DungeonMapHud(mod::config, this, secrets));
+		new PuzzleSolvers(mod, this);
 	}
 
 	private void onTick() {
