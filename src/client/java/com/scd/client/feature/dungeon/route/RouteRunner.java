@@ -18,13 +18,16 @@ import java.util.Locale;
  */
 final class RouteRunner {
 	static final int PATH = 0xFF4ADE80;
-	static final int ETHERWARP = 0xFF38BDF8;
-	static final int MINE = 0xFFF87171;
-	static final int INTERACT = 0xFFFACC15;
-	static final int TNT = 0xFFFB923C;
-	static final int PEARL = 0xFFE879F9;
-	static final int SECRET = 0xFF4ADE80;
-	static final int START = 0xFFFFC857;
+	// SecretRoutes' default colours: {box, label, muted box for the step after the current one}.
+	static final int[] ETHERWARP = {0xFF800080, 0xFFAA00AA, 0xFF5F3D61};
+	static final int[] MINE = {0xFFFFEC00, 0xFFFFFF55, 0xFFB1AD61};
+	static final int[] TNT = {0xFFFF0000, 0xFFFF5555, 0xFFA85A5A};
+	static final int[] INTERACT = {0xFF0000FF, 0xFF5555FF, 0xFF495295};
+	static final int[] PEARL = {0xFF00FFFF, 0xFF55FFFF, 0xFF5FA7A7};
+	static final int[] ITEM = {0xFF00FFFF, 0xFF55FF55, 0xFF5FA7A7};
+	static final int[] BAT = {0xFF00FF00, 0xFF55FF55, 0xFF5B9A5B};
+	static final int[] EXIT = {0xFFFF0000, 0xFFFF5555, 0xFFA85A5A};
+	static final int START = 0xFFFF5555;
 	static final int DONE = 0xFF94A3B8;
 
 	private MappedRoom room;
@@ -242,7 +245,7 @@ final class RouteRunner {
 		for (int i = 0; i < index && i < all.size(); i++) {
 			RouteStep s = all.get(i);
 			if (s.secret == null || s.secretType == RouteStep.SecretType.EXIT || s.secretType == RouteStep.SecretType.EXIT_ROUTE) continue;
-			markSecret(world(s.secret), "✔ " + (i + 1) + " " + s.secretType.key.toLowerCase(Locale.ROOT), DONE, walls);
+			markSecret(world(s.secret), "✔ " + (i + 1) + " " + secretName(room, s), DONE, walls);
 		}
 	}
 
@@ -260,19 +263,103 @@ final class RouteRunner {
 
 	private void draw(RouteStep s, int n, boolean walls, int alpha, Vec3 from) {
 		polyline(from != null ? from.add(0, 0.1, 0) : null, cachedPath(s), fade(PATH, alpha), walls);
-		for (int[] p : s.etherwarps) WorldGizmos.block(world(p), fade(ETHERWARP, alpha), walls);
-		for (int[] p : s.mines) WorldGizmos.block(world(p), fade(MINE, alpha), walls);
-		for (int[] p : s.interacts) WorldGizmos.block(world(p), fade(INTERACT, alpha), walls);
-		for (int[] p : s.tnts) WorldGizmos.block(world(p), fade(TNT, alpha), walls);
-		for (int[] p : s.pearls) WorldGizmos.block(world(p), fade(PEARL, alpha), walls);
+		drawActions(room, s, alpha, alpha == 0xFF, walls);
 		if (s.secret != null) {
 			BlockPos sp = world(s.secret);
-			WorldGizmos.block(sp, fade(SECRET, alpha), walls);
+			int[] c = secretColors(s);
+			WorldGizmos.block(sp, alpha == 0xFF ? c[0] : c[2], walls);
 			if (alpha == 0xFF) {
-				String label = (n + 1) + "/" + steps().size() + " " + s.secretType.key.toLowerCase(Locale.ROOT);
-				WorldGizmos.label(Vec3.atCenterOf(sp).add(0, 1.0, 0), label, SECRET, walls);
+				String label = (n + 1) + "/" + steps().size() + " " + secretName(room, s);
+				WorldGizmos.label(Vec3.atCenterOf(sp).add(0, 1.0, 0), label, c[1], walls);
 			}
 		}
+	}
+
+	/**
+	 * Every action of a step as a coloured block, labelled with what to do there: "Etherwarp" on the
+	 * block to warp to, "Ender pearl" where the pearl lands (throw spots say "Throw pearl"), one
+	 * "Stonk" per group of blocks to break through, "Click" for levers/doors, "Superboom" for TNT.
+	 */
+	static void drawActions(MappedRoom room, RouteStep s, int alpha, boolean labels, boolean walls) {
+		boolean next = alpha != 0xFF;
+		for (int[] p : s.etherwarps) action(room, p, ETHERWARP, next, labels ? "Etherwarp" : null, walls);
+		for (int[] p : s.pearls) action(room, p, PEARL, next, labels && s.pearlLandings.isEmpty() ? "Ender pearl" : labels ? "Throw pearl" : null, walls);
+		for (int[] p : s.pearlLandings) action(room, p, PEARL, next, labels ? "Ender pearl" : null, walls);
+		for (int[] p : s.interacts) action(room, p, INTERACT, next, labels ? "Click" : null, walls);
+		for (int[] p : s.tnts) action(room, p, TNT, next, labels ? "Superboom" : null, walls);
+		for (int[] p : s.mines) action(room, p, MINE, next, null, walls);
+		if (labels) for (List<int[]> group : groups(s.mines)) {
+			// Label the top of each wall you stonk through, once.
+			int[] top = group.getFirst();
+			double cx = 0, cz = 0;
+			for (int[] p : group) {
+				if (p[1] > top[1]) top = p;
+				cx += p[0];
+				cz += p[2];
+			}
+			BlockPos w = room.toWorld(new BlockPos((int) Math.round(cx / group.size()), top[1], (int) Math.round(cz / group.size())));
+			WorldGizmos.label(Vec3.atCenterOf(w).add(0, 1.0, 0), "Stonk", MINE[1], walls);
+		}
+	}
+
+	private static void action(MappedRoom room, int[] p, int[] colors, boolean next, String label, boolean walls) {
+		BlockPos w = room.toWorld(new BlockPos(p[0], p[1], p[2]));
+		WorldGizmos.block(w, next ? colors[2] : colors[0], walls);
+		if (label != null) WorldGizmos.label(Vec3.atCenterOf(w).add(0, 1.0, 0), label, colors[1], walls);
+	}
+
+	/** Mined blocks that touch (including diagonally) form one group. */
+	static List<List<int[]>> groups(List<int[]> blocks) {
+		List<List<int[]>> out = new java.util.ArrayList<>();
+		boolean[] seen = new boolean[blocks.size()];
+		for (int i = 0; i < blocks.size(); i++) {
+			if (seen[i]) continue;
+			List<int[]> g = new java.util.ArrayList<>();
+			java.util.ArrayDeque<Integer> todo = new java.util.ArrayDeque<>(List.of(i));
+			seen[i] = true;
+			while (!todo.isEmpty()) {
+				int[] a = blocks.get(todo.poll());
+				g.add(a);
+				for (int j = 0; j < blocks.size(); j++) {
+					int[] b = blocks.get(j);
+					if (!seen[j] && Math.abs(a[0] - b[0]) <= 1 && Math.abs(a[1] - b[1]) <= 1 && Math.abs(a[2] - b[2]) <= 1) {
+						seen[j] = true;
+						todo.add(j);
+					}
+				}
+			}
+			out.add(g);
+		}
+		return out;
+	}
+
+	/** SecretRoutes' colours for a secret: interact blue, item cyan (green text), bat green, exit red. */
+	static int[] secretColors(RouteStep s) {
+		return switch (s.secretType) {
+			case ITEM -> ITEM;
+			case BAT -> BAT;
+			case EXIT, EXIT_ROUTE -> EXIT;
+			case INTERACT -> INTERACT;
+		};
+	}
+
+	/** What the secret is: Chest, Wither essence, Lever, Item, Bat, or Exit/Waypoint. */
+	static String secretName(MappedRoom room, RouteStep s) {
+		return switch (s.secretType) {
+			case ITEM -> "Item";
+			case BAT -> "Bat";
+			case EXIT -> "Waypoint";
+			case EXIT_ROUTE -> "Exit";
+			case INTERACT -> {
+				var level = Minecraft.getInstance().level;
+				if (level == null || s.secret == null) yield "Secret";
+				var block = level.getBlockState(room.toWorld(new BlockPos(s.secret[0], s.secret[1], s.secret[2]))).getBlock();
+				if (block == net.minecraft.world.level.block.Blocks.CHEST || block == net.minecraft.world.level.block.Blocks.TRAPPED_CHEST) yield "Chest";
+				if (block == net.minecraft.world.level.block.Blocks.LEVER) yield "Lever";
+				if (block instanceof net.minecraft.world.level.block.AbstractSkullBlock) yield "Wither essence";
+				yield "Secret";
+			}
+		};
 	}
 
 	private static int fade(int argb, int alpha) {

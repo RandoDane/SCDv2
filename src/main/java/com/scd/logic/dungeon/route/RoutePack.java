@@ -140,6 +140,7 @@ public final class RoutePack {
 		readPositions(o, "interacts", s.interacts);
 		readPositions(o, "tnts", s.tnts);
 		readPositions(o, "enderpearls", s.pearls);
+		readPositions(o, "scd_pearl_landings", s.pearlLandings);
 		if (o.has("enderpearlangles") && o.get("enderpearlangles").isJsonArray()) {
 			for (JsonElement a : o.getAsJsonArray("enderpearlangles")) {
 				JsonArray p = a.getAsJsonArray();
@@ -163,6 +164,7 @@ public final class RoutePack {
 		o.add("interacts", positions(s.interacts));
 		o.add("tnts", positions(s.tnts));
 		o.add("enderpearls", positions(s.pearls));
+		if (!s.pearlLandings.isEmpty()) o.add("scd_pearl_landings", positions(s.pearlLandings));
 		JsonArray angles = new JsonArray();
 		for (float[] a : s.pearlAngles) {
 			JsonArray p = new JsonArray();

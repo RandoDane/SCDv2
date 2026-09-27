@@ -93,8 +93,15 @@ final class RouteRecorder {
 	void tick(Vec3 player) {
 		if (!active() || room.anchor() == null) return;
 		if (lastTick != null && lastTick.distanceToSqr(player) > WARP_JUMP * WARP_JUMP) {
-			// Teleported (etherwarp/AOTV): the block under the landing spot is the target.
-			step.etherwarps.add(rel(BlockPos.containing(player).below()));
+			BlockPos landed = BlockPos.containing(player).below();
+			if (System.currentTimeMillis() - pearlThrownAt < 4000) {
+				// A pearl thrown just before: this is where it landed.
+				step.pearlLandings.add(rel(landed));
+				pearlThrownAt = 0;
+			} else {
+				// Teleported (etherwarp/AOTV): the block under the landing spot is the target.
+				step.etherwarps.add(rel(landed));
+			}
 			sample(player, true);
 		} else {
 			sample(player, false);
@@ -134,6 +141,7 @@ final class RouteRecorder {
 
 	private BlockPos lastInteract;
 	private long lastInteractAt;
+	private long pearlThrownAt;
 
 	void onInteract(BlockPos pos, Block block, boolean holdingTnt, Vec3 player) {
 		if (!active() || room.anchor() == null) return;
@@ -204,6 +212,7 @@ final class RouteRecorder {
 		if (!active() || room.anchor() == null) return;
 		step.pearls.add(rel(BlockPos.containing(player)));
 		step.pearlAngles.add(new float[]{yaw, pitch});
+		pearlThrownAt = System.currentTimeMillis();
 	}
 
 	/** Manual secret/exit marker at the player's feet. */
@@ -270,20 +279,23 @@ final class RouteRecorder {
 		for (int i = 0; i < steps.size(); i++) {
 			RouteStep s = steps.get(i);
 			if (s.secret == null) continue;
-			boolean exit = s.secretType == RouteStep.SecretType.EXIT || s.secretType == RouteStep.SecretType.EXIT_ROUTE;
-			RouteRunner.markSecret(world(s.secret), (i + 1) + " " + (exit ? "waypoint" : s.secretType.key.toLowerCase(java.util.Locale.ROOT)),
-					exit ? RouteRunner.PATH : RouteRunner.SECRET, walls);
+			int[] c = RouteRunner.secretColors(s);
+			com.scd.client.feature.world.WorldGizmos.block(world(s.secret), c[0], walls);
+			com.scd.client.feature.world.WorldGizmos.label(Vec3.atCenterOf(world(s.secret)).add(0, 1.0, 0),
+					(i + 1) + " " + RouteRunner.secretName(room, s), c[1], walls);
 		}
 		// The whole path so far (straightened like playback), not just the leg in progress.
 		Vec3 last = null;
 		for (RouteStep done : steps) {
-			markNodes(done, walls);
+			// Finished legs stay visible but quiet; the leg being recorded is the one in focus.
+			RouteRunner.drawActions(room, done, 0x70, false, walls);
 			List<Vec3> pts = RouteRunner.path(room, done.locations, done.manual ? 0 : smoothing);
-			RouteRunner.polyline(last, pts, RouteRunner.PATH, walls);
+			RouteRunner.polyline(last, pts, (RouteRunner.PATH & 0x00FFFFFF) | 0x60000000, walls);
 			if (!pts.isEmpty()) last = pts.getLast();
 		}
 		if (step != null) {
 			markNodes(step, walls);
+			RouteRunner.drawActions(room, step, 0xFF, true, walls);
 			List<Vec3> pts = RouteRunner.path(room, step.locations, step.manual ? 0 : smoothing);
 			RouteRunner.polyline(last, pts, RouteRunner.PATH, walls);
 			if (!pts.isEmpty()) last = pts.getLast();
