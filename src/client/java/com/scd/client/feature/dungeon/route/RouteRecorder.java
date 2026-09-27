@@ -1,5 +1,6 @@
 package com.scd.client.feature.dungeon.route;
 
+import com.scd.client.core.ScdLog;
 import com.scd.client.feature.dungeon.MappedRoom;
 import com.scd.logic.dungeon.route.RouteStep;
 import net.minecraft.core.BlockPos;
@@ -201,17 +202,22 @@ final class RouteRecorder {
 			RouteStep last = steps.getLast();
 			if (last.secretType != RouteStep.SecretType.EXIT && last.secret != null) {
 				boolean samePlace = Math.abs(last.secret[0] - secret[0]) + Math.abs(last.secret[1] - secret[1]) + Math.abs(last.secret[2] - secret[2]) <= 3;
-				if (guess && samePlace) return;
-				if (lastWasGuess && !guess) {
+				// The counter confirming a secret we already have.
+				if (guess) return;
+				// A precise signal replacing the counter's guess for the same secret.
+				if (lastWasGuess) {
 					last.secretType = type;
 					last.secret = secret;
 					lastWasGuess = false;
+					ScdLog.info("[routes] step " + steps.size() + " refined: " + type.key + " at " + fmt(secret));
 					return;
 				}
-				if (samePlace) return;
+				// The same secret reported twice (double click, skull click + essence message).
+				if (samePlace && last.secretType == type) return;
 			}
 		}
 		lastWasGuess = guess;
+		ScdLog.info("[routes] step " + (steps.size() + 1) + ": " + type.key + " at " + fmt(secret) + (guess ? " (from the secret counter)" : ""));
 		lastFinish = now;
 		sample(player, true);
 		step.secretType = type;
@@ -220,6 +226,10 @@ final class RouteRecorder {
 		step = new RouteStep();
 		lastSample = null;
 		sample(player, true);
+	}
+
+	private static String fmt(int[] p) {
+		return p[0] + "," + p[1] + "," + p[2];
 	}
 
 	private int[] rel(BlockPos world) {
@@ -239,8 +249,16 @@ final class RouteRecorder {
 			RouteRunner.markSecret(world(s.secret), (i + 1) + " " + (exit ? "waypoint" : s.secretType.key.toLowerCase(java.util.Locale.ROOT)),
 					exit ? RouteRunner.PATH : RouteRunner.SECRET, walls);
 		}
+		// The whole path so far, not just the leg in progress.
+		Vec3 prev = null;
+		for (RouteStep done : steps) {
+			for (int[] p : done.locations) {
+				Vec3 v = Vec3.atBottomCenterOf(world(p)).add(0, 0.1, 0);
+				if (prev != null) com.scd.client.feature.world.WorldGizmos.line(prev, v, RouteRunner.PATH, walls);
+				prev = v;
+			}
+		}
 		if (step != null) {
-			Vec3 prev = null;
 			for (int[] p : step.locations) {
 				Vec3 v = Vec3.atBottomCenterOf(world(p)).add(0, 0.1, 0);
 				if (prev != null) com.scd.client.feature.world.WorldGizmos.line(prev, v, RouteRunner.PATH, walls);

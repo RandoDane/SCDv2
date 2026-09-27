@@ -177,6 +177,7 @@ final class RouteRunner {
 		if (mc.player == null) return;
 		drawStart(throughWalls);
 		drawTaken(throughWalls);
+		drawWholePath(throughWalls);
 		RouteStep s = current();
 		if (s == null) return;
 		// Interpolated position: the per-tick one makes the line's start jump behind the smooth camera.
@@ -189,6 +190,18 @@ final class RouteRunner {
 		List<RouteStep> all = steps();
 		if (index > 0 || all.isEmpty() || all.getFirst().locations.isEmpty()) return;
 		markStart(world(all.getFirst().locations.getFirst()), walls);
+	}
+
+	/** The entire route as a faint line, so the current leg is seen in context. */
+	private void drawWholePath(boolean walls) {
+		Vec3 prev = null;
+		for (RouteStep s : steps()) {
+			for (int[] p : s.locations) {
+				Vec3 v = Vec3.atBottomCenterOf(world(p)).add(0, 0.1, 0);
+				if (prev != null) WorldGizmos.line(prev, v, fade(PATH, 0x55), walls);
+				prev = v;
+			}
+		}
 	}
 
 	/** Secrets already taken stay marked (muted, with a tick) so you can see what's done. */
