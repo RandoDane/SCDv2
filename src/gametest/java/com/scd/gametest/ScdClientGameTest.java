@@ -374,6 +374,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		ctx.takeScreenshot("14-room-hud");
 		routeScenario(ctx, server, mod, c);
 		studioScenario(ctx);
+		chestProfitScenario(ctx, server);
 
 		ctx.runOnClient(mc -> {
 			try {
@@ -391,6 +392,22 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 	 * Record a 4-step route (chest, item, bat, exit) in the test room, then play it back and check each
 	 * secret advances it; round-trip it through a share code; optionally load a real SecretRoutes pack.
 	 */
+	/** A Croesus-style menu with two reward chests: priced through the real market proxy, panel beside it. */
+	private static void chestProfitScenario(ClientGameTestContext ctx, TestServerContext server) {
+		var pos = ctx.computeOnClient(mc -> mc.player.blockPosition().relative(mc.player.getDirection()));
+		String obsidian = "{Slot:11b,id:\"minecraft:player_head\",count:1,components:{\"minecraft:custom_name\":\"Obsidian Chest\",\"minecraft:lore\":[\"Contents\",\"Necron's Handle\",\"Wither Essence x20\",\"\",\"Cost\",\"2,000,000 Coins\",\"Dungeon Chest Key\"]}}";
+		String bedrock = "{Slot:15b,id:\"minecraft:player_head\",count:1,components:{\"minecraft:custom_name\":\"Bedrock Chest\",\"minecraft:lore\":[\"Contents\",\"Recombobulator 3000\",\"Fifth Master Star\",\"\",\"Cost\",\"4,000,000 Coins\",\"Dungeon Chest Key\"]}}";
+		server.runCommand("setblock " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " air");
+		server.runCommand("setblock " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " chest{CustomName:\"Master Catacombs - Floor VII\",Items:[" + obsidian + "," + bedrock + "]}");
+		ctx.waitTicks(5);
+		ctx.runOnClient(mc -> mc.gameMode.useItemOn(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND,
+				new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(pos), net.minecraft.core.Direction.UP, pos, false)));
+		// Prices come from the SCD server's proxy: give the lookups a few seconds.
+		ctx.waitTicks(120);
+		ctx.takeScreenshot("13b-chest-profit");
+		ctx.setScreen(() -> null);
+	}
+
 	/** The room was captured on sight; build the copies in this singleplayer world and jump to one. */
 	private static void studioScenario(ClientGameTestContext ctx) {
 		for (int i = 0; i < 40 && !java.nio.file.Files.exists(com.scd.client.storage.ScdPaths.file("dungeon/captured/SCD Test Room.nbt")); i++) ctx.waitTicks(5);

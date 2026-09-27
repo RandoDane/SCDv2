@@ -123,6 +123,10 @@ public final class ScdConfig {
 		public boolean roomTimePb = true, roomTimeAvg = true, roomTimeLag = true, roomTimeOnlyPb = false;
 		/** Chest profit: tooltip lines, best-chest outline, "Best:" label over the menu. */
 		public boolean chestProfitTooltip = true, chestProfitHighlight = true, chestProfitLabel = true;
+		/** Panel beside the chest menu listing every chest by profit. */
+		public boolean chestProfitPanel = true;
+		/** Bazaar items at "Insta-sell" (sell now) or "Sell offer"; auction items at "Lowest BIN" or "Estimate". */
+		public String chestBazaarPrice = "Insta-sell", chestAuctionPrice = "Lowest BIN";
 		/** Map HUD layers. */
 		public boolean mapSecrets = true, mapPlayers = true, mapDoors = true, mapChecks = true;
 		/** Player head size on the dungeon map, percent (100 = 8px). */

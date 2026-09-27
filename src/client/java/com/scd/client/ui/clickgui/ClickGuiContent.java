@@ -98,7 +98,10 @@ final class ClickGuiContent {
 		dun.add(new Module("Chest profit", "Value, cost and profit on reward chests", () -> d.chestProfit, v -> d.chestProfit = v)
 				.toggle("Tooltip lines", () -> d.chestProfitTooltip, v -> d.chestProfitTooltip = v)
 				.toggle("Outline best chest", () -> d.chestProfitHighlight, v -> d.chestProfitHighlight = v)
-				.toggle("\"Best\" label", () -> d.chestProfitLabel, v -> d.chestProfitLabel = v));
+				.toggle("\"Best\" label", () -> d.chestProfitLabel, v -> d.chestProfitLabel = v)
+				.toggle("Profit panel", () -> d.chestProfitPanel, v -> d.chestProfitPanel = v)
+				.opt(new Opt.Chips("Bazaar", List.of("Insta-sell", "Sell offer"), () -> d.chestBazaarPrice, v -> d.chestBazaarPrice = v))
+				.opt(new Opt.Chips("Auction", List.of("Lowest BIN", "Estimate"), () -> d.chestAuctionPrice, v -> d.chestAuctionPrice = v)));
 		Module solvers = new Module("Puzzle solvers", "Show-only helpers; expand to switch single solvers off", () -> d.puzzleSolvers, v -> d.puzzleSolvers = v);
 		for (String puzzle : List.of("Quiz", "Three Weirdos", "Higher/Lower Blaze", "Creeper Beams", "Ice Fill", "Ice Path", "Teleport Maze", "Tic Tac Toe", "Boulder")) {
 			solvers.opt(new Opt.Toggle(puzzle, () -> !d.disabledPuzzles.contains(puzzle), v -> {

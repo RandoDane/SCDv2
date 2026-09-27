@@ -12,4 +12,7 @@ public interface ContainerScreenAccessor {
 
 	@Accessor("topPos")
 	int scd$topPos();
+
+	@Accessor("imageWidth")
+	int scd$imageWidth();
 }
