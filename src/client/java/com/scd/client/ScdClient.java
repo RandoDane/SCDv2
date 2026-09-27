@@ -50,6 +50,7 @@ public final class ScdClient implements ClientModInitializer {
 		mod = new ScdMod(version);
 		Ui.setTheme(Theme.byName(mod.config().general.theme));
 		Ui.setSmoothFont(mod.config().general.smoothFont);
+		Ui.setMenuTextSize(mod.config().general.menuTextSize);
 		mod.configManager.onChange(() -> mod.backend.setBaseUrl(mod.config().backend.serverUrl));
 
 		// Order matters: later features look earlier ones up in init().

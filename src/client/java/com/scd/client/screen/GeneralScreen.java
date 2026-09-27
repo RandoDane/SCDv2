@@ -51,6 +51,14 @@ public final class GeneralScreen extends ScdScreen {
 			Ui.setSmoothFont(v);
 			rebuild();
 		});
+		int[] sizes = Ui.textSizes();
+		rows.slider("Text size", sizes[0], sizes[sizes.length - 1], 10, () -> c.general.menuTextSize, v -> {
+			int size = (int) Math.round(v);
+			if (size == c.general.menuTextSize) return;
+			c.general.menuTextSize = size;
+			// Text is measured when drawn, so no rebuild (that would drop the slider mid-drag).
+			Ui.setMenuTextSize(size);
+		}, v -> Math.round(v) + "%");
 
 		rows.header("SCD backend");
 		rows.note("Your own SCD server: mayor perks, attribute-shard ids, accessory profiles and room reports. Prices never come from here.");

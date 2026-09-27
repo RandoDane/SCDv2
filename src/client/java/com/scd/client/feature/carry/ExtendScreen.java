@@ -15,7 +15,7 @@ final class ExtendScreen extends ScdScreen {
 	private String amount = "";
 
 	ExtendScreen(Screen parent, CarryService carries, Carry carry) {
-		super("Add more", parent, 260);
+		super("Add more", parent);
 		this.carries = carries;
 		this.carry = carry;
 	}

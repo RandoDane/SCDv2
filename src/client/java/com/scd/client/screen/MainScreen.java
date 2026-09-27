@@ -24,7 +24,7 @@ public final class MainScreen extends ScdScreen {
 	private final ScdMod mod;
 
 	public MainScreen(Screen parent, ScdMod mod) {
-		super("Overview", parent, 420);
+		super("Overview", parent);
 		this.mod = mod;
 	}
 

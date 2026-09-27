@@ -24,6 +24,8 @@ public final class ScdConfig {
 		public String theme = "Midnight";
 		/** Smooth (TTF) font in SCD screens and HUDs; off = Minecraft's pixel font. */
 		public boolean smoothFont = true;
+		/** Text size in SCD menus, percent (70-110); HUDs are sized in the HUD editor. */
+		public int menuTextSize = 80;
 		/** Unlocks /scd debug and verbose logging - for troubleshooting, off for normal play. */
 		public boolean developerMode = false;
 		/** Only run SkyBlock features while the sidebar says SKYBLOCK (off = also on other servers, for testing). */

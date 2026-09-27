@@ -18,7 +18,7 @@ public final class DropsScreen extends ScdScreen {
 	private boolean confirmClear;
 
 	public DropsScreen(Screen parent, SlayerFeature slayer, SlayerType type) {
-		super(type.displayName() + " Drops", parent, 300);
+		super(type.displayName() + " Drops", parent);
 		this.slayer = slayer;
 		this.type = type;
 	}

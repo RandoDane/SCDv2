@@ -33,7 +33,7 @@ public final class CarryFormScreen extends ScdScreen {
 	private String error;
 
 	public CarryFormScreen(Screen parent, CarryService carries) {
-		super("New carry", parent, 280);
+		super("New carry", parent);
 		this.carries = carries;
 		Carry s = carries.latest(Carry.Kind.SLAYER);
 		if (s != null && s.type() != null) {

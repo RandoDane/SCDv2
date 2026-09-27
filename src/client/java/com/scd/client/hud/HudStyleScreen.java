@@ -22,7 +22,7 @@ public final class HudStyleScreen extends ScdScreen {
 	private final HudElement element;
 
 	public HudStyleScreen(Screen parent, HudManager huds, ConfigManager config, HudElement element) {
-		super(element.name() + " Appearance", parent, 300);
+		super(element.name() + " Appearance", parent);
 		this.huds = huds;
 		this.config = config;
 		this.element = element;

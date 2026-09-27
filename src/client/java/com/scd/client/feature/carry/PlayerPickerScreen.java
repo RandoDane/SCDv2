@@ -15,7 +15,7 @@ final class PlayerPickerScreen extends ScdScreen {
 	private String filter = "";
 
 	PlayerPickerScreen(Screen parent, Consumer<String> onPick) {
-		super("Choose player", parent, 240);
+		super("Choose player", parent);
 		this.onPick = onPick;
 	}
 

@@ -40,18 +40,41 @@ public final class Ui {
 	 * lands on one screen pixel - a single oversampled font shrunk with nearest-neighbour sampling
 	 * looked thin and jagged at scales 2-3. Body text is Poppins Medium, headings SemiBold.
 	 */
-	private static final FontDescription[] REGULAR_BY_SCALE = faces("ui_");
-	private static final FontDescription[] BOLD_BY_SCALE = faces("ui_bold_");
-	private static final FontDescription[] TITLE_BY_SCALE = faces("ui_title_");
-	public static final FontDescription REGULAR = REGULAR_BY_SCALE[1];
-	public static final FontDescription BOLD = BOLD_BY_SCALE[1];
-	public static final FontDescription TITLE = TITLE_BY_SCALE[1];
+	private static final int[] TEXT_SIZES = {70, 80, 90, 100, 110};
+	private static final FontDescription[][] REGULAR_BY_SCALE = faces("ui_");
+	private static final FontDescription[][] BOLD_BY_SCALE = faces("ui_bold_");
+	private static final FontDescription[][] TITLE_BY_SCALE = faces("ui_title_");
+	private static final int FULL = 3; // index of 100% in TEXT_SIZES
 
-	private static FontDescription[] faces(String prefix) {
-		FontDescription[] out = new FontDescription[7];
-		for (int i = 1; i <= 6; i++) out[i] = new FontDescription.Resource(Identifier.fromNamespaceAndPath("scd", prefix + i));
-		out[0] = out[1];
+	/** [size index][gui scale] -> font "scd:<prefix><percent>_<scale>". */
+	private static FontDescription[][] faces(String prefix) {
+		FontDescription[][] out = new FontDescription[TEXT_SIZES.length][7];
+		for (int s = 0; s < TEXT_SIZES.length; s++) {
+			for (int i = 1; i <= 6; i++) {
+				out[s][i] = new FontDescription.Resource(Identifier.fromNamespaceAndPath("scd", prefix + TEXT_SIZES[s] + "_" + i));
+			}
+			out[s][0] = out[s][1];
+		}
 		return out;
+	}
+
+	/** Allowed menu text sizes in percent (the font files exist for exactly these). */
+	public static int[] textSizes() {
+		return TEXT_SIZES.clone();
+	}
+
+	/** Menu text size in percent; snapped to the nearest available size. */
+	public static void setMenuTextSize(int percent) {
+		int best = 0;
+		for (int i = 0; i < TEXT_SIZES.length; i++) if (Math.abs(TEXT_SIZES[i] - percent) < Math.abs(TEXT_SIZES[best] - percent)) best = i;
+		menuSize = best;
+	}
+
+	private static volatile int menuSize = 1;
+
+	/** The menu text size applies while an SCD menu is open; HUDs and everything else stay at 100%. */
+	private static int sizeIndex() {
+		return Minecraft.getInstance().gui.screen() instanceof ScdScreen ? menuSize : FULL;
 	}
 
 	private static int scaleIndex() {
@@ -60,24 +83,24 @@ public final class Ui {
 	}
 
 	public static FontDescription regular() {
-		return REGULAR_BY_SCALE[scaleIndex()];
+		return REGULAR_BY_SCALE[sizeIndex()][scaleIndex()];
 	}
 
 	public static FontDescription bold() {
-		return BOLD_BY_SCALE[scaleIndex()];
+		return BOLD_BY_SCALE[sizeIndex()][scaleIndex()];
 	}
 
 	/** For text drawn with an extra pose scale (vanilla titles are 4x, subtitles 2x). */
 	public static FontDescription boldAt(int extraScale) {
-		return BOLD_BY_SCALE[Math.max(1, Math.min(6, scaleIndex() * extraScale))];
+		return BOLD_BY_SCALE[FULL][Math.max(1, Math.min(6, scaleIndex() * extraScale))];
 	}
 
 	public static FontDescription regularAt(int extraScale) {
-		return REGULAR_BY_SCALE[Math.max(1, Math.min(6, scaleIndex() * extraScale))];
+		return REGULAR_BY_SCALE[FULL][Math.max(1, Math.min(6, scaleIndex() * extraScale))];
 	}
 
 	public static FontDescription titleFace() {
-		return TITLE_BY_SCALE[scaleIndex()];
+		return TITLE_BY_SCALE[sizeIndex()][scaleIndex()];
 	}
 
 	private static final String[] RARITIES = {"COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC", "DIVINE", "SPECIAL", "VERY SPECIAL"};

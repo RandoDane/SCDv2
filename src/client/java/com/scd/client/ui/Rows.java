@@ -100,12 +100,12 @@ public final class Rows {
 	/** Multi-line muted paragraph, word-wrapped to the row width. */
 	public void note(String text) {
 		int ix = x();
-		var lines = Ui.font().split(net.minecraft.network.chat.Component.literal(text), width());
+		var lines = Ui.font().split(Ui.styled(text, Ui.regular()), width());
 		int h = lines.size() * (Ui.lineHeight() + 1);
 		add(h, (g, rx, ry, rw, mx, my) -> {
 			int ly = ry;
 			for (var line : lines) {
-				g.text(Ui.font(), line, ix, ly, Ui.theme().textMuted(), true);
+				g.text(Ui.font(), line, ix, ly, Ui.theme().textMuted(), false);
 				ly += Ui.lineHeight() + 1;
 			}
 		});

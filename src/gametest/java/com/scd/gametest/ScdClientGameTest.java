@@ -117,6 +117,11 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 				mc.options.guiScale().set(0);
 				mc.resizeGui();
 			});
+			for (int size : new int[] {70, 100, 110}) {
+				ctx.runOnClient(mc -> com.scd.client.ui.Ui.setMenuTextSize(size));
+				shot(ctx, "text" + size + "-market", () -> new MarketScreen(null, mod));
+			}
+			ctx.runOnClient(mc -> com.scd.client.ui.Ui.setMenuTextSize(mod.config().general.menuTextSize));
 		}
 		if (System.getenv("SCD_THEME_SHOTS") != null) {
 			for (String theme : List.of("Dusk", "Tidepool", "Ember", "Sakura", "Signal")) {

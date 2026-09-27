@@ -19,7 +19,7 @@ public final class AccessoryScreen extends ScdScreen {
 	private AccessoryService.Status lastStatus;
 
 	public AccessoryScreen(Screen parent, ScdMod mod, AccessoryFeature feature) {
-		super("Accessories", parent, 330);
+		super("Accessories", parent);
 		this.mod = mod;
 		this.feature = feature;
 	}

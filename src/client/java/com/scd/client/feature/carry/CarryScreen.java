@@ -18,7 +18,7 @@ public final class CarryScreen extends ScdScreen {
 	private Long confirmRemove;
 
 	public CarryScreen(Screen parent, CarryService carries) {
-		super("Carries", parent, 340);
+		super("Carries", parent);
 		this.carries = carries;
 	}
 

@@ -32,7 +32,6 @@ public abstract class ScdScreen extends Screen {
 	private static final net.minecraft.resources.Identifier LOGO = net.minecraft.resources.Identifier.fromNamespaceAndPath("scd", "logo");
 
 	protected final Screen parent;
-	private final int preferredWidth;
 	private final Set<String> expanded = new HashSet<>();
 	private final List<Rows.Row> rows = new ArrayList<>();
 	private int winX, winY, winW, winH;
@@ -41,14 +40,13 @@ public abstract class ScdScreen extends Screen {
 	private double scroll;
 	private FlatButton backButton;
 
-	protected ScdScreen(String title, Screen parent, int preferredWidth) {
-		super(Component.literal(title));
-		this.parent = parent;
-		this.preferredWidth = preferredWidth;
-	}
+	/** Every page uses the same window, so switching pages never moves or resizes it. */
+	private static final int CONTENT_W = 460;
+	private static final int WINDOW_H = 380;
 
 	protected ScdScreen(String title, Screen parent) {
-		this(title, parent, 320);
+		super(Component.literal(title));
+		this.parent = parent;
 	}
 
 	/** Describe the body. Called on open, on resize and on every {@link #rebuild()}. */
@@ -76,8 +74,8 @@ public abstract class ScdScreen extends Screen {
 	protected void init() {
 		rows.clear();
 		sidebar = width >= 400;
-		winW = Math.min(width - 16, (sidebar ? SIDEBAR_W : 0) + Math.max(preferredWidth, 340) + 20);
-		winH = Math.min(height - 16, 380);
+		winW = Math.min(width - 16, (sidebar ? SIDEBAR_W : 0) + CONTENT_W + 20);
+		winH = Math.min(height - 16, WINDOW_H);
 		winX = (width - winW) / 2;
 		winY = (height - winH) / 2;
 		int contentLeft = winX + (sidebar ? SIDEBAR_W : 0);
@@ -225,7 +223,6 @@ public abstract class ScdScreen extends Screen {
 			g.fill(winX + SIDEBAR_W, winY + 1, winX + SIDEBAR_W + 1, winY + winH - 1, t.border());
 			// scd.wtf logo: 64px pixel art on a 4px grid, drawn at 16 GUI px so it stays crisp at every GUI scale.
 			g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO, winX + 12, winY + 14, 16, 16);
-			Ui.title(g, "SCD", winX + 34, winY + 14, t.textPrimary());
 			String lastSection = null;
 			int ny = winY + 52;
 			for (Nav.Item item : Nav.items()) {
