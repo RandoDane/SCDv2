@@ -74,7 +74,7 @@ public final class Ui {
 
 	/** The menu text size applies while an SCD menu is open; HUDs and everything else stay at 100%. */
 	private static int sizeIndex() {
-		return Minecraft.getInstance().gui.screen() instanceof ScdScreen ? menuSize : FULL;
+		return Minecraft.getInstance().gui.screen() instanceof ScdMenu ? menuSize : FULL;
 	}
 
 	/**

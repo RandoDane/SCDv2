@@ -21,7 +21,7 @@ import java.util.Set;
  * inside a scissor rect, so scrolled-out rows are both clipped and unclickable. {@link #rebuild()}
  * re-runs build() keeping scroll, expanded sections and text focus.
  */
-public abstract class ScdScreen extends Screen {
+public abstract class ScdScreen extends Screen implements ScdMenu {
 	private static final int SIDEBAR_W = 118;
 	private static final int HEADER_H = 36;
 	private static final int FOOTER_H = 30;

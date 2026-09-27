@@ -112,13 +112,13 @@ public final class ScdClient implements ClientModInitializer {
 		mod.game.tick(mod.tasks.currentTick());
 		mod.tasks.tick();
 		mod.bus.post(new Events.Tick(mod.tasks.currentTick()));
-		while (menuKey.consumeClick()) ScdScreen.open(new MainScreen(null, mod));
+		while (menuKey.consumeClick()) ScdScreen.open(new com.scd.client.ui.clickgui.ClickGuiScreen(mod));
 	}
 
 	private LiteralArgumentBuilder<FabricClientCommandSource> commands() {
 		var root = ClientCommands.literal("scd")
 				.executes(ctx -> {
-					ScdScreen.open(new MainScreen(null, mod));
+					ScdScreen.open(new com.scd.client.ui.clickgui.ClickGuiScreen(mod));
 					return 1;
 				})
 				.then(ClientCommands.literal("hud").executes(ctx -> {

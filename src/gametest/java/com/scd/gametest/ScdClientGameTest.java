@@ -78,6 +78,11 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 	}
 
 	private static void screenshots(ClientGameTestContext ctx, ScdMod mod) {
+		ctx.runOnClient(mc -> {
+			com.scd.client.ui.clickgui.ClickGuiScreen.expand("Dungeons/Score HUD");
+			com.scd.client.ui.clickgui.ClickGuiScreen.expand("Slayer/Spawn alert");
+		});
+		shot(ctx, "00-clickgui", () -> new com.scd.client.ui.clickgui.ClickGuiScreen(mod));
 		shot(ctx, "01-main", () -> new MainScreen(null, mod));
 		shot(ctx, "02-slayer", () -> new SlayerScreen(null, mod, mod.feature(SlayerFeature.class)));
 		shot(ctx, "03-carries", () -> new CarryScreen(null, mod.feature(CarryService.class)));
@@ -112,6 +117,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 					mc.options.guiScale().set(scale);
 					mc.resizeGui();
 				});
+				shot(ctx, "scale" + scale + "-clickgui", () -> new com.scd.client.ui.clickgui.ClickGuiScreen(mod));
 				shot(ctx, "scale" + scale + "-main", () -> new MainScreen(null, mod));
 				shot(ctx, "scale" + scale + "-slayer", () -> new SlayerScreen(null, mod, mod.feature(SlayerFeature.class)));
 			}
