@@ -127,6 +127,16 @@ public final class Numbers {
 		return h > 0 ? String.format(Locale.ROOT, "%d:%02d:%02d", h, m, s) : String.format(Locale.ROOT, "%d:%02d", m, s);
 	}
 
+	/** 12_345 ms -> "12.3s"; 75_060 -> "1:15.0"; 3_723_450 -> "1:02:03.4". Tenths truncated, like a stopwatch. */
+	public static String durationTenths(long ms) {
+		long t = Math.max(0, ms) / 100;
+		long tenths = t % 10, totalSeconds = t / 10;
+		long h = totalSeconds / 3600, m = (totalSeconds % 3600) / 60, s = totalSeconds % 60;
+		if (h > 0) return String.format(Locale.ROOT, "%d:%02d:%02d.%d", h, m, s, tenths);
+		if (m > 0) return String.format(Locale.ROOT, "%d:%02d.%d", m, s, tenths);
+		return s + "." + tenths + "s";
+	}
+
 	/** "04m 46s", "1h 02m 03s", "4m46s" or "42s" -> milliseconds; 0 if unparseable. */
 	public static long parseClearTimeMs(String clearTime) {
 		if (clearTime == null) return 0;

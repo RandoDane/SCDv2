@@ -72,6 +72,7 @@ public final class SlayerFeature implements Feature {
 		mayor = mod.feature(MayorService.class);
 		BazaarFeature bazaar = mod.feature(BazaarFeature.class);
 		tracker = new SlayerTracker(mod.bus, mod.game);
+		mod.bus.subscribe(Events.EntityDied.class, e -> tracker.onEntityDied(e.entity()));
 		// Your own hits and item uses (bows, wands, abilities) count as hunting; others' fights don't.
 		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
 			if (level.isClientSide() && player == Minecraft.getInstance().player) tracker.onPlayerAction();
@@ -153,7 +154,7 @@ public final class SlayerFeature implements Feature {
 		session.recordHunt(e.quest().tier(), e.huntMs());
 		if (!config().slayer.spawnAlert) return;
 		Chat.info(Component.literal(e.quest().type().bossName() + " spawned!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
-				.append(Component.literal("  (spawn " + Numbers.duration(e.huntMs()) + ")").withStyle(ChatFormatting.GRAY)));
+				.append(Component.literal("  (spawn " + Numbers.durationTenths(e.huntMs()) + ")").withStyle(ChatFormatting.GRAY)));
 		if (config().slayer.spawnAlertTitle) {
 			Chat.title(Component.literal("Boss spawned!").withStyle(ChatFormatting.RED), Component.literal(e.quest().label()), true);
 		}
@@ -194,7 +195,7 @@ public final class SlayerFeature implements Feature {
 			rng.recordKillEstimate(q.type(), q.tier(), xp);
 		}
 		if (config().slayer.killMessage) {
-			Chat.info(Component.literal(q.label() + " down in " + Numbers.duration(e.fightMs())).withStyle(ChatFormatting.GREEN)
+			Chat.info(Component.literal(q.label() + " down in " + Numbers.durationTenths(e.fightMs())).withStyle(ChatFormatting.GREEN)
 					.append(best ? Component.literal("  NEW BEST!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD) : Component.empty()));
 		}
 	}
@@ -302,7 +303,7 @@ public final class SlayerFeature implements Feature {
 						StringBuilder sb = new StringBuilder();
 						for (String tier : SlayerTier.ALL) {
 							Long b = records.best(t, tier);
-							if (b != null) sb.append("  ").append(tier).append(" ").append(Numbers.duration(b))
+							if (b != null) sb.append("  ").append(tier).append(" ").append(Numbers.durationTenths(b))
 									.append(" (").append(records.kills(t, tier)).append(" kills)");
 						}
 						if (!sb.isEmpty()) Chat.raw(Component.literal(" " + t.displayName() + ":" + sb).withStyle(ChatFormatting.GRAY));

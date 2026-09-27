@@ -82,6 +82,13 @@ public final class SlayerTracker {
 		this.game = game;
 	}
 
+	private long bossDiedAt;
+
+	/** The server's death event for an entity: if it's our boss, that's the exact kill moment. */
+	void onEntityDied(LivingEntity entity) {
+		if (boss != null && entity == boss) bossDiedAt = System.currentTimeMillis();
+	}
+
 	/** You hit a mob or used an item: keeps the hunt clock running through long fights. */
 	void onPlayerAction() {
 		hunt.action(System.currentTimeMillis());
@@ -159,6 +166,7 @@ public final class SlayerTracker {
 			long huntMs = hunt.activeMs();
 			hunt.stop();
 			fightStartMs = System.currentTimeMillis();
+			bossDiedAt = 0;
 			maxHpSeen = 0;
 			lastHpFrac = null;
 			seenConjoinedBrood = false;
@@ -167,7 +175,9 @@ public final class SlayerTracker {
 			bus.post(new SlayerEvents.BossSpawned(quest, huntMs));
 		}
 		if (wasSpawned && !isSpawned) {
-			long fightMs = System.currentTimeMillis() - fightStartMs;
+			// The boss's death event is exact; the sidebar can trail it by a few hundred ms.
+			long end = bossDiedAt > fightStartMs && System.currentTimeMillis() - bossDiedAt < 3_000 ? bossDiedAt : System.currentTimeMillis();
+			long fightMs = end - fightStartMs;
 			lastEndedType = previous.type();
 			killedFlashUntilMs = System.currentTimeMillis() + KILLED_FLASH_MS;
 			lootUntilMs = System.currentTimeMillis() + LOOT_WINDOW_MS;

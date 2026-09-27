@@ -50,4 +50,12 @@ class NumbersTest {
 		assertEquals("VII", Numbers.intToRoman(7));
 		assertNull(Numbers.romanToInt("XIV"));
 	}
+
+	@org.junit.jupiter.api.Test
+	void durationTenths() {
+		org.junit.jupiter.api.Assertions.assertEquals("12.3s", Numbers.durationTenths(12_399));
+		org.junit.jupiter.api.Assertions.assertEquals("0.0s", Numbers.durationTenths(40));
+		org.junit.jupiter.api.Assertions.assertEquals("1:15.0", Numbers.durationTenths(75_060));
+		org.junit.jupiter.api.Assertions.assertEquals("1:02:03.4", Numbers.durationTenths(3_723_450));
+	}
 }
