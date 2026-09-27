@@ -95,6 +95,8 @@ public final class ScdClient implements ClientModInitializer {
 						() -> new com.scd.client.feature.accessory.AccessoryScreen(null, mod, mod.feature(AccessoryFeature.class))),
 				new P("hud", "Setup", "HUD layout", net.minecraft.world.item.Items.PAINTING,
 						() -> new HudEditorScreen(new MainScreen(null, mod), mod.huds, mod.configManager)),
+				new P("appearance", "Setup", "Appearance", net.minecraft.world.item.Items.AMETHYST_SHARD,
+						() -> new com.scd.client.screen.AppearanceScreen(null, mod)),
 				new P("general", "Setup", "General", net.minecraft.world.item.Items.COMPARATOR,
 						() -> new com.scd.client.screen.GeneralScreen(null, mod)))) {
 			// Built lazily: item stacks can't exist before the game's registries are bound.

@@ -89,7 +89,7 @@ public final class ScdLog {
 		}
 	}
 
-	private static void report(String context, Throwable t) {
+	public static void report(String context, Throwable t) {
 		LOGGER.error("[{}] threw", context, t);
 		StringBuilder trace = new StringBuilder(context + " threw " + t);
 		for (StackTraceElement el : t.getStackTrace()) {

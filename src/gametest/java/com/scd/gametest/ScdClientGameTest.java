@@ -85,6 +85,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		shot(ctx, "06-market", () -> new MarketScreen(null, mod));
 		shot(ctx, "07-general", () -> new GeneralScreen(null, mod));
 		shot(ctx, "08-accessories", () -> new AccessoryScreen(null, mod, mod.feature(AccessoryFeature.class)));
+		shot(ctx, "09b-appearance", () -> com.scd.client.screen.AppearanceScreen.forHud(null, mod, mod.huds.elements().getFirst()));
 		shot(ctx, "09-hud-editor", () -> new HudEditorScreen(null, mod.huds, mod.configManager));
 		if (System.getenv("SCD_FPS") != null) {
 			ctx.setScreen(() -> null);

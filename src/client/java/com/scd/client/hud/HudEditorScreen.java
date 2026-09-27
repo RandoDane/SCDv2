@@ -47,8 +47,10 @@ public final class HudEditorScreen extends Screen {
 		int bw = 110;
 		int y = height - 24;
 		addRenderableWidget(new FlatButton(width / 2 - bw * 3 / 2 - 6, y, bw, 16, "Appearance...", () -> {
-			if (selected != null) Minecraft.getInstance().gui.setScreen(new HudStyleScreen(this, huds, config, selected));
-		}).tooltip("Colors, size and background of the selected HUD"));
+			var mod = com.scd.client.ScdMod.get();
+			Minecraft.getInstance().gui.setScreen(selected != null ? com.scd.client.screen.AppearanceScreen.forHud(this, mod, selected)
+					: new com.scd.client.screen.AppearanceScreen(this, mod));
+		}).tooltip("Colors, size and background (Setup → Appearance)"));
 		addRenderableWidget(new FlatButton(width / 2 - bw / 2, y, bw, 16, "Reset all", () -> {
 			for (HudElement e : huds.elements()) config.get().huds.put(e.id(), e.defaults().copy());
 			config.save();
@@ -227,7 +229,7 @@ public final class HudEditorScreen extends Screen {
 		return false;
 	}
 
-	static String hex(int argb) {
+	public static String hex(int argb) {
 		return String.format(Locale.ROOT, "#%06X", argb & 0xFFFFFF);
 	}
 }

@@ -24,8 +24,15 @@ public final class EventBus {
 	public <E> void post(E event) {
 		List<Consumer<?>> list = listeners.get(event.getClass());
 		if (list == null) return;
+		long start = LagClock.on ? System.nanoTime() : 0;
 		for (Consumer<?> listener : list) {
-			ScdLog.guard(event.getClass().getSimpleName() + " listener", () -> ((Consumer<E>) listener).accept(event));
+			// Inline try/catch: guard() would allocate a lambda and a context string per listener per post.
+			try {
+				((Consumer<E>) listener).accept(event);
+			} catch (Throwable t) {
+				ScdLog.report(event.getClass().getSimpleName() + " listener", t);
+			}
 		}
+		if (start != 0) LagClock.scdNanos += System.nanoTime() - start;
 	}
 }

@@ -2,6 +2,7 @@ package com.scd.client.hud;
 
 import com.scd.client.config.ConfigManager;
 import com.scd.client.config.HudLayout;
+import com.scd.client.core.LagClock;
 import com.scd.client.core.ScdLog;
 import com.scd.client.ui.Ui;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
@@ -24,6 +25,14 @@ public final class HudManager {
 	private final ConfigManager config;
 	private final BooleanSupplier active;
 	private final List<HudElement> elements = new ArrayList<>();
+	private final java.util.Map<HudElement, Placed> cache = new java.util.IdentityHashMap<>();
+	private long cacheTick = -1;
+	private int cacheW, cacheH;
+
+	private static long currentTick() {
+		var level = net.minecraft.client.Minecraft.getInstance().level;
+		return level != null ? level.getGameTime() : -1;
+	}
 	/** Element whose sample content is forced on (appearance screen), or null. */
 	private volatile String previewId;
 	private volatile boolean suppressed;
@@ -58,14 +67,37 @@ public final class HudManager {
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("scd", "hud"), (g, delta) -> {
 			if (suppressed) return;
 			boolean live = active.getAsBoolean();
-			for (HudElement e : elements) {
-				boolean preview = e.id().equals(previewId);
-				if (!preview && (!live || !e.enabled())) continue;
-				ScdLog.guard(e.name() + " HUD", () -> {
-					Placed p = place(e, preview, g.guiWidth(), g.guiHeight());
-					if (p != null) draw(g, p);
-				});
+			long start = LagClock.on ? System.nanoTime() : 0;
+			long tick = currentTick();
+			boolean fresh = tick != cacheTick || g.guiWidth() != cacheW || g.guiHeight() != cacheH;
+			if (fresh) {
+				cacheTick = tick;
+				cacheW = g.guiWidth();
+				cacheH = g.guiHeight();
 			}
+			for (int i = 0; i < elements.size(); i++) {
+				HudElement e = elements.get(i);
+				boolean preview = e.id().equals(previewId);
+				if (!preview && (!live || !e.enabled())) {
+					cache.remove(e);
+					continue;
+				}
+				try {
+					// Content changes at most once per client tick; rebuilding every frame (100+/s) was wasted work.
+					Placed p;
+					if (fresh || preview || !cache.containsKey(e)) {
+						p = place(e, preview, g.guiWidth(), g.guiHeight());
+						cache.put(e, p);
+					} else {
+						p = cache.get(e);
+					}
+					if (p != null) draw(g, p);
+				} catch (Throwable t) {
+					cache.remove(e);
+					ScdLog.report(e.name() + " HUD", t);
+				}
+			}
+			if (start != 0) LagClock.scdNanos += System.nanoTime() - start;
 		});
 	}
 

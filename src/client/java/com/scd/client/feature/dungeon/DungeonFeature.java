@@ -252,7 +252,7 @@ public final class DungeonFeature implements Feature {
 						return 0;
 					}
 					var b = score.breakdown();
-					Chat.info("Score " + score.total() + (score.baselined() ? " (Hypixel baseline + live speed/deaths)" : " (estimate)")
+					Chat.info("Score " + score.total() + (score.baselined() ? " (Hypixel sidebar, ahead of the formula)" : " (formula)")
 							+ " = skill " + b.skill() + " + explore " + b.explore() + " + speed " + b.speed() + " + bonus " + b.bonus());
 					Chat.info("rooms " + score.completedRooms() + " (+pad " + (b.paddedCompletedRooms() - score.completedRooms()) + ")/"
 							+ b.totalRoomsEstimate() + ", secrets " + score.secretsPercent() + "%, crypts " + score.crypts()

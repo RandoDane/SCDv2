@@ -40,48 +40,29 @@ public final class GeneralScreen extends ScdScreen {
 	@Override
 	protected void build(Rows rows) {
 		ScdConfig c = mod.config();
-		rows.header("Appearance");
-		rows.cycle("Theme", com.scd.client.ui.Theme.PRESETS, Ui::theme, t -> {
-			Ui.setTheme(t);
-			c.general.theme = t.name();
-			rebuild();
-		}, com.scd.client.ui.Theme::name);
-		rows.toggle("Smooth font", "Anti-aliased font in SCD menus and HUDs", () -> c.general.smoothFont, v -> {
-			c.general.smoothFont = v;
-			Ui.setSmoothFont(v);
-			rebuild();
+		rows.group("backend", "SCD backend", null, false, g -> {
+			g.note("Your own SCD server: mayor perks, attribute-shard ids, accessory profiles and room reports. Prices never come from here.");
+			g.text("Server URL", "http://host:3000", url, TextField.any(), s -> url = s);
+			g.buttons(java.util.List.of("Apply"), java.util.List.of(() -> {
+				applyUrl();
+				mod.configManager.save();
+				rebuild();
+			}));
+			g.line(() -> urlError != null ? urlError : "Status: " + mod.backend.status().message(),
+					() -> urlError != null ? Ui.DANGER : mod.backend.status().ok() ? Ui.SUCCESS : Ui.theme().textMuted());
 		});
-		int[] sizes = Ui.textSizes();
-		rows.slider("Text size", sizes[0], sizes[sizes.length - 1], 10, () -> c.general.menuTextSize, v -> {
-			int size = (int) Math.round(v);
-			if (size == c.general.menuTextSize) return;
-			c.general.menuTextSize = size;
-			// Text is measured when drawn, so no rebuild (that would drop the slider mid-drag).
-			Ui.setMenuTextSize(size);
-		}, v -> Math.round(v) + "%");
-
-		rows.header("SCD backend");
-		rows.note("Your own SCD server: mayor perks, attribute-shard ids, accessory profiles and room reports. Prices never come from here.");
-		rows.text("Server URL", "http://host:3000", url, TextField.any(), s -> url = s);
-		rows.buttons(java.util.List.of("Apply"), java.util.List.of(() -> {
-			applyUrl();
-			mod.configManager.save();
-			rebuild();
-		}));
-		rows.line(() -> urlError != null ? urlError : "Status: " + mod.backend.status().message(),
-				() -> urlError != null ? Ui.DANGER : mod.backend.status().ok() ? Ui.SUCCESS : Ui.theme().textMuted());
-
-		rows.header("Carry messages");
-		rows.toggle("Post progress in party chat", null, () -> c.carries.partyProgress, v -> c.carries.partyProgress = v);
-		rows.text("Progress message", null, c.carries.progressTemplate, TextField.any(), s -> c.carries.progressTemplate = s);
-		rows.text("Finish message", null, c.carries.finishTemplate, TextField.any(), s -> c.carries.finishTemplate = s);
-		rows.note("Placeholders: {player} {done} {owed} {left} {unit} {target} {price} {total}");
-
-		rows.header("Other");
-		rows.toggle("Only on SkyBlock", "Keep features idle on other servers/modes", () -> c.general.requireSkyblock, v -> c.general.requireSkyblock = v);
-		rows.toggle("Developer mode", "Enables /scd debug and verbose logging", () -> c.general.developerMode, v -> {
-			c.general.developerMode = v;
-			com.scd.client.core.ScdLog.setDebug(v);
+		rows.group("carry", "Carry messages", null, false, g -> {
+			g.toggle("Post progress in party chat", null, () -> c.carries.partyProgress, v -> c.carries.partyProgress = v);
+			g.text("Progress message", null, c.carries.progressTemplate, TextField.any(), s -> c.carries.progressTemplate = s);
+			g.text("Finish message", null, c.carries.finishTemplate, TextField.any(), s -> c.carries.finishTemplate = s);
+			g.note("Placeholders: {player} {done} {owed} {left} {unit} {target} {price} {total}");
+		});
+		rows.group("other", "Other", null, true, g -> {
+			g.toggle("Only on SkyBlock", "Keep features idle on other servers/modes", () -> c.general.requireSkyblock, v -> c.general.requireSkyblock = v);
+			g.toggle("Developer mode", "Enables /scd debug and verbose logging", () -> c.general.developerMode, v -> {
+				c.general.developerMode = v;
+				com.scd.client.core.ScdLog.setDebug(v);
+			});
 		});
 	}
 }

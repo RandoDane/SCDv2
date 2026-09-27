@@ -209,6 +209,33 @@ public final class Rows {
 		}
 	}
 
+	/**
+	 * A large collapsible block of settings: header card with an optional status, body indented while
+	 * open. {@code openByDefault} sections store the fact that they were closed ("!key") instead.
+	 */
+	public void group(String key, String title, Supplier<String> status, boolean openByDefault, Consumer<Rows> body) {
+		String closedKey = "!" + key;
+		boolean open = openByDefault ? !expanded.contains(closedKey) : expanded.contains(key);
+		if (!rows.isEmpty()) y += 6;
+		int ix = x();
+		Row row = add(22, null);
+		widget(row, new NavCard.Expander(ix, 0, width(), 22, title, status, open, () -> {
+			if (openByDefault) {
+				if (!expanded.remove(closedKey)) expanded.add(closedKey);
+			} else if (!expanded.remove(key)) {
+				expanded.add(key);
+			}
+			rebuild.run();
+		}));
+		if (open) {
+			y += 4;
+			indent += 10;
+			body.accept(this);
+			indent -= 10;
+			y += 2;
+		}
+	}
+
 	/** One stat for {@link #stats}: small caption, big value, optional tint for the caption dot. */
 	public record Stat(String label, Supplier<String> value, int tint) {
 	}

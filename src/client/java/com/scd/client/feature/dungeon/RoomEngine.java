@@ -145,7 +145,8 @@ public final class RoomEngine {
 			var access = lvl.getChunkSource().getChunk(DungeonGrid.chunkOf(tx), DungeonGrid.chunkOf(tz), ChunkStatus.FULL, false);
 			if (!(access instanceof LevelChunk chunk)) continue;
 			RoomCore.Result res = core(chunk, 7, 7);
-			if (res.empty()) continue;
+			// Solid right at the scan top: outside the room grid (smaller floors), not a room.
+			if (res.empty() || res.highestBlock() >= RoomCore.TOP) continue;
 			cores[i] = res.core();
 			RoomInfo info = db.byCore(res.core());
 			if (info == null) {
@@ -235,12 +236,18 @@ public final class RoomEngine {
 			return;
 		}
 		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
-		for (var e : RoomPlacement.corners(room.tiles).entrySet()) {
+		var corners = RoomPlacement.corners(room.tiles);
+		for (var e : corners.entrySet()) {
+			int[] c = e.getValue();
+			// Don't decide while a corner is still unloaded (it would read as air).
+			if (!lvl.hasChunkAt(p.set(c[0], room.highestBlock, c[1]))) return;
+		}
+		for (var e : corners.entrySet()) {
 			int[] c = e.getValue();
 			if (lvl.getBlockState(p.set(c[0], room.highestBlock, c[1])).getBlock() == clay) {
 				room.anchor = new RoomPlacement.Anchor(e.getKey(), c[0], c[1]);
 				room.anchorSource = "block";
-				RoomPlacement.Anchor geo = room.info != null ? RoomPlacement.fromGeometry(room.tiles, room.info.shape()) : null;
+				RoomPlacement.Anchor geo = room.info != null && !oneByOne ? RoomPlacement.fromGeometry(room.tiles, room.info.shape()) : null;
 				if (geo != null && geo.rotation() != e.getKey()) {
 					ScdLog.info("[rooms] " + room.label() + ": clay says " + e.getKey() + ", footprint says " + geo.rotation());
 				}
@@ -252,8 +259,27 @@ public final class RoomEngine {
 			if (geo != null) {
 				room.anchor = geo;
 				room.anchorSource = "geometry";
+				ScdLog.info("[rooms] " + room.label() + ": no clay at the corners (roof y" + room.highestBlock + "), footprint " + geo.rotation()
+						+ "; blue terracotta nearby: " + findClay(lvl, room, clay));
 			}
 		}
+	}
+
+	/** Diagnostic: every blue terracotta within 5 blocks (y) of the roof at any tile corner of the room. */
+	private String findClay(Level lvl, MappedRoom room, Block clay) {
+		List<String> found = new ArrayList<>();
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		for (int[] t : room.tiles) {
+			int cx = DungeonGrid.centre(t[0]), cz = DungeonGrid.centre(t[1]);
+			for (RoomRotation r : RoomRotation.values()) {
+				for (int dy = -5; dy <= 5; dy++) {
+					if (lvl.getBlockState(p.set(cx + r.dx, room.highestBlock + dy, cz + r.dz)).getBlock() == clay) {
+						found.add((cx + r.dx) + "," + (room.highestBlock + dy) + "," + (cz + r.dz) + " (tile " + t[0] + "," + t[1] + " " + r + ")");
+					}
+				}
+			}
+		}
+		return found.isEmpty() ? "none" : String.join("; ", found);
 	}
 
 	/** Odin's column hash, reading chunk sections directly (unloaded sections are air). */

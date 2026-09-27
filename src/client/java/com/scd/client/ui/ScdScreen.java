@@ -32,7 +32,9 @@ public abstract class ScdScreen extends Screen {
 	private static final net.minecraft.resources.Identifier LOGO = net.minecraft.resources.Identifier.fromNamespaceAndPath("scd", "logo");
 
 	protected final Screen parent;
-	private final Set<String> expanded = new HashSet<>();
+	/** Open/closed sections per page class, remembered for the session so pages reopen as you left them. */
+	private static final java.util.Map<String, Set<String>> EXPANDED = new java.util.HashMap<>();
+	private final Set<String> expanded = EXPANDED.computeIfAbsent(getClass().getName(), k -> new HashSet<>());
 	private final List<Rows.Row> rows = new ArrayList<>();
 	private int winX, winY, winW, winH;
 	private int bodyX, bodyW, viewTop, viewBottom, contentHeight;
@@ -140,6 +142,12 @@ public abstract class ScdScreen extends Screen {
 	private void closeAll() {
 		onClosing();
 		Minecraft.getInstance().gui.setScreen(null);
+	}
+
+	/** Opens a collapsible section (e.g. when jumping to it from elsewhere). */
+	public void expand(String key) {
+		expanded.add(key);
+		expanded.remove("!" + key);
 	}
 
 	/** Re-runs {@link #build}, keeping scroll position, expanded sections and text focus. */

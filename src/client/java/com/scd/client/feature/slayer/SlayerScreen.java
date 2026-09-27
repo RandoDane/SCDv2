@@ -41,28 +41,28 @@ public final class SlayerScreen extends ScdScreen {
 	@Override
 	protected void build(Rows rows) {
 		ScdConfig.Slayer c = mod.config().slayer;
-		rows.header("HUD");
-		rows.toggle("Boss tracker", "Fight/hunt timers, HP bar, mechanic cues, RNG meter", () -> c.hud, v -> c.hud = v);
-		rows.toggle("Session stats", "Kills/hour, average times, XP and drop value", () -> c.sessionStats, v -> c.sessionStats = v);
-		rows.slider("Hunt timer pauses after", 2, 30, 1, () -> c.huntIdleSeconds, v -> c.huntIdleSeconds = (int) Math.round(v),
-				v -> Math.round(v) + "s idle");
-
-		rows.header("Alerts");
-		rows.toggle("Spawn alert", "Chat line when your boss spawns", () -> c.spawnAlert, v -> c.spawnAlert = v);
-		rows.toggle("Spawn title + sound", null, () -> c.spawnAlertTitle, v -> c.spawnAlertTitle = v);
-		rows.toggle("Kill message", "Fight time, with NEW BEST on a personal record", () -> c.killMessage, v -> c.killMessage = v);
-		rows.toggle("Miniboss alert", null, () -> c.minibossAlert, v -> c.minibossAlert = v);
-		rows.toggle("Miniboss title + sound", null, () -> c.minibossTitle, v -> c.minibossTitle = v);
-
-		rows.header("Boss highlight");
-		rows.toggle("Glow", "Outline your boss through walls", () -> c.highlightGlow, v -> c.highlightGlow = v);
-		rows.toggle("Hitbox", null, () -> c.highlightBox, v -> c.highlightBox = v);
-		rows.toggle("Tracer line", null, () -> c.highlightLine, v -> c.highlightLine = v);
-
-		rows.header("Tracking");
-		rows.toggle("Drop tracking", "Count drops picked up during a quest (inventory + sacks)", () -> c.dropTracking, v -> c.dropTracking = v);
-		rows.buttons(List.of("Reset session stats"), List.of(() -> slayer.session().reset()));
-
+		rows.group("hud", "HUD", null, true, g -> {
+			g.toggle("Boss tracker", "Fight/hunt timers, HP bar, mechanic cues, RNG meter", () -> c.hud, v -> c.hud = v);
+			g.toggle("Session stats", "Kills/hour, average times, XP and drop value", () -> c.sessionStats, v -> c.sessionStats = v);
+			g.slider("Hunt timer pauses after", 2, 30, 1, () -> c.huntIdleSeconds, v -> c.huntIdleSeconds = (int) Math.round(v),
+					v -> Math.round(v) + "s idle");
+		});
+		rows.group("alerts", "Alerts", null, true, g -> {
+			g.toggle("Spawn alert", "Chat line when your boss spawns", () -> c.spawnAlert, v -> c.spawnAlert = v);
+			g.toggle("Spawn title + sound", null, () -> c.spawnAlertTitle, v -> c.spawnAlertTitle = v);
+			g.toggle("Kill message", "Fight time, with NEW BEST on a personal record", () -> c.killMessage, v -> c.killMessage = v);
+			g.toggle("Miniboss alert", null, () -> c.minibossAlert, v -> c.minibossAlert = v);
+			g.toggle("Miniboss title + sound", null, () -> c.minibossTitle, v -> c.minibossTitle = v);
+		});
+		rows.group("highlight", "Boss highlight", null, false, g -> {
+			g.toggle("Glow", "Outline your boss through walls", () -> c.highlightGlow, v -> c.highlightGlow = v);
+			g.toggle("Hitbox", null, () -> c.highlightBox, v -> c.highlightBox = v);
+			g.toggle("Tracer line", null, () -> c.highlightLine, v -> c.highlightLine = v);
+		});
+		rows.group("tracking", "Tracking", null, false, g -> {
+			g.toggle("Drop tracking", "Count drops picked up during a quest (inventory + sacks)", () -> c.dropTracking, v -> c.dropTracking = v);
+			g.buttons(List.of("Reset session stats"), List.of(() -> slayer.session().reset()));
+		});
 		rows.header("Bosses");
 		for (SlayerType type : SlayerType.values()) {
 			rows.section("slayer." + type.name(), type.bossName(), () -> slayer.tracker().phase(type), body -> {

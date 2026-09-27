@@ -17,8 +17,7 @@ import java.util.regex.Pattern;
  * Score = {@link ScoreCalculator} over tab-list stats (rooms, secrets, crypts, puzzles, team
  * deaths), the room engine (known rooms as a floor for the room total; exact secret total once
  * every room is identified) and chat/entity events (deaths, mimic death, prince/bat, Watcher, boss
- * entry). Once the run is 100% cleared Hypixel's own sidebar score becomes trustworthy; it is
- * captured once as a baseline and only Speed decay and later deaths are applied on top.
+ * entry). Hypixel's sidebar score lags by several seconds, so it only overrides the formula when higher.
  */
 public final class DungeonRun {
 	private static final Pattern ROOMS = Pattern.compile("Completed Rooms:\\s*(\\d+)");
@@ -53,8 +52,6 @@ public final class DungeonRun {
 
 	private int chatDeaths;
 	private boolean mimic, prince, bat, bloodDone, inBoss;
-	private Integer baselineScore;
-	private int baselineSpeed, baselinePenalty;
 	private boolean announced270, announced300;
 	private long startNanos;
 	private final Map<Split, Long> splits = new EnumMap<>(Split.class);
@@ -62,7 +59,6 @@ public final class DungeonRun {
 	void reset() {
 		chatDeaths = 0;
 		mimic = prince = bat = bloodDone = inBoss = false;
-		baselineScore = null;
 		announced270 = announced300 = false;
 		startNanos = 0;
 		splits.clear();
@@ -153,13 +149,11 @@ public final class DungeonRun {
 		if (b == null) return null;
 		int total = b.total();
 		boolean baselined = false;
-		if (clear >= 100 && state.liveScore() != null) {
-			if (baselineScore == null) {
-				baselineScore = state.liveScore();
-				baselineSpeed = b.speed();
-				baselinePenalty = b.deathPenalty();
-			}
-			total = baselineScore + (b.speed() - baselineSpeed) - (b.deathPenalty() - baselinePenalty);
+		// Live-confirmed 2026-09-27 (F1): the sidebar's "(score)" lags - it sat at 254 for ~8s after 100%
+		// while the real score (and our formula) was 298. It is only trusted when it's ahead of us
+		// (e.g. a mimic/prince we didn't see).
+		if (clear >= 100 && state.liveScore() != null && state.liveScore() > total) {
+			total = state.liveScore();
 			baselined = true;
 		}
 		return new Score(b, total, state, completed, secrets, secretCount, crypts, incomplete, deaths, inBoss, baselined, mimic);
