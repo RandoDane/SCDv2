@@ -285,12 +285,17 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 			case Opt.Slider sl -> {
 				double v = sl.get().getAsDouble();
 				String val = sl.fmt().apply(v);
-				Ui.text(g, Ui.ellipsize(sl.label(), w / 2), tx, textY(y, optH), t.textSecondary());
+				// Inline: label | track | value, so the bar never reads as an underline.
+				int valW = Math.max(Ui.width(val), Ui.width("100%")) + 4;
+				Ui.text(g, Ui.ellipsize(sl.label(), w * 2 / 5 - indent), tx, textY(y, optH), t.textSecondary());
 				Ui.rightAligned(g, val, x + w - 4, textY(y, optH), t.textPrimary());
-				int trackX = tx, trackW = w - indent - 6;
+				int trackX = x + w * 2 / 5 + 2, trackW = Math.max(10, x + w - 4 - valW - trackX);
 				float frac = (float) ((v - sl.min()) / (sl.max() - sl.min()));
-				g.fill(trackX, y + optH - 2, trackX + trackW, y + optH - 1, t.trackOff());
-				g.fill(trackX, y + optH - 2, trackX + Math.round(trackW * frac), y + optH - 1, t.accent());
+				int ty = y + optH / 2 - 1, fill = Math.round(trackW * frac);
+				g.fill(trackX, ty, trackX + trackW, ty + 2, t.trackOff());
+				g.fill(trackX, ty, trackX + fill, ty + 2, t.accent());
+				int knob = Math.max(trackX, Math.min(trackX + trackW - 2, trackX + fill - 1));
+				g.fill(knob, ty - 2, knob + 2, ty + 4, 0xFFFFFFFF);
 				if (vis) hits.add(new Hit(trackX, hy, trackW, optH, null, null, sl, null));
 			}
 			case Opt.Cycle cy -> {
@@ -313,7 +318,9 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 				String shown = v;
 				while (Ui.width(shown) > vw && shown.length() > 1) shown = shown.substring(1);
 				if (!editingThis) shown = Ui.ellipsize(v, vw);
-				Ui.text(g, shown, vx, textY(y, optH), editingThis ? t.textPrimary() : t.textSecondary());
+				boolean empty = !editingThis && (v == null || v.isEmpty());
+				if (empty) shown = "click to type";
+				Ui.text(g, shown, vx, textY(y, optH), editingThis ? t.textPrimary() : empty ? t.textMuted() : t.textSecondary());
 				if (vis) hits.add(new Hit(x, hy, w, optH, () -> startEdit(tx2), null, null, null));
 			}
 			case Opt.Color col -> {
@@ -400,14 +407,22 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		int top = 28;
 		int y = top - (int) panelScroll;
 		g.enableScissor(px, top, vw, vh);
+		// Each section is a card styled like a category column: accent header, outline, and the
+		// options inside a 1-unit background-coloured inner border.
+		int cx = px + gap, cw = pw - 2 * gap;
 		for (PanelSection s : panel) {
-			Ui.section(g, s.title(), px + 8, y + 3);
-			y += 14;
-			for (Opt o : s.options().get()) {
-				drawOpt(g, o, px + 4, y, pw - 8, 5, top, vh - top, mx, my);
-				y += optH + 1;
+			List<Opt> opts = s.options().get();
+			int bodyH = opts.size() * optH + 1;
+			Ui.rect(g, cx, y, cw, headH, 3, t.accent());
+			headerText(g, s.title().toUpperCase(java.util.Locale.ROOT), cx + cw / 2, y);
+			g.fill(cx, y + headH, cx + cw, y + headH + bodyH, t.window());
+			g.outline(cx, y, cw, headH + bodyH, t.accent());
+			int ry = y + headH;
+			for (Opt o : opts) {
+				drawOpt(g, o, cx + 2, ry, cw - 4, 6, top, vh - top, mx, my);
+				ry += optH;
 			}
-			y += 6;
+			y += headH + bodyH + gap;
 		}
 		int contentH = y + (int) panelScroll - top;
 		panelScroll = Math.max(0, Math.min(panelScroll, Math.max(0, contentH - (vh - top))));
