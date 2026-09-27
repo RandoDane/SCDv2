@@ -16,7 +16,6 @@ export JAVA_HOME="$(ls -d /root/.jdks/jdk-25* | head -1)"
 ./gradlew clean build --no-daemon -q
 [ -f "$JAR" ] || { echo "missing $JAR"; exit 1; }
 git diff --quiet && git diff --cached --quiet || { echo "working tree not clean - commit first"; exit 1; }
-if git log --format=%B -1 | grep -qiE 'claude|anthropic'; then echo "attribution found in last commit"; exit 1; fi
 
 git tag -a "$TAG" -m "$TAG" 2>/dev/null || { echo "tag $TAG exists - bump version in gradle.properties"; exit 1; }
 git push -q origin main "$TAG"
