@@ -376,6 +376,12 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		routeScenario(ctx, server, mod, c);
 		studioScenario(ctx);
 		chestProfitScenario(ctx, server);
+		ctx.runOnClient(mc -> com.scd.client.ui.clickgui.ClickGuiScreen.openStats(mod));
+		ctx.setScreen(() -> new com.scd.client.ui.clickgui.ClickGuiScreen(mod));
+		ctx.waitTicks(5);
+		ctx.takeScreenshot("13c-run-stats");
+		ctx.runOnClient(mc -> com.scd.client.ui.clickgui.ClickGuiScreen.closePage());
+		ctx.setScreen(() -> null);
 
 		ctx.runOnClient(mc -> {
 			try {

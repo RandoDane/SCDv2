@@ -73,6 +73,10 @@ public final class ClickGuiScreen extends Screen implements ScdMenu {
 		page = p;
 	}
 
+	public static void openStats(com.scd.client.ScdMod mod) {
+		openPage(ClickGuiContent.statsPage(mod));
+	}
+
 	public static void openCarries(com.scd.client.ScdMod mod) {
 		openPage(ClickGuiContent.carryPage(mod));
 	}

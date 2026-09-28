@@ -289,7 +289,69 @@ final class ClickGuiContent {
 					return o;
 				}),
 				new ClickGuiScreen.PanelSection("Advanced features", () -> List.of(
-						new Opt.Buttons("", List.of("Carries"), List.of(() -> ClickGuiScreen.openPage(carryPage(mod)))))));
+						new Opt.Buttons("", List.of("Carries", "Run stats"), List.of(() -> ClickGuiScreen.openPage(carryPage(mod)),
+								() -> ClickGuiScreen.openPage(statsPage(mod)))))));
+	}
+
+	// ---- Run stats page ----
+
+	private static String statsFloor;
+
+	private static final List<String> FLOOR_ORDER = List.of("E", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "M1", "M2", "M3", "M4", "M5", "M6", "M7");
+
+	static ClickGuiScreen.PanelPage statsPage(ScdMod mod) {
+		var records = mod.feature(com.scd.client.feature.dungeon.DungeonFeature.class).records();
+		java.util.function.LongFunction<String> time = ms -> ms <= 0 ? "-" : String.format(Locale.ROOT, "%d:%02d", ms / 60_000, ms / 1000 % 60);
+		return new ClickGuiScreen.PanelPage("Run stats", List.of(
+				new ClickGuiScreen.PanelSection("Floor", () -> {
+					List<String> floors = new ArrayList<>();
+					for (String f : FLOOR_ORDER) if (records.runs.stream().anyMatch(r -> f.equals(r.floor))) floors.add(f);
+					if (floors.isEmpty()) return List.of(new Opt.Info("No runs recorded yet", () -> ""));
+					if (statsFloor == null || !floors.contains(statsFloor)) statsFloor = records.runs.getLast().floor;
+					List<Opt> o = new ArrayList<>();
+					// Chips in rows of five so every floor fits.
+					for (int i = 0; i < floors.size(); i += 5) {
+						o.add(new Opt.Chips("", floors.subList(i, Math.min(floors.size(), i + 5)), () -> statsFloor, v -> statsFloor = v));
+					}
+					return o;
+				}),
+				new ClickGuiScreen.PanelSection("Summary", () -> {
+					var runs = records.runs.stream().filter(r -> r.floor != null && r.floor.equals(statsFloor)).toList();
+					if (runs.isEmpty()) return List.of();
+					var scored = runs.stream().filter(r -> r.finalScore != null).toList();
+					var cleared = runs.stream().map(r -> r.splits.getOrDefault("CLEAR", 0L)).filter(t -> t > 0).toList();
+					var withSecrets = runs.stream().filter(r -> r.secrets != null).toList();
+					long sPlus = scored.stream().filter(r -> r.finalScore >= 300).count();
+					List<Opt> o = new ArrayList<>();
+					o.add(new Opt.Info("Runs", () -> String.valueOf(runs.size())));
+					if (!scored.isEmpty()) {
+						o.add(new Opt.Info("S+ rate", () -> Math.round(100.0 * sPlus / scored.size()) + "% (" + sPlus + "/" + scored.size() + ")"));
+						o.add(new Opt.Info("Average score", () -> String.valueOf(Math.round(scored.stream().mapToInt(r -> r.finalScore).average().orElse(0)))));
+						o.add(new Opt.Info("Best score", () -> String.valueOf(scored.stream().mapToInt(r -> r.finalScore).max().orElse(0))));
+					}
+					if (!cleared.isEmpty()) {
+						o.add(new Opt.Info("Best time", () -> time.apply(cleared.stream().mapToLong(Long::longValue).min().orElse(0))));
+						o.add(new Opt.Info("Average time", () -> time.apply(Math.round(cleared.stream().mapToLong(Long::longValue).average().orElse(0)))));
+					}
+					if (!withSecrets.isEmpty()) {
+						o.add(new Opt.Info("Average secrets", () -> String.format(Locale.ROOT, "%.1f", withSecrets.stream().mapToInt(r -> r.secrets).average().orElse(0))));
+					}
+					o.add(new Opt.Info("Average deaths", () -> String.format(Locale.ROOT, "%.1f", runs.stream().mapToInt(r -> r.deaths).average().orElse(0))));
+					return o;
+				}),
+				new ClickGuiScreen.PanelSection("Recent runs", () -> {
+					var runs = records.runs.stream().filter(r -> r.floor != null && r.floor.equals(statsFloor)).toList();
+					List<Opt> o = new ArrayList<>();
+					for (int i = runs.size() - 1; i >= 0 && o.size() < 8; i--) {
+						var r = runs.get(i);
+						long ago = System.currentTimeMillis() - r.endedAt;
+						String when = ago < 60_000 ? "just now" : ago < 3_600_000 ? ago / 60_000 + "m ago" : ago < 86_400_000 ? ago / 3_600_000 + "h ago" : ago / 86_400_000 + "d ago";
+						String score = r.finalScore != null ? r.finalScore + (r.finalScore >= 300 ? " S+" : r.finalScore >= 270 ? " S" : "") : "?";
+						o.add(new Opt.Info(when, () -> time.apply(r.splits.getOrDefault("CLEAR", 0L)) + " · " + score
+								+ (r.deaths > 0 ? " · " + r.deaths + " death" + (r.deaths > 1 ? "s" : "") : "")));
+					}
+					return o;
+				})));
 	}
 
 	// ---- Carries page ---------------------------------------------------------------------------
