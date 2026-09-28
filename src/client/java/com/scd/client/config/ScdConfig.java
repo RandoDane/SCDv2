@@ -145,6 +145,8 @@ public final class ScdConfig {
 		public boolean deathAlert = true;
 		/** Title when a teammate's sidebar health turns red. */
 		public boolean lowHealthAlert = true;
+		/** Healer/Tank: low-teammate alerts say whether Wish / Castle of Stone is ready; ping when it is. */
+		public boolean classAlerts = true;
 		public boolean blessingHud = true;
 		/** Bonzo's Mask / Spirit Mask / Phoenix invincibility and cooldown timers. */
 		public boolean invincibilityHud = true;

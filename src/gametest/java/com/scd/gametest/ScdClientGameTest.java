@@ -402,6 +402,8 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		server.runCommand("tellraw @a \"PUZZLE FAIL! Player0 killed a Blaze in the wrong order! Yikes!\"");
 		ctx.waitTicks(10);
 		ctx.takeScreenshot("14a2-puzzle-fail");
+		server.runCommand("tellraw @a \"Wish is ready to use! Press DROP to activate it!\"");
+		ctx.waitTicks(5);
 		server.runCommand("kill @e[tag=scdtest]");
 		ctx.waitTicks(5);
 	}

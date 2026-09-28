@@ -39,6 +39,8 @@ final class DungeonExtras {
 	private static final Pattern PUZZLE = Pattern.compile("^(.+?): \\[([✖✔✦])]");
 	private static final Pattern DEATH = Pattern.compile("^☠ (You|\\w{1,16}) .*(?:became a ghost|disconnected)");
 	private static final Pattern TEAMMATE = Pattern.compile("^\\[(\\w)] (\\w{1,16}) ([\\d,.]+k?|DEAD)❤?");
+	/** "Wish is ready to use! Press DROP to activate it!" - class ultimates announce themselves. */
+	private static final Pattern ULT_READY = Pattern.compile("^(Wish|Castle of Stone) is ready to use! Press DROP to activate it!$");
 	private static final Pattern BLESSING = Pattern.compile("Blessing of (Power|Time|Stone|Life|Wisdom) ([IVXL]+)");
 	private static final Pattern MASK_COOLDOWN = Pattern.compile("^Cooldown: (\\d+)s$");
 	private static final int LOW_RED = 0xFF5555;
@@ -76,6 +78,10 @@ final class DungeonExtras {
 		this.dungeon = dungeon;
 		mod.bus.subscribe(Events.ChatReceived.class, e -> {
 			if (e.isSystem()) onSystem(e.clean().trim());
+			if (inDungeon() && cfg().classAlerts && ULT_READY.matcher(e.clean().trim()).matches()) {
+				ultReady = true;
+				Chat.title(Component.empty(), Component.literal(e.clean().trim().replaceFirst(" is ready.*", "") + " ready").withStyle(ChatFormatting.GREEN), true);
+			}
 		});
 		mod.bus.subscribe(Events.Tick.class, e -> tick());
 		mod.bus.subscribe(DungeonEvents.SecretFound.class, e -> onSecret());
@@ -154,11 +160,27 @@ final class DungeonExtras {
 		}
 	}
 
+	/** Your class ultimate came back (Healer's Wish, Tank's Castle of Stone); spent when you press drop. */
+	private boolean ultReady;
+
 	private void tick() {
-		if (!inDungeon() || !cfg().lowHealthAlert) return;
-		var self = Minecraft.getInstance().player;
+		if (!inDungeon()) {
+			ultReady = false;
+			return;
+		}
+		var mc = Minecraft.getInstance();
+		if (ultReady && mc.options.keyDrop.isDown()) ultReady = false;
+		if (!cfg().lowHealthAlert) return;
+		var self = mc.player;
 		String me = self != null ? self.getName().getString() : "";
 		List<Component> raw = mod.game.sidebarRaw();
+		// Your class letter from your own sidebar line ([H] Healer, [T] Tank...).
+		String myClass = "";
+		for (Component line : raw) {
+			Matcher m = TEAMMATE.matcher(Text.clean(line.getString()).trim());
+			if (m.find() && m.group(2).equals(me)) myClass = m.group(1);
+		}
+		String ult = !cfg().classAlerts ? null : myClass.equals("H") ? "Wish" : myClass.equals("T") ? "Castle of Stone" : null;
 		long now = System.currentTimeMillis();
 		for (Component line : raw) {
 			Matcher m = TEAMMATE.matcher(Text.clean(line.getString()).trim());
@@ -167,7 +189,8 @@ final class DungeonExtras {
 			Long last = lowAlerted.get(m.group(2));
 			if (last != null && now - last < 10_000) continue;
 			lowAlerted.put(m.group(2), now);
-			Chat.title(Component.empty(), Component.literal(m.group(2) + " is low! " + m.group(3) + "❤").withStyle(ChatFormatting.RED), true);
+			String call = ult == null ? "" : ultReady ? " - use " + ult + "!" : " (" + ult + " not ready)";
+			Chat.title(Component.empty(), Component.literal(m.group(2) + " is low! " + m.group(3) + "❤" + call).withStyle(ChatFormatting.RED), true);
 		}
 	}
 

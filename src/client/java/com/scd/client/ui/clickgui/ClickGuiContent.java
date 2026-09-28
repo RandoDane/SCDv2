@@ -122,7 +122,8 @@ final class ClickGuiContent {
 				.toggle("Key spawn alert", () -> d.keyAlert, v -> d.keyAlert = v));
 		dun.add(new Module("Deaths HUD", "Deaths per player", () -> d.deathHud, v -> d.deathHud = v)
 				.toggle("Teammate death alert", () -> d.deathAlert, v -> d.deathAlert = v)
-				.toggle("Low-health alert", () -> d.lowHealthAlert, v -> d.lowHealthAlert = v));
+				.toggle("Low-health alert", () -> d.lowHealthAlert, v -> d.lowHealthAlert = v)
+				.toggle("Healer/Tank ultimate calls", () -> d.classAlerts, v -> d.classAlerts = v));
 		dun.add(new Module("Blessings HUD", null, () -> d.blessingHud, v -> d.blessingHud = v)
 				.toggle("Power", () -> d.blessPower, v -> d.blessPower = v)
 				.toggle("Time", () -> d.blessTime, v -> d.blessTime = v)
