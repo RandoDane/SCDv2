@@ -21,6 +21,9 @@ public final class QuizMemory {
 	private static final Pattern CORRECT = Pattern.compile("^\\[STATUE] Oruo the Omniscient: (\\w{1,16}) answered (?:Question #\\d+|the final question) correctly!$");
 
 	private final Map<String, String> answers = new LinkedHashMap<>();
+	/** Answers other players' mods confirmed (from the SCD server); yours win. */
+	private final Map<String, String> shared = new java.util.concurrent.ConcurrentHashMap<>();
+	private String[] lastLearned;
 	private final Map<String, String> options = new HashMap<>();
 	private boolean expectQuestion;
 	private String question;
@@ -49,6 +52,7 @@ public final class QuizMemory {
 		if (m.matches() && m.group(1).equals(selfName) && question != null && picked != null && options.containsKey(picked)) {
 			String answer = options.get(picked);
 			String before = answers.put(question, answer);
+			lastLearned = new String[]{question, answer};
 			question = null;
 			picked = null;
 			return !answer.equals(before);
@@ -61,8 +65,20 @@ public final class QuizMemory {
 		picked = letter;
 	}
 
+	/** Your answer for a question, else the shared one; null if neither knows it. */
 	public String answer(String question) {
-		return answers.get(question);
+		String own = answers.get(question);
+		return own != null ? own : shared.get(question);
+	}
+
+	/** The {question, answer} learned by the last {@link #onLine} that returned true. */
+	public String[] lastLearned() {
+		return lastLearned;
+	}
+
+	public void setShared(Map<String, String> fromServer) {
+		shared.clear();
+		shared.putAll(fromServer);
 	}
 
 	public String currentQuestion() {

@@ -78,7 +78,11 @@ final class PuzzleSolvers {
 			if (!e.isSystem() || !dungeon.state().inDungeon()) return;
 			String line = e.clean().trim();
 			// Learning runs even with the solver off, so SCD's own answer list keeps growing.
-			if (quizMemory.onLine(line, com.scd.client.hypixel.Players.selfName())) saveQuiz();
+			if (quizMemory.onLine(line, com.scd.client.hypixel.Players.selfName())) {
+				saveQuiz();
+				String[] qa = quizMemory.lastLearned();
+				mod.backend.reportQuiz(qa[0], qa[1]).exceptionally(err -> null);
+			}
 			if (mod.config().dungeon.puzzleSolvers) onChat(line);
 		});
 		// Which pedestal you clicked in the Quiz room = the option you picked.
@@ -92,6 +96,8 @@ final class PuzzleSolvers {
 			}
 			return net.minecraft.world.InteractionResult.PASS;
 		});
+		// Answers other players confirmed, refreshed when you join a world.
+		mod.bus.subscribe(Events.WorldChanged.class, e -> mod.backend.sharedQuiz().thenAccept(quizMemory::setShared).exceptionally(err -> null));
 		mod.bus.subscribe(DungeonEvents.RoomEntered.class, e -> {
 			weirdoChest = null;
 			blazeOrder.clear();

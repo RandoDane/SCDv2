@@ -410,7 +410,9 @@ public final class RouteFeature implements Feature {
 			for (var route : mine.routesFor(room)) {
 				if (route.steps().isEmpty()) continue;
 				sent[0]++;
-				mod.backend.publishRoute(room, com.scd.logic.dungeon.route.RoutePack.writeSteps(route.steps()), author)
+				var times = dungeon.records().roomTimes.get(room);
+				Long best = times == null || times.isEmpty() ? null : times.stream().min(Long::compare).orElse(null);
+				mod.backend.publishRoute(room, com.scd.logic.dungeon.route.RoutePack.writeSteps(route.steps()), author, best)
 						.thenAccept(stored -> { if (stored) ScdLog.info("[routes] published " + room); })
 						.exceptionally(err -> {
 							Minecraft.getInstance().execute(() -> Chat.error("Couldn't publish " + room + ": " + err.getCause().getMessage()));

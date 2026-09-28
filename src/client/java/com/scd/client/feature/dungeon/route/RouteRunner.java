@@ -60,7 +60,8 @@ final class RouteRunner {
 			int[] e = RoutePack.start(routes.get(i).steps());
 			if (e == null) continue;
 			double d = Math.hypot(e[0] - entry[0], e[1] - entry[1]);
-			if (d < bestD) {
+			// Starts within 3 blocks count as a tie: the earlier route wins (yours, then the fastest community one).
+			if (d < bestD - 3) {
 				bestD = d;
 				best = i;
 			}

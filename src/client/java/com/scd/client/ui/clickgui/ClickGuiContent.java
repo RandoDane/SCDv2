@@ -85,6 +85,7 @@ final class ClickGuiContent {
 				.toggle("Rooms and secrets", () -> d.scoreRoomsSecrets, v -> d.scoreRoomsSecrets = v)
 				.toggle("Crypts, deaths, puzzles", () -> d.scoreCryptsDeathsPuzzles, v -> d.scoreCryptsDeathsPuzzles = v)
 				.toggle("Splits", () -> d.scoreSplits, v -> d.scoreSplits = v)
+				.toggle("Predicted finish", () -> d.runPace, v -> d.runPace = v)
 				.toggle("Spirit pet in party", () -> d.assumeSpiritPet, v -> d.assumeSpiritPet = v)
 				.toggle("S / S+ alerts", () -> d.scoreMilestoneAlerts, v -> d.scoreMilestoneAlerts = v));
 		dun.add(new Module("Dungeon map", "Rooms, doors, checks, secrets per room, players", () -> d.mapHud, v -> d.mapHud = v)

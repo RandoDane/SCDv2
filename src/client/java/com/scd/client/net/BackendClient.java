@@ -141,13 +141,34 @@ public final class BackendClient {
 	public record CapturedRoom(String id, String name, int signature, boolean puzzle) {
 	}
 
+	/** Shared quiz answers: question -> most-reported answer. */
+	public CompletableFuture<Map<String, String>> sharedQuiz() {
+		return get("/api/quiz", 10, body -> {
+			Map<String, String> out = new HashMap<>();
+			for (var e : body.getAsJsonObject().entrySet()) out.put(e.getKey(), e.getValue().getAsString());
+			return out;
+		});
+	}
+
+	/** Reports a quiz answer SCD saw confirmed correct. */
+	public CompletableFuture<Integer> reportQuiz(String question, String answer) {
+		if (baseUrl == null) return CompletableFuture.failedFuture(new BackendException(status.message()));
+		JsonObject body = new JsonObject();
+		body.addProperty("question", question);
+		body.addProperty("answer", answer);
+		HttpRequest request = request("/api/quiz", 10).header("Content-Type", "application/json")
+				.POST(HttpRequest.BodyPublishers.ofString(body.toString())).build();
+		return http.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenApply(HttpResponse::statusCode);
+	}
+
 	/** Publishes one room's route to the community pack; completes true when it was new. */
-	public CompletableFuture<Boolean> publishRoute(String room, JsonArray steps, String author) {
+	public CompletableFuture<Boolean> publishRoute(String room, JsonArray steps, String author, Long bestMs) {
 		if (baseUrl == null) return CompletableFuture.failedFuture(new BackendException(status.message()));
 		JsonObject body = new JsonObject();
 		body.addProperty("room", room);
 		body.add("steps", steps);
 		body.addProperty("author", author);
+		if (bestMs != null) body.addProperty("bestMs", bestMs);
 		HttpRequest request = request("/api/routes", 15)
 				.header("Content-Type", "application/json")
 				.POST(HttpRequest.BodyPublishers.ofString(body.toString()))

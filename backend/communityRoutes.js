@@ -3,7 +3,9 @@
 //
 //   GET  /api/routes/pack   -> route pack JSON (the same format as the mod's my_routes.json)
 //   GET  /api/routes        -> {rooms: {room: count}, total}
-//   POST /api/routes        {room, steps:[...], author} -> {stored, id}
+//   POST /api/routes        {room, steps:[...], author, bestMs} -> {stored, id}
+//
+// Each room's routes are listed fastest first (bestMs = the publisher's best clear of the room).
 //
 // Only real room names, at most 60 steps and 64 KB per route, identical routes are stored once,
 // at most 10 routes per room (the oldest go), and each IP may publish 60 routes an hour.
@@ -30,7 +32,8 @@ export function communityRoutes({ dataDir, roomNames }) {
   router.get('/pack', (req, res) => {
     const pack = { '#name': 'Community routes', '#author': 'SCD players', Version: '1.0.0' };
     const count = {};
-    for (const r of routes) {
+    const speed = (r) => (Number.isFinite(r.bestMs) ? r.bestMs : Infinity);
+    for (const r of [...routes].sort((a, b) => speed(a) - speed(b) || a.at - b.at)) {
       count[r.room] = (count[r.room] || 0) + 1;
       pack[count[r.room] === 1 ? r.room : `${r.room}:${count[r.room]}`] = r.steps;
     }
@@ -47,18 +50,20 @@ export function communityRoutes({ dataDir, roomNames }) {
     const now = Date.now();
     const recent = (uploads.get(req.ip) || []).filter((t) => now - t < 3600_000);
     if (recent.length >= PER_HOUR) return res.status(429).json({ detail: 'too many routes published' });
-    const { room, steps, author } = req.body || {};
+    const { room, steps, author, bestMs } = req.body || {};
     if (!names.has(room)) return res.status(400).json({ detail: 'unknown room' });
     if (!Array.isArray(steps) || steps.length === 0 || steps.length > 60 || !steps.every((s) => s && typeof s === 'object' && !Array.isArray(s))) {
       return res.status(400).json({ detail: 'bad route' });
     }
     const id = crypto.createHash('sha1').update(room + JSON.stringify(steps)).digest('hex').slice(0, 12);
     if (routes.some((r) => r.id === id)) return res.json({ stored: false, id });
-    routes.push({ id, room, steps, author: typeof author === 'string' ? author.slice(0, 16) : '', at: now });
+    const ms = Number.isFinite(bestMs) && bestMs > 1000 && bestMs < 3600_000 ? Math.round(bestMs) : null;
+    routes.push({ id, room, steps, author: typeof author === 'string' ? author.slice(0, 16) : '', bestMs: ms, at: now });
     const inRoom = routes.filter((r) => r.room === room);
     if (inRoom.length > PER_ROOM) {
-      const oldest = inRoom.sort((a, b) => a.at - b.at)[0];
-      routes = routes.filter((r) => r !== oldest);
+      // Full: the slowest route goes (unknown times count as slowest, then the oldest).
+      const worst = inRoom.sort((a, b) => (b.bestMs ?? Infinity) - (a.bestMs ?? Infinity) || a.at - b.at)[0];
+      routes = routes.filter((r) => r !== worst);
     }
     save();
     recent.push(now);

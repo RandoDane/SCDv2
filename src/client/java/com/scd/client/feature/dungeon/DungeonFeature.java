@@ -150,7 +150,37 @@ public final class DungeonFeature implements Feature {
 			Long pb = best.get(next.name());
 			if (pb != null) out.add(next.label + " PB " + Numbers.duration(pb));
 		}
+		String pace = paceLine(got, now);
+		if (pace != null) out.add(pace);
 		return out;
+	}
+
+	/**
+	 * Predicted finish: the last split reached plus how long the rest usually takes you from there
+	 * on this floor (average over earlier runs), with the speed score that finish would give.
+	 */
+	private String paceLine(Map<DungeonRun.Split, Long> got, long now) {
+		if (!mod.config().dungeon.runPace || now < 0 || got.containsKey(DungeonRun.Split.CLEAR)) return null;
+		String floor = state.floor();
+		var history = records.get().runs.stream().filter(r -> floor.equals(r.floor) && r.splits.getOrDefault("CLEAR", 0L) > 0).toList();
+		if (history.size() < 2) return null;
+		DungeonRun.Split last = null;
+		for (DungeonRun.Split sp : DungeonRun.Split.values()) if (got.containsKey(sp)) last = sp;
+		long predicted;
+		if (last == null) {
+			double avg = history.stream().mapToLong(r -> r.splits.get("CLEAR")).average().orElse(0);
+			predicted = Math.max(now, Math.round(avg));
+		} else {
+			String key = last.name();
+			var withSplit = history.stream().filter(r -> r.splits.getOrDefault(key, 0L) > 0).toList();
+			if (withSplit.isEmpty()) return null;
+			double rest = withSplit.stream().mapToLong(r -> r.splits.get("CLEAR") - r.splits.get(key)).average().orElse(0);
+			predicted = Math.max(now, got.get(last) + Math.round(rest));
+		}
+		long pb = history.stream().mapToLong(r -> r.splits.get("CLEAR")).min().orElse(0);
+		var req = com.scd.logic.dungeon.ScoreCalculator.requirement(floor);
+		String speed = req != null ? " · speed " + com.scd.logic.dungeon.ScoreCalculator.speed((int) (predicted / 1000), req.timeLimitSeconds()) : "";
+		return "Pace " + Numbers.duration(predicted) + " · PB " + Numbers.duration(pb) + speed;
 	}
 
 	private static String delta(long t, Long pb) {

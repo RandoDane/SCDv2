@@ -25,6 +25,12 @@ class QuizMemoryTest {
 		q.onLine("ⓐ Boss", "RandoDane");
 		assertFalse(q.onLine("[STATUE] Oruo the Omniscient: Friend answered Question #2 correctly!", "RandoDane"));
 
+		assertArrayEquals(new String[]{"How many Fairy Souls are there in Jerry's Workshop?", "5 Fairy Souls"}, q.lastLearned());
+		// Shared answers fill gaps but never override your own.
+		q.setShared(java.util.Map.of("What is the status of Goldor?", "Boss", "How many Fairy Souls are there in Jerry's Workshop?", "9 Fairy Souls"));
+		assertEquals("Boss", q.answer("What is the status of Goldor?"));
+		assertEquals("5 Fairy Souls", q.answer("How many Fairy Souls are there in Jerry's Workshop?"));
+
 		QuizMemory back = new QuizMemory();
 		back.load(new StringReader(q.toJson()));
 		assertEquals(1, back.size());

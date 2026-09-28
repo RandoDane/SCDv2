@@ -187,7 +187,7 @@ public final class ScoreCalculator {
 	 * M1-5 0, M6 120, M7 360 - always the time limit minus 8 minutes), then 100 until T = 480 and
 	 * one point less every 12s to 90, every 24s to 80, every 30s to 70 and every 40s after, rounded up.
 	 */
-	static int speed(Integer elapsedSeconds, int limitSeconds) {
+	public static int speed(Integer elapsedSeconds, int limitSeconds) {
 		if (elapsedSeconds == null) return 100;
 		double t = elapsedSeconds - (limitSeconds - 480);
 		if (t < 480) return 100;

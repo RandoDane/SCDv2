@@ -175,6 +175,8 @@ public final class ScdConfig {
 		public boolean xpTracker = true;
 		/** Room HUD: live time in the room and the gap to your best. */
 		public boolean roomPace = true;
+		/** Score HUD: predicted finish time (and speed score) from your usual pace on this floor. */
+		public boolean runPace = true;
 		/** Secret waypoints: every known secret in the room (labels + route secrets); routes require it. */
 		public boolean labeledSecrets = true;
 		/** Solvers switched off individually, by puzzle room name (e.g. "Ice Fill"). */
