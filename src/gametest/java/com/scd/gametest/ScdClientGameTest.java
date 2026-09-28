@@ -399,6 +399,9 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		server.runCommand("execute as @p at @s run summon armor_stand ^ ^2.2 ^4 {Invisible:1b,NoGravity:1b,Marker:1b,CustomNameVisible:1b,CustomName:\"✯ Zombie Soldier 500k❤\",Tags:[\"scdtest\"]}");
 		ctx.waitTicks(20);
 		ctx.takeScreenshot("14a-starred-mob");
+		server.runCommand("tellraw @a \"PUZZLE FAIL! Player0 killed a Blaze in the wrong order! Yikes!\"");
+		ctx.waitTicks(10);
+		ctx.takeScreenshot("14a2-puzzle-fail");
 		server.runCommand("kill @e[tag=scdtest]");
 		ctx.waitTicks(5);
 	}

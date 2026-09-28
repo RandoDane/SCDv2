@@ -163,6 +163,8 @@ public final class ScdConfig {
 		public boolean captureRooms = true;
 		/** Box starred (✯) mobs; count the ones left in your room. */
 		public boolean starredMobs = true, starredThroughWalls = true, starredHud = true;
+		/** When a puzzle fails: title + how many Architect's First Drafts you have (or a sack button). */
+		public boolean draftReminder = true;
 		/** Secret waypoints: every known secret in the room (labels + route secrets); routes require it. */
 		public boolean labeledSecrets = true;
 		/** Solvers switched off individually, by puzzle room name (e.g. "Ice Fill"). */

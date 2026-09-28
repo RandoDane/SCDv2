@@ -114,6 +114,8 @@ final class ClickGuiContent {
 		dun.add(new Module("Starred mobs", "Box every starred (✯) mob and count the ones left in your room", () -> d.starredMobs, v -> d.starredMobs = v)
 				.toggle("Through walls", () -> d.starredThroughWalls, v -> d.starredThroughWalls = v)
 				.toggle("Count HUD", () -> d.starredHud, v -> d.starredHud = v));
+		dun.add(new Module("Draft reminder", "When a puzzle fails: title, your Architect's First Drafts, or a button to get one from sacks",
+				() -> d.draftReminder, v -> d.draftReminder = v));
 		dun.add(new Module("Capture rooms", "Save a copy of each room you play, to rebuild in singleplayer (/scd rooms)", () -> d.captureRooms, v -> d.captureRooms = v));
 		dun.add(new Module("Blood camp", "Watcher move timer, mob landing spots", () -> d.bloodCamp, v -> d.bloodCamp = v));
 		dun.add(new Module("Door highlight", "Wither/blood doors: red locked, green openable", () -> d.doorHighlight, v -> d.doorHighlight = v)

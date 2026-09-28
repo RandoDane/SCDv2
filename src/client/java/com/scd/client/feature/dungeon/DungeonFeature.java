@@ -78,6 +78,7 @@ public final class DungeonFeature implements Feature {
 		learning = new RoomLearning(mod, this);
 		capture = new RoomCapture(mod, this);
 		new StarredMobs(mod, this);
+		new DraftReminder(mod, this);
 		studio = new RoomStudio(mod, this);
 		new PuzzleSolvers(mod, this);
 		new PuzzleSolvers2(mod, this);
