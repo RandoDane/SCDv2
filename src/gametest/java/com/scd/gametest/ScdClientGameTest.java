@@ -372,6 +372,7 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 		check(back.equals(ctx.computeOnClient(mc -> mc.player.blockPosition())), "relative frame does not round-trip");
 		System.out.println("SCD_TEST_ROOM " + room.label() + " " + room.anchor() + " player rel " + rel);
 		ctx.takeScreenshot("14-room-hud");
+		starredScenario(ctx, server);
 		routeScenario(ctx, server, mod, c);
 		studioScenario(ctx);
 		chestProfitScenario(ctx, server);
@@ -392,6 +393,16 @@ public final class ScdClientGameTest implements FabricClientGameTest {
 	 * Record a 4-step route (chest, item, bat, exit) in the test room, then play it back and check each
 	 * secret advances it; round-trip it through a share code; optionally load a real SecretRoutes pack.
 	 */
+	/** A zombie with a "✯" tag over it in the test room gets boxed and counted. */
+	private static void starredScenario(ClientGameTestContext ctx, TestServerContext server) {
+		server.runCommand("execute as @p at @s run summon zombie ^ ^ ^4 {NoAI:1b,Silent:1b,Tags:[\"scdtest\"]}");
+		server.runCommand("execute as @p at @s run summon armor_stand ^ ^2.2 ^4 {Invisible:1b,NoGravity:1b,Marker:1b,CustomNameVisible:1b,CustomName:\"✯ Zombie Soldier 500k❤\",Tags:[\"scdtest\"]}");
+		ctx.waitTicks(20);
+		ctx.takeScreenshot("14a-starred-mob");
+		server.runCommand("kill @e[tag=scdtest]");
+		ctx.waitTicks(5);
+	}
+
 	/** A Croesus-style menu with two reward chests: priced through the real market proxy, panel beside it. */
 	private static void chestProfitScenario(ClientGameTestContext ctx, TestServerContext server) {
 		var pos = ctx.computeOnClient(mc -> mc.player.blockPosition().relative(mc.player.getDirection()));

@@ -161,6 +161,8 @@ public final class ScdConfig {
 		public boolean puzzleSolvers = true;
 		/** Save a copy of every room played through, to rebuild them in singleplayer. */
 		public boolean captureRooms = true;
+		/** Box starred (✯) mobs; count the ones left in your room. */
+		public boolean starredMobs = true, starredThroughWalls = true, starredHud = true;
 		/** Secret waypoints: every known secret in the room (labels + route secrets); routes require it. */
 		public boolean labeledSecrets = true;
 		/** Solvers switched off individually, by puzzle room name (e.g. "Ice Fill"). */
