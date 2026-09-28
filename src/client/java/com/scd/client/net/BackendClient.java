@@ -141,6 +141,33 @@ public final class BackendClient {
 	public record CapturedRoom(String id, String name, int signature, boolean puzzle) {
 	}
 
+	/** Publishes one room's route to the community pack; completes true when it was new. */
+	public CompletableFuture<Boolean> publishRoute(String room, JsonArray steps, String author) {
+		if (baseUrl == null) return CompletableFuture.failedFuture(new BackendException(status.message()));
+		JsonObject body = new JsonObject();
+		body.addProperty("room", room);
+		body.add("steps", steps);
+		body.addProperty("author", author);
+		HttpRequest request = request("/api/routes", 15)
+				.header("Content-Type", "application/json")
+				.POST(HttpRequest.BodyPublishers.ofString(body.toString()))
+				.build();
+		return http.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenApply(res -> {
+			if (res.statusCode() != 200) throw new BackendException(errorMessage(res.body(), res.statusCode()));
+			return JsonParser.parseString(res.body()).getAsJsonObject().get("stored").getAsBoolean();
+		});
+	}
+
+	/** The community route pack (route pack JSON). */
+	public CompletableFuture<String> communityRoutes() {
+		if (baseUrl == null) return CompletableFuture.failedFuture(new BackendException(status.message()));
+		HttpRequest request = request("/api/routes/pack", 20).GET().build();
+		return http.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenApply(res -> {
+			if (res.statusCode() != 200) throw new BackendException("HTTP " + res.statusCode());
+			return res.body();
+		});
+	}
+
 	/** Rooms anyone has captured so far (see backend/roomCaptures.js). */
 	public CompletableFuture<List<CapturedRoom>> capturedRooms() {
 		return get("/api/rooms/captures", 10, body -> {

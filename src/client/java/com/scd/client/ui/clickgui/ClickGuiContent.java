@@ -94,6 +94,7 @@ final class ClickGuiContent {
 				.toggle("Player heads", () -> d.mapPlayers, v -> d.mapPlayers = v)
 				.opt(new Opt.Slider("Head size", 50, 200, 10, () -> d.mapHeadSize, v -> d.mapHeadSize = (int) Math.round(v), v -> Math.round(v) + "%")));
 		dun.add(new Module("Room HUD", "Name, secrets, crypts, clear-time PB of your room", () -> d.roomHud, v -> d.roomHud = v)
+				.toggle("Live pace vs PB", () -> d.roomPace, v -> d.roomPace = v)
 				.toggle("Route-making details", () -> d.roomDebug, v -> d.roomDebug = v));
 		dun.add(new Module("Chest profit", "Value, cost and profit on reward chests", () -> d.chestProfit, v -> d.chestProfit = v)
 				.toggle("Tooltip lines", () -> d.chestProfitTooltip, v -> d.chestProfitTooltip = v)

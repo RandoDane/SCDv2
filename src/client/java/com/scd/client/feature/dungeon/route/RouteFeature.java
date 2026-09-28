@@ -78,6 +78,8 @@ public final class RouteFeature implements Feature {
 		});
 		mod.bus.subscribe(Events.Tick.class, e -> tick());
 		mod.bus.subscribe(Events.WorldChanged.class, e -> {
+			// Refresh the community pack now and then (joining a world is a quiet moment).
+			if (System.currentTimeMillis() - communityFetchedAt > 30 * 60_000) fetchCommunity();
 			runner.clear();
 			if (recorder.active()) {
 				recorder.cancel();
@@ -280,6 +282,14 @@ public final class RouteFeature implements Feature {
 					return 1;
 				}))
 				.then(ClientCommands.literal("share").executes(ctx -> share()))
+				.then(ClientCommands.literal("publish").executes(ctx -> publish(false))
+						.then(ClientCommands.literal("all").executes(ctx -> publish(true))))
+				.then(ClientCommands.literal("community").executes(ctx -> {
+					communityFetchedAt = 0;
+					fetchCommunity();
+					Chat.info("Updating the community route pack...");
+					return 1;
+				}))
 				.then(ClientCommands.literal("import")
 						.then(ClientCommands.argument("code", StringArgumentType.greedyString())
 								.executes(ctx -> importCode(StringArgumentType.getString(ctx, "code")))))
@@ -357,6 +367,59 @@ public final class RouteFeature implements Feature {
 		Chat.success("Saved a " + steps.size() + "-step route for " + room.label() + (count > 1 ? " (" + count + " routes; the one starting nearest your entrance plays)" : "")
 				+ " to " + RouteLibrary.MINE + ".");
 		ScdLog.info("[routes] saved " + key + " steps " + steps.stream().map(st -> st.secretType.key).toList());
+		return 1;
+	}
+
+	private long communityFetchedAt;
+
+	/** Downloads the community route pack into routes/community.json and reloads when it changed. */
+	private void fetchCommunity() {
+		communityFetchedAt = System.currentTimeMillis();
+		mod.backend.communityRoutes().thenAccept(body -> Minecraft.getInstance().execute(() -> {
+			try {
+				java.nio.file.Path file = RouteLibrary.folder().resolve("community.json");
+				String old = java.nio.file.Files.exists(file) ? java.nio.file.Files.readString(file) : "";
+				if (body.equals(old)) return;
+				java.nio.file.Files.createDirectories(file.getParent());
+				java.nio.file.Files.writeString(file, body);
+				library.reload();
+				ScdLog.info("[routes] community pack updated");
+			} catch (Exception ex) {
+				ScdLog.warn("Could not save community routes", ex);
+			}
+		})).exceptionally(err -> null);
+	}
+
+	/** Shares your routes for this room (or every room) with everyone through the SCD server. */
+	private int publish(boolean all) {
+		var mine = library.mine();
+		List<String> rooms = new ArrayList<>();
+		if (all) {
+			for (String key : mine.rooms.keySet()) {
+				String base = com.scd.logic.dungeon.route.RoutePack.baseName(key);
+				if (!rooms.contains(base)) rooms.add(base);
+			}
+		} else {
+			MappedRoom room = dungeon.rooms().current();
+			if (room == null || room.name() == null) return fail("Stand in an identified room (or use /scd route publish all).");
+			rooms.add(room.name());
+		}
+		String author = com.scd.client.hypixel.Players.selfName();
+		int[] sent = {0};
+		for (String room : rooms) {
+			for (var route : mine.routesFor(room)) {
+				if (route.steps().isEmpty()) continue;
+				sent[0]++;
+				mod.backend.publishRoute(room, com.scd.logic.dungeon.route.RoutePack.writeSteps(route.steps()), author)
+						.thenAccept(stored -> { if (stored) ScdLog.info("[routes] published " + room); })
+						.exceptionally(err -> {
+							Minecraft.getInstance().execute(() -> Chat.error("Couldn't publish " + room + ": " + err.getCause().getMessage()));
+							return null;
+						});
+			}
+		}
+		if (sent[0] == 0) return fail("You have no routes " + (all ? "yet" : "for this room") + ".");
+		Chat.success("Publishing " + sent[0] + " route" + (sent[0] > 1 ? "s" : "") + " to the community pack. Everyone gets them on their next world change.");
 		return 1;
 	}
 

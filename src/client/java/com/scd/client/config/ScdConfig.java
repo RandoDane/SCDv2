@@ -173,6 +173,8 @@ public final class ScdConfig {
 		public boolean bossTimers = true;
 		/** Catacombs and class XP per run, session and hour. */
 		public boolean xpTracker = true;
+		/** Room HUD: live time in the room and the gap to your best. */
+		public boolean roomPace = true;
 		/** Secret waypoints: every known secret in the room (labels + route secrets); routes require it. */
 		public boolean labeledSecrets = true;
 		/** Solvers switched off individually, by puzzle room name (e.g. "Ice Fill"). */

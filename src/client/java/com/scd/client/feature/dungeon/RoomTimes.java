@@ -79,6 +79,20 @@ final class RoomTimes {
 		Chat.info(Component.literal(sb.toString()).withStyle(pb ? ChatFormatting.GOLD : ChatFormatting.GRAY));
 	}
 
+	/** Live pace in a room being timed: "0:14.2 · -3.8s vs PB" (or just the time without a PB); null otherwise. */
+	String live(MappedRoom room) {
+		long[] started = room != null ? entered.get(room) : null;
+		if (started == null) return null;
+		long raw = System.currentTimeMillis() - started[0];
+		long ms = raw - Math.min(raw, ServerLag.since(started[1]));
+		List<Long> hist = dungeon.records().roomTimes.get(room.name());
+		String now = Numbers.durationTenths(ms);
+		if (hist == null || hist.isEmpty()) return now;
+		long best = hist.stream().min(Long::compare).orElse(0L);
+		long diff = ms - best;
+		return now + " · " + (diff <= 0 ? "-" : "+") + String.format(java.util.Locale.ROOT, "%.1fs", Math.abs(diff) / 1000.0) + " vs PB";
+	}
+
 	/** "PB 0:23.1 · avg 0:31.0" for a room, or null without history. */
 	String summary(String name) {
 		List<Long> hist = dungeon.records().roomTimes.get(name);

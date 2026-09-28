@@ -304,7 +304,12 @@ public final class DungeonFeature implements Feature {
 	}
 
 	String roomTimeSummary(String room) {
-		return roomTimes != null && room != null ? roomTimes.summary(room) : null;
+		if (roomTimes == null || room == null) return null;
+		String summary = roomTimes.summary(room);
+		MappedRoom here = rooms.current();
+		String live = here != null && room.equals(here.name()) && mod.config().dungeon.roomPace ? roomTimes.live(here) : null;
+		if (live == null) return summary;
+		return summary == null ? live : live + "  (" + summary + ")";
 	}
 
 	public RoomEngine rooms() {
