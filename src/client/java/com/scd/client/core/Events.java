@@ -59,4 +59,8 @@ public final class Events {
 	/** A player head block at {@code pos} turned into air (a wither essence / key secret taken). */
 	public record SkullRemoved(net.minecraft.core.BlockPos pos) {
 	}
+
+	/** A flower pot appeared at {@code pos} (Sadan's dead terracottas turn into these). */
+	public record FlowerPotPlaced(net.minecraft.core.BlockPos pos) {
+	}
 }

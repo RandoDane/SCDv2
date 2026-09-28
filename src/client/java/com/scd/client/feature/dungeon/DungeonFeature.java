@@ -80,6 +80,7 @@ public final class DungeonFeature implements Feature {
 		new StarredMobs(mod, this);
 		new DraftReminder(mod, this);
 		new LividFinder(mod, this);
+		new BossHelpers(mod, this);
 		studio = new RoomStudio(mod, this);
 		new PuzzleSolvers(mod, this);
 		new PuzzleSolvers2(mod, this);

@@ -32,7 +32,14 @@ public abstract class BlockUpdateMixin {
 
 	private static void scd$check(BlockPos pos, BlockState next) {
 		var level = Minecraft.getInstance().level;
-		if (level == null || !next.isAir()) return;
+		if (level == null) return;
+		// A flower pot appearing is a dead Sadan terracotta (F6 boss).
+		if (next.getBlock() instanceof net.minecraft.world.level.block.FlowerPotBlock && !(level.getBlockState(pos).getBlock() instanceof net.minecraft.world.level.block.FlowerPotBlock)) {
+			ScdMod m = ScdMod.get();
+			if (m != null) m.bus.post(new Events.FlowerPotPlaced(pos.immutable()));
+			return;
+		}
+		if (!next.isAir()) return;
 		var before = level.getBlockState(pos).getBlock();
 		if (before != Blocks.PLAYER_HEAD && before != Blocks.PLAYER_WALL_HEAD) return;
 		ScdMod mod = ScdMod.get();
