@@ -81,6 +81,7 @@ public final class DungeonFeature implements Feature {
 		new DraftReminder(mod, this);
 		new LividFinder(mod, this);
 		new BossHelpers(mod, this);
+		xp = new XpTracker(mod, this);
 		studio = new RoomStudio(mod, this);
 		new PuzzleSolvers(mod, this);
 		new PuzzleSolvers2(mod, this);
@@ -354,6 +355,11 @@ public final class DungeonFeature implements Feature {
 	}
 
 	private RoomLearning learning;
+	private XpTracker xp;
+
+	public XpTracker xp() {
+		return xp;
+	}
 	private RoomCapture capture;
 	private RoomStudio studio;
 

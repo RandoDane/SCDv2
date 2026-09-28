@@ -118,6 +118,7 @@ final class ClickGuiContent {
 				() -> d.draftReminder, v -> d.draftReminder = v));
 		dun.add(new Module("Livid finder", "F5/M5: box the real Livid and show its name and invulnerability", () -> d.lividFinder, v -> d.lividFinder = v));
 		dun.add(new Module("Boss timers", "Sadan terracotta respawns (F6) and the Spirit Bear kills/spawn (F4)", () -> d.bossTimers, v -> d.bossTimers = v));
+		dun.add(new Module("Dungeon XP", "Catacombs and class XP per run, session and hour", () -> d.xpTracker, v -> d.xpTracker = v));
 		dun.add(new Module("Capture rooms", "Save a copy of each room you play, to rebuild in singleplayer (/scd rooms)", () -> d.captureRooms, v -> d.captureRooms = v));
 		dun.add(new Module("Blood camp", "Watcher move timer, mob landing spots", () -> d.bloodCamp, v -> d.bloodCamp = v));
 		dun.add(new Module("Door highlight", "Wither/blood doors: red locked, green openable", () -> d.doorHighlight, v -> d.doorHighlight = v)
@@ -337,6 +338,18 @@ final class ClickGuiContent {
 						o.add(new Opt.Info("Average secrets", () -> String.format(Locale.ROOT, "%.1f", withSecrets.stream().mapToInt(r -> r.secrets).average().orElse(0))));
 					}
 					o.add(new Opt.Info("Average deaths", () -> String.format(Locale.ROOT, "%.1f", runs.stream().mapToInt(r -> r.deaths).average().orElse(0))));
+					return o;
+				}),
+				new ClickGuiScreen.PanelSection("Session XP", () -> {
+					var tracker = mod.feature(com.scd.client.feature.dungeon.DungeonFeature.class).xp();
+					List<Opt> o = new ArrayList<>();
+					if (tracker.runs() == 0) return List.of(new Opt.Info("No runs this session", () -> ""));
+					for (var sk : tracker.skills()) {
+						Double h = tracker.perHour(sk);
+						o.add(new Opt.Info(sk.name(), () -> "+" + com.scd.logic.Numbers.compactCount(Math.round(sk.total()))
+								+ (h != null ? " · " + com.scd.logic.Numbers.compactCount(Math.round(h)) + "/h" : "")));
+					}
+					o.add(new Opt.Buttons("", List.of("Reset session XP"), List.of(tracker::reset)));
 					return o;
 				}),
 				new ClickGuiScreen.PanelSection("Recent runs", () -> {

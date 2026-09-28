@@ -171,6 +171,8 @@ public final class ScdConfig {
 		public boolean lividFinder = true;
 		/** Sadan terracotta respawn countdowns (F6) and the Spirit Bear HUD (F4). */
 		public boolean bossTimers = true;
+		/** Catacombs and class XP per run, session and hour. */
+		public boolean xpTracker = true;
 		/** Secret waypoints: every known secret in the room (labels + route secrets); routes require it. */
 		public boolean labeledSecrets = true;
 		/** Solvers switched off individually, by puzzle room name (e.g. "Ice Fill"). */
